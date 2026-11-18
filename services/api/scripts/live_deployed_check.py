@@ -118,9 +118,19 @@ def main() -> int:
     if fin.status_code != 200:
         return report()
     job_id = fin.json()["ingestion_job"]["id"]
+    if os.environ.get("DATABASE_URL"):
+        import psycopg
+
+        with psycopg.connect(os.environ["DATABASE_URL"]) as db:
+            res = db.execute("SELECT dispatch_result FROM public.processing_jobs WHERE id = %s", (job_id,)).fetchone()
+        check(
+            "API recorded a successful GitHub dispatch",
+            bool(res) and res[0] == "ok",
+            f"dispatch_result={res and res[0]}",
+        )
     t0 = time.monotonic()
     status, first_running = "queued", None
-    while time.monotonic() - t0 < 600 and status in ("queued", "running"):
+    while time.monotonic() - t0 < 300 and status in ("queued", "running"):
         time.sleep(5)
         j = http.get(f"{API}/jobs/{job_id}", headers=bearer).json()
         status = j.get("status")
