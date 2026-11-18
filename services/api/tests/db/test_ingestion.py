@@ -8,54 +8,14 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from fastapi import HTTPException, Request
-from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
 
-from app import auth, deps
+from app import deps
 from app.jobs import worker
-from app.main import app
-from app.storage import MemoryStorage
 
 REPO = Path(__file__).resolve().parents[4]
 DEMO = (REPO / "data/synthetic/SYNTHETIC_results_seed2026.csv").read_bytes()
 SMALL = b"PU Code,State,LGA,Ward,Registered Voters\nSY-1,Synthia,Amber North,Amber Ward 1,500\nSY-2,Synthia,Amber North,Amber Ward 1,abc\n"
-
-
-class Dispatches(list):
-    def __call__(self, job_id: str) -> str:
-        self.append(job_id)
-        return "ok"
-
-
-@pytest.fixture()
-def api(world, monkeypatch):
-    monkeypatch.setenv("LEDGER_SCHEMA", "public")
-    storage = MemoryStorage()
-    dispatched = Dispatches()
-
-    def db():
-        c = psycopg.connect(world.dsn, autocommit=True, row_factory=dict_row)
-        try:
-            yield c
-        finally:
-            c.close()
-
-    def user(request: Request) -> auth.CurrentUser:
-        uid = request.headers.get("X-Test-User")
-        if not uid:
-            raise HTTPException(status_code=401, detail="Missing or invalid access token")
-        return auth.CurrentUser(id=uid, email=None, claims={})
-
-    app.dependency_overrides[deps.get_db] = db
-    app.dependency_overrides[deps.get_storage] = lambda: storage
-    app.dependency_overrides[deps.get_dispatcher] = lambda: dispatched
-    app.dependency_overrides[auth.current_user] = user
-    monkeypatch.setattr(deps, "_storage", storage)  # the worker uses deps.get_storage()
-    client = TestClient(app, raise_server_exceptions=False)
-    client.storage, client.dispatched = storage, dispatched
-    yield client
-    app.dependency_overrides.clear()
 
 
 def H(uid: str, key: str | None = None) -> dict:

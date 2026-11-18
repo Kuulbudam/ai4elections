@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 import uuid
@@ -20,6 +22,7 @@ from app.contracts.models import (
     ColumnMappingSaved,
     FinalizeResponse,
     Job,
+    JobRequest,
     MappingIssue,
     UploadRequest,
     UploadResponse,
@@ -37,6 +40,8 @@ from app.deps import (
 from app.ingest.csv_parse import ParseError, check_upload_prefix
 from app.jobs.queue import enqueue_job, job_view
 from app.storage import Storage
+from app.validation.engine import check_mapping
+from app.validation.rules import RULESET_VERSION
 
 log = logging.getLogger("ai4e.api")
 
@@ -299,6 +304,71 @@ def save_mapping(
     return ColumnMappingSaved(
         dataset_version_id=v["id"], schema_version=body.schema_version, template_id=template_id, issues=issues
     ).model_dump(mode="json")
+
+
+# --------------------------------------------------------------------------- POST /jobs
+
+RUNNERS = {"admin", "analyst", "researcher"}
+
+
+@router.post("/jobs", response_model=Job, status_code=202)
+def create_job(
+    body: JobRequest,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    user: CurrentUser = Depends(rate_limited_user),
+    db: psycopg.Connection = Depends(get_db),
+    dispatch: Dispatcher = Depends(get_dispatcher),
+) -> Any:
+    if (cached := idempotency.replay(db, user.id, idempotency_key, "POST /jobs", body)) is not None:
+        return cached
+    v = row_or_404(
+        db.execute(
+            "SELECT id, org_id, project_id, status, header, mapping, archived_at FROM public.dataset_versions "
+            "WHERE id = %s",
+            (str(body.dataset_version_id),),
+        ).fetchone()
+    )
+    authorize(db, str(v["org_id"]), user, RUNNERS)
+    job_type = body.job_type.value
+    if job_type != "validate":
+        raise HTTPException(status_code=400, detail="Analysis jobs are not available yet")
+    if v["archived_at"] is not None:
+        raise HTTPException(status_code=409, detail="This version is archived")
+    if v["status"] != "ingested":
+        raise HTTPException(status_code=409, detail="The file must finish ingesting first")
+    if not v["mapping"]:
+        raise HTTPException(status_code=409, detail="Map the columns before running validation")
+    if check_mapping(list(v["header"]["columns"]), v["mapping"]):
+        raise HTTPException(status_code=409, detail="The column mapping is incomplete. Fix it before validating.")
+    units = db.execute(
+        "SELECT state, lga, ward FROM public.admin_units WHERE project_id = %s ORDER BY state, lga, ward",
+        (str(v["project_id"]),),
+    ).fetchall()
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            {"mapping": v["mapping"], "ruleset": RULESET_VERSION, "units": [list(u.values()) for u in units]},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    with db.transaction():
+        act_as(db, user)
+        job, created = enqueue_job(
+            db,
+            org_id=str(v["org_id"]),
+            project_id=str(v["project_id"]),
+            job_type=job_type,
+            target_id=str(v["id"]),
+            input_fingerprint=fingerprint,
+            created_by=user.id,
+            payload={"mapping": v["mapping"], "ruleset_version": RULESET_VERSION},
+        )
+    if created:
+        record_dispatch(db, str(job["id"]), dispatch(str(job["id"])))
+    view = Job(**job_view(job)).model_dump(mode="json")
+    status = 202 if created else 200
+    idempotency.remember(db, user.id, idempotency_key, "POST /jobs", body, status, view)
+    return JSONResponse(status_code=status, content=view)
 
 
 # --------------------------------------------------------------------------- GET /jobs/{id}

@@ -95,7 +95,17 @@ def _run_ingest(ctx: JobContext) -> None:
     run_ingest(ctx)
 
 
-HANDLERS: dict[str, Callable[[JobContext], None]] = {"spike_sleep": run_spike_sleep, "ingest": _run_ingest}
+def _run_validate(ctx: JobContext) -> None:
+    from app.jobs.validate import run_validate
+
+    run_validate(ctx)
+
+
+HANDLERS: dict[str, Callable[[JobContext], None]] = {
+    "spike_sleep": run_spike_sleep,
+    "ingest": _run_ingest,
+    "validate": _run_validate,
+}
 
 # --------------------------------------------------------------------------- loop
 
