@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -46,27 +47,53 @@ def get_storage() -> Storage:
     return _storage
 
 
-class Dispatcher:
-    """Wakes the GitHub Actions worker. Best effort: the 15-min sweep is the fallback (ADR-0002)."""
+_REPO_RE = re.compile(r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$")
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9_]{20,255}$")
 
-    def __call__(self, job_id: str) -> bool:
-        token = os.environ.get("GITHUB_DISPATCH_TOKEN")
-        repo = os.environ.get("GITHUB_REPOSITORY")
+
+class Dispatcher:
+    """Wakes the GitHub Actions worker with a repository_dispatch event (ADR-0002).
+
+    Returns a short, secret-free result code that is stored on the job row so failures are
+    visible: ok | not_configured | invalid_config | http_<status> | network_error.
+    """
+
+    url_base = "https://api.github.com"
+
+    def __call__(self, job_id: str) -> str:
+        token = (os.environ.get("GITHUB_DISPATCH_TOKEN") or "").strip()
+        repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip().strip("/")
         if not token or not repo:
-            return False
-        try:
-            r = httpx.post(
-                f"https://api.github.com/repos/{repo}/dispatches",
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-                json={"event_type": "ai4e-job", "client_payload": {"job_id": job_id}},
-                timeout=10,
-            )
-            if r.status_code >= 300:
-                log.warning("dispatch failed: HTTP %s", r.status_code)
-            return r.status_code < 300
-        except httpx.HTTPError:
-            log.warning("dispatch failed: network error")
-            return False
+            log.warning("dispatch skipped: GITHUB_DISPATCH_TOKEN or GITHUB_REPOSITORY not set")
+            return "not_configured"
+        if not _REPO_RE.match(repo) or not _TOKEN_RE.match(token):
+            log.warning("dispatch skipped: GITHUB_REPOSITORY or token has an unexpected format")
+            return "invalid_config"
+        result = "network_error"
+        for attempt in range(2):  # one retry for transient errors
+            try:
+                r = httpx.post(
+                    f"{self.url_base}/repos/{repo}/dispatches",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                        "User-Agent": "ai4elections-api",
+                    },
+                    json={"event_type": "ai4e-job", "client_payload": {"job_id": job_id}},
+                    timeout=10,
+                )
+            except httpx.HTTPError as exc:
+                log.warning("dispatch attempt %d failed: %s", attempt + 1, type(exc).__name__)
+                result = "network_error"
+                continue
+            if r.status_code == 204 or r.status_code < 300:
+                return "ok"
+            result = f"http_{r.status_code}"
+            log.warning("dispatch attempt %d failed: HTTP %s", attempt + 1, r.status_code)
+            if r.status_code < 500:
+                break  # 4xx will not fix itself on retry
+        return result
 
 
 def get_dispatcher() -> Dispatcher:

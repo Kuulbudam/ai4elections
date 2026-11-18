@@ -23,9 +23,9 @@ SMALL = b"PU Code,State,LGA,Ward,Registered Voters\nSY-1,Synthia,Amber North,Amb
 
 
 class Dispatches(list):
-    def __call__(self, job_id: str) -> bool:
+    def __call__(self, job_id: str) -> str:
         self.append(job_id)
-        return True
+        return "ok"
 
 
 @pytest.fixture()
@@ -119,6 +119,12 @@ def test_full_upload_finalize_ingest_of_demo_file(api, world):
     assert fin["size_bytes"] == len(DEMO)
     assert fin["status"] == "uploaded" and fin["ingestion_job"]["status"] == "queued"
     assert api.dispatched == [fin["ingestion_job"]["id"]]
+    with psycopg.connect(world.dsn, row_factory=dict_row) as c:
+        j = c.execute(
+            "SELECT dispatch_result, dispatched_at FROM public.processing_jobs WHERE id=%s",
+            (fin["ingestion_job"]["id"],),
+        ).fetchone()
+    assert j["dispatch_result"] == "ok" and j["dispatched_at"] is not None
 
     assert drain(world) >= 1
     v = version(world, vid)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from typing import Any
@@ -36,6 +37,8 @@ from app.deps import (
 from app.ingest.csv_parse import ParseError, check_upload_prefix
 from app.jobs.queue import enqueue_job, job_view
 from app.storage import Storage
+
+log = logging.getLogger("ai4e.api")
 
 router = APIRouter()
 
@@ -206,8 +209,19 @@ def finalize_version(
             input_fingerprint=obj.sha256,
             created_by=user.id,
         )
-    dispatch(str(job["id"]))
+    record_dispatch(db, str(job["id"]), dispatch(str(job["id"])))
     return _finalize_view(v, job)
+
+
+def record_dispatch(db: psycopg.Connection, job_id: str, result: str) -> None:
+    """Best effort: a bookkeeping failure must never fail the user's request."""
+    try:
+        db.execute(
+            "UPDATE public.processing_jobs SET dispatch_result = %s, dispatched_at = now() WHERE id = %s",
+            (result, job_id),
+        )
+    except psycopg.Error:
+        log.warning("could not record dispatch result for job %s", job_id)
 
 
 # --------------------------------------------------------------------------- PUT /dataset-versions/{id}/mapping
