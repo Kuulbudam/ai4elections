@@ -54,6 +54,7 @@ function client(role: string, calls: string[][] = []) {
       getSession: vi.fn().mockResolvedValue({ data: { session } }),
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
       signOut: vi.fn(),
+      mfa: { getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }) },
     },
     from: vi.fn((t: string) => query(tables[t] ?? { data: [], error: null }, calls)),
     rpc: vi.fn(),

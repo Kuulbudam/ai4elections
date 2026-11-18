@@ -44,6 +44,7 @@ def make(private, **over):
         "iss": ISS,
         "exp": int(time.time()) + 600,
         "email": "a@example.com",
+        "aal": "aal2",
     }
     claims.update(over)
     return jwt.encode(claims, private, algorithm="ES256", headers={"kid": over.pop("kid", "k1")})
@@ -66,6 +67,7 @@ def test_valid_es256_token(signing_key):
         {"iss": "https://evil.example/auth/v1"},
         {"role": "anon"},
         {"role": "service_role"},
+        {"aal": "aal1"},
     ],
 )
 def test_rejects_bad_claims(signing_key, override):
@@ -137,6 +139,7 @@ def test_hs256_accepted_only_with_configured_secret(monkeypatch):
         "role": "authenticated",
         "iss": ISS,
         "exp": int(time.time()) + 60,
+        "aal": "aal2",
     }
     assert auth.verify_token(jwt.encode(claims, secret, algorithm="HS256")).id == "u1"
     with pytest.raises(auth.HTTPException):

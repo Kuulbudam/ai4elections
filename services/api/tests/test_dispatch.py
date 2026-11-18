@@ -96,3 +96,16 @@ def test_result_codes_never_contain_the_token(env):
     for responses in ([401], [204], [httpx.ConnectError(TOKEN), httpx.ConnectError(TOKEN)]):
         result, _ = run(env, responses)
         assert TOKEN not in result
+
+
+def test_totp_matches_rfc6238_reference_vector():
+    import base64
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from live_auth import totp
+
+    secret = base64.b32encode(b"12345678901234567890").decode()  # RFC 6238 SHA-1 test key
+    assert totp(secret, at=59, digits=8) == "94287082"
+    assert totp(secret, at=1111111109, digits=8) == "07081804"

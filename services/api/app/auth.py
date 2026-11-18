@@ -91,6 +91,8 @@ def verify_token(token: str) -> CurrentUser:
         raise _unauthenticated() from exc
     if claims.get("role") != "authenticated":
         raise _unauthenticated()
+    if claims.get("aal") != "aal2":  # password alone is not enough: two-step verification is required
+        raise _unauthenticated("Complete two-step verification to continue")
     return CurrentUser(id=str(claims["sub"]), email=claims.get("email"), claims=claims)
 
 

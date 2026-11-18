@@ -428,3 +428,17 @@ input[aria-invalid='true'] {
   background: #fff4dc;
   color: #7a5200;
 }
+
+.qr {
+  display: block;
+  margin: 4px auto;
+  background: #fff;
+  padding: 8px;
+  border: 1px solid var(--border);
+}
+
+.secret {
+  display: block;
+  word-break: break-all;
+  margin-top: 6px;
+}

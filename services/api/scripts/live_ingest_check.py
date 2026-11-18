@@ -25,6 +25,8 @@ sys.path.insert(0, str(API_DIR))
 os.environ["LEDGER_SCHEMA"] = "public"
 os.environ.pop("GITHUB_DISPATCH_TOKEN", None)  # the check drains the queue itself
 
+from live_auth import upgrade_to_aal2  # noqa: E402
+
 from app.jobs import worker  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -61,7 +63,7 @@ def make_user(http: httpx.Client, label: str) -> dict:
         f"{URL}/auth/v1/token?grant_type=password", headers={"apikey": ANON}, json={"email": email, "password": pw}
     )
     t.raise_for_status()
-    return {"id": r.json()["id"], "token": t.json()["access_token"]}
+    return {"id": r.json()["id"], "token": upgrade_to_aal2(http, URL, ANON, t.json()["access_token"])}
 
 
 def rest(http, user, method, path, extra_headers=None, **kw):
