@@ -1,0 +1,2 @@
+# Fake TOTP key in a unit test (not a secret); later commits mark the line with gitleaks:allow.
+f53940d473abe2fff211885b3a56404fa63e247b:apps/web/src/pages/twostep.test.tsx:generic-api-key:19

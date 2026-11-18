@@ -16,7 +16,7 @@ function client(level: { currentLevel: string; nextLevel: string }, verifyError:
       },
     }),
     unenroll: vi.fn().mockResolvedValue({ error: null }),
-    enroll: vi.fn().mockResolvedValue({ data: { id: 'f2', totp: { qr_code: 'data:image/svg+xml;utf8,<svg/>', secret: 'ABCDEF234567' } }, error: null }),
+    enroll: vi.fn().mockResolvedValue({ data: { id: 'f2', totp: { qr_code: 'data:image/svg+xml;utf8,<svg/>', secret: 'ABCDEF234567' } }, error: null }), // gitleaks:allow (fake test key)
     challengeAndVerify: vi.fn().mockResolvedValue({ error: verifyError }),
   }
   return {
