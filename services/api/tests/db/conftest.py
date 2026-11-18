@@ -16,7 +16,13 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from fastapi import HTTPException, Request
+from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
+
+from app import auth, deps
+from app.main import app
+from app.storage import MemoryStorage
 
 DSN = os.environ.get("TEST_DATABASE_URL")
 REPO = Path(__file__).resolve().parents[4]
@@ -254,3 +260,44 @@ def conn(world: World):
     c = world.connect()
     yield c
     c.close()
+
+
+# ------------------------------------------------------------------ API client fixture (shared)
+
+
+class Dispatches(list):
+    def __call__(self, job_id: str) -> str:
+        self.append(job_id)
+        return "ok"
+
+
+@pytest.fixture()
+def api(world, monkeypatch):
+    monkeypatch.setenv("LEDGER_SCHEMA", "public")
+    monkeypatch.setattr(deps, "USER_LIMIT_PER_MIN", 100_000)  # tests run faster than any human
+    monkeypatch.setattr(deps, "IP_LIMIT_PER_MIN", 100_000)
+    storage = MemoryStorage()
+    dispatched = Dispatches()
+
+    def db():
+        c = psycopg.connect(world.dsn, autocommit=True, row_factory=dict_row)
+        try:
+            yield c
+        finally:
+            c.close()
+
+    def user(request: Request) -> auth.CurrentUser:
+        uid = request.headers.get("X-Test-User")
+        if not uid:
+            raise HTTPException(status_code=401, detail="Missing or invalid access token")
+        return auth.CurrentUser(id=uid, email=None, claims={})
+
+    app.dependency_overrides[deps.get_db] = db
+    app.dependency_overrides[deps.get_storage] = lambda: storage
+    app.dependency_overrides[deps.get_dispatcher] = lambda: dispatched
+    app.dependency_overrides[auth.current_user] = user
+    monkeypatch.setattr(deps, "_storage", storage)  # the worker uses deps.get_storage()
+    client = TestClient(app, raise_server_exceptions=False)
+    client.storage, client.dispatched = storage, dispatched
+    yield client
+    app.dependency_overrides.clear()

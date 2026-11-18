@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 18 Nov 2026
-**Current phase:** 2 — Upload and ingestion: **PASSED** (report `docs/phase-reports/phase-2.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 3.
+**Current phase:** 3 — Validation: **PASSED** (report `docs/phase-reports/phase-3.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 4.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Decisions made (founder, 18 Nov 2026)
@@ -32,6 +32,15 @@ Read this first in every session. Update it last.
 - Upload/finalize/mapping/job endpoints, ingestion worker, rate limits, idempotency; web upload + mapping pages.
 - Live ingestion check 9/9 on real Supabase (12,023 rows in 13.1 s).
 
+## Done (Phase 3)
+
+- Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
+- Live: 12,023 rows validated in 6.4 s on real Supabase.
+
+## Worker dispatch from production (18 Nov)
+
+- Diagnosed: GitHub returns 403 "Resource not accessible by personal access token" (recorded as `dispatch_result=http_403_token_permission`). Code is correct; founder is replacing the token (Contents: Read and write, only `ai4elections`). Re-run Actions → Deployed check after the founder's redeploy.
+
 ## Working schedule to 8 Dec (target dates, adjust as we go)
 
 | Dates | Work |
@@ -50,7 +59,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 3 on branch `phase-3-validation`: rules V001–V012 as versioned definitions, result_records build from mapping, row statuses and scoped quarantine, validation issues, POST /jobs (validate), validation page, ground-truth scoring. Founder: Vercel setup + dispatch token (steps sent 18 Nov; record URLs here).
+Phase 4 on branch `phase-4-analysis`: peer groups (ward, LGA fallback, n ≥ 10), MAD robust z (threshold 3.5, zero-MAD and insufficient-peers handled), severity/confidence, evidence, data_quality_issue findings from validation, analytical runs with content hash, ground-truth scoring, analyse job + POST /jobs, analysis progress page.
 
 ## Open questions / to verify
 

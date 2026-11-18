@@ -177,6 +177,29 @@ def main() -> int:
     }
     m = api.put(f"/dataset-versions/{up['dataset_version_id']}/mapping", headers=auth_a, json=mapping)
     check("mapping saved with no issues", m.status_code == 200 and m.json().get("issues") == [], m.text[:160])
+
+    # 6. validation (Phase 3): queue through the API, run the real worker code, time it
+    j = api.post("/jobs", headers=auth_a, json={"job_type": "validate", "dataset_version_id": up["dataset_version_id"]})
+    check("POST /jobs (validate)", j.status_code == 202, f"HTTP {j.status_code} {j.text[:120]}")
+    t0 = time.monotonic()
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True, row_factory=dict_row) as db:
+        worker.drain(db, f"ci-{RUN}-v", max_jobs=None, stale_seconds=600)
+        took = time.monotonic() - t0
+        v = db.execute(
+            "SELECT validation_summary FROM public.dataset_versions WHERE id=%s", (up["dataset_version_id"],)
+        ).fetchone()
+        n_issues = db.execute(
+            "SELECT count(*) AS n FROM public.validation_issues WHERE dataset_version_id=%s",
+            (up["dataset_version_id"],),
+        ).fetchone()["n"]
+    s = (v or {}).get("validation_summary") or {}
+    check(
+        "12,023 rows validated in under 30 s (target)",
+        s.get("rows") == 12_023 and took < 30,
+        f"{took:.1f}s; {n_issues} issues; status={s.get('row_status')}",
+    )
+    jv = api.get(f"/jobs/{j.json().get('id')}", headers=auth_a)
+    check("validation job succeeded", jv.json().get("status") == "succeeded", jv.text[:100])
     return report()
 
 
