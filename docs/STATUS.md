@@ -37,9 +37,11 @@ Read this first in every session. Update it last.
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
 
-## Worker dispatch from production (18 Nov)
+## Worker dispatch from production (18 Nov) — RESOLVED
 
-- Diagnosed: GitHub returns 403 "Resource not accessible by personal access token" (recorded as `dispatch_result=http_403_token_permission`). Code is correct; founder is replacing the token (Contents: Read and write, only `ai4elections`). Re-run Actions → Deployed check after the founder's redeploy.
+- Cause: GitHub returned 403 "Resource not accessible by personal access token" (`dispatch_result=http_403_token_permission`).
+- Fix: founder set the token's Contents permission to Read and write (22:25 WAT).
+- Verified by Deployed check (14/14): API recorded `dispatch_result=ok`; a `repository_dispatch` Worker run started on its own; ingestion of 12,023 rows succeeded. Start latency ≈ 25 s, finalize → done 32 s.
 
 ## Working schedule to 8 Dec (target dates, adjust as we go)
 
