@@ -52,7 +52,7 @@ Validation rules V001–V012 with versioned definitions, row eligibility, scoped
 | Live security check (real Supabase) | 15/15 |
 | **Live ingest + validation check** (Database run 44400377399) | **12/12** |
 
-**Ground-truth result:** on the 12,023-row synthetic file, the issues found per (row, rule) **match the answer key exactly**: 85 expected, 85 found, **0 false positives, 0 missed** (V001–V012). All **11,893 normal rows** are clean, and every planted row has its documented quarantine scope.
+**Ground-truth result:** on the 12,023-row synthetic file, the issues found per (row, rule) **match the answer key exactly**: 79 expected, 79 found, **0 false positives, 0 missed** (V003 12, V004 9, V005 5, V006 8, V007 8, V008 11, V009 5, V010 10, V011 6, V012 5). All **11,893 normal rows** are clean, and every planted row has its documented quarantine scope.
 
 **Performance on the real platform:** ingestion of 12,023 rows took 6.6 s; **validation took 6.4 s** (target < 30 s). That run had no reference list and no coordinates mapped, so it found 68 issues: 85 minus the 6 V011 and 5 V012 issues not checked, and minus 6 more that the stricter local test mapping adds.
 
@@ -92,7 +92,7 @@ $0.
 | Criterion | Evidence | Status |
 |---|---|---|
 | All validation tests pass | 322 + 21 tests; live 12/12 | PASS |
-| Planted scenarios detected, normal rows not flagged | Exact per-row match with the ground truth (85/85, 0 FP, 0 FN) | PASS |
+| Planted scenarios detected, normal rows not flagged | Exact per-row match with the ground truth (79/79, 0 FP, 0 FN; live 68/68 for the rules evaluated) | PASS |
 | Source rows remain traceable | Every issue → raw row id, source row number, column, original cell (tested, local and live) | PASS |
 | Quarantine explained and limited to affected calculations | `excluded_from` + `exclusion_reasons` per row; scope tests per scenario | PASS |
 
