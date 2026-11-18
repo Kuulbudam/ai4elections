@@ -11,6 +11,18 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  async function google() {
+    const sb = getSupabase()
+    if (!sb) return
+    setBusy(true)
+    setError(null)
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })
+    if (error) {
+      setError('Google sign-in is not available right now. Use your email and password below.')
+      setBusy(false)
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     const sb = getSupabase()
@@ -36,6 +48,12 @@ export default function SignIn() {
   return (
     <AuthLayout labelledBy="auth-heading">
         <h1 id="auth-heading">{mode === 'signin' ? 'Sign in' : 'Create an account'}</h1>
+        <button type="button" className="primary wide" onClick={() => void google()} disabled={busy}>
+          Continue with Google
+        </button>
+        <p className="divider">
+          <span>or use your email and password</span>
+        </p>
         <form onSubmit={submit} className="form">
           {mode === 'signup' && (
             <label>
@@ -64,7 +82,7 @@ export default function SignIn() {
             </p>
           )}
           {notice && <p className="notice">{notice}</p>}
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" disabled={busy}>
             {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
         </form>

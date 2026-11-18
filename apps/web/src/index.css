@@ -140,6 +140,10 @@ progress { width: 100%; accent-color: var(--crimson); }
 .auth-main { display: grid; place-items: center; padding: 40px 24px; }
 .auth-card { width: 100%; max-width: 400px; display: grid; gap: 16px; }
 .auth-card h1 { font-size: 1.9rem; }
+.wide { width: 100%; padding: 11px 18px; }
+.divider { display: flex; align-items: center; gap: 12px; color: var(--granite); font-size: 0.9rem; max-width: none; }
+.divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--rule); }
+.auth-card form button[type='submit'] { justify-self: start; }
 .qr { display: block; background: #fff; padding: 8px; border: 1px solid var(--rule); }
 .secret { display: block; word-break: break-all; margin-top: 6px; }
 

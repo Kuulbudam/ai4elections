@@ -19,6 +19,7 @@ function fakeClient(opts: { session?: unknown; tables?: Record<string, Result>; 
       getSession: vi.fn().mockResolvedValue({ data: { session: opts.session ?? null } }),
       onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
       signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+      signInWithOAuth: vi.fn().mockResolvedValue({ error: null }),
       signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       signOut: vi.fn(),
       mfa: { getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }) },
@@ -55,6 +56,25 @@ describe('configuration and sign-in', () => {
     await waitFor(() =>
       expect(sb.auth.signInWithPassword).toHaveBeenCalledWith({ email: 'a@example.test', password: 'correct horse' }),
     )
+  })
+
+  it('offers Google first and keeps email as the fallback', async () => {
+    const sb = fakeClient()
+    setSupabaseForTests(sb as never)
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    await waitFor(() => expect(sb.auth.signInWithOAuth).toHaveBeenCalled())
+    expect(sb.auth.signInWithOAuth.mock.calls[0][0].provider).toBe('google')
+    expect(screen.getByLabelText('Email')).toBeTruthy()
+  })
+
+  it('points to email sign-in when Google is unavailable', async () => {
+    const sb = fakeClient()
+    sb.auth.signInWithOAuth.mockResolvedValue({ error: { message: 'Unsupported provider: provider is not enabled' } })
+    setSupabaseForTests(sb as never)
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue with Google' }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Use your email and password below/)
   })
 
   it('shows a friendly message for wrong credentials', async () => {
