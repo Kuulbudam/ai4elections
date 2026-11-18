@@ -1,6 +1,6 @@
 # Phase 0 — Foundation: completion report
 
-**Date:** 18 Nov 2026 **Result:** NOT YET PASSED — local work complete; 3 acceptance items wait on founder authorisations.
+**Date:** 18 Nov 2026 **Result:** NOT YET PASSED — everything done except the hosted spike, which waits on the Supabase project + `DATABASE_URL` secret.
 
 ## Objective
 
@@ -51,12 +51,11 @@ pytest covers: health, error shape, no internal leak, CORS rejection, spec valid
 
 ## Deployment status
 
-Nothing deployed. Push to GitHub refused until the Claude GitHub App is installed. Supabase project not created yet.
+Foundation pushed to `main`. GitHub CI run 44341531979: API, Web, Migrations, Secret scan all **success** (18 Nov 2026). Supabase project not created yet; nothing user-facing deployed.
 
 ## Known limitations
 
 - Hosted spike (GitHub Actions + Supabase) not yet run.
-- CI not yet run on GitHub (only simulated locally).
 - Dispatch latency unmeasured until the API is deployed.
 - Dev-only `picomatch` advisory (no fix available), see STATUS.md.
 
@@ -73,8 +72,8 @@ Demo date not yet confirmed (December 2026). On track if founder steps 1–4 are
 | Criterion | Status |
 |---|---|
 | Repository exists | PASS |
-| Documentation committed | PASS locally; push pending (GitHub App) |
-| CI works | Simulated locally PASS; GitHub run pending |
+| Documentation committed | PASS (pushed to `main`) |
+| CI works | PASS — GitHub run 44341531979, 4/4 jobs success |
 | Contracts defined | PASS |
 | Hosting option chosen | PASS (Option B, founder 18 Nov) |
 | Worker spike passed on chosen hosting | Local PASS; hosted run pending (Supabase + secret) |
@@ -82,7 +81,7 @@ Demo date not yet confirmed (December 2026). On track if founder steps 1–4 are
 
 ## Decisions needed from founder
 
-Steps 1–4 in `docs/founder-setup.md`, and the exact demo date.
+Steps 2–4 in `docs/founder-setup.md`, and the exact demo date.
 
 ## Next phase
 
