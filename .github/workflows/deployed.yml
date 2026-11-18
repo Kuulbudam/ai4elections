@@ -1,0 +1,36 @@
+name: Deployed check
+
+# End-to-end smoke test of the live deployment (Vercel web + API, Actions worker, Supabase).
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Deployed API URL"
+        default: "https://ai4elections.vercel.app"
+      web_url:
+        description: "Deployed web URL"
+        default: "https://ai4elections-4d9a.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOYED_API_URL: ${{ inputs.api_url }}
+      DEPLOYED_WEB_URL: ${{ inputs.web_url }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install "httpx==0.28.1"
+      - run: python scripts/live_deployed_check.py

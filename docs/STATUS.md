@@ -11,6 +11,7 @@ Read this first in every session. Update it last.
 - Hosting: **Option B**, no card. API on Vercel Hobby, worker on GitHub Actions (ADR-0002).
 - Repo: `Kuulbudam/ai4elections`, **public**.
 - Auth email: confirmation **off** on the demo Supabase project.
+- Deployed (18 Nov): web https://ai4elections-4d9a.vercel.app , API https://ai4elections.vercel.app (Vercel Hobby).
 - Supabase Free project created; Actions secrets: `DATABASE_URL` (Session pooler), `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Done (Phase 0)
