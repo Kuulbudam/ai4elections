@@ -1,5 +1,5 @@
 # Runtime dependencies (pinned). Update via Dependabot PRs.
-fastapi==0.121.0
+fastapi==0.163.1
 pydantic==2.12.4
 psycopg[binary]==3.2.12
 uvicorn==0.38.0
