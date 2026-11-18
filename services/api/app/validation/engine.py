@@ -10,6 +10,10 @@ Conventions:
 * When a field fails a type/range rule (V003, V004, V005), arithmetic and consistency rules that
   need that field (V006-V009) are not evaluated for the row, so one bad cell is reported once.
 * Labels are compared after trimming and collapsing whitespace, case-insensitively.
+* Rejected votes and total cast are optional (schema 1.1.0). Rules that need them run only when
+  they are mapped. When the mapping says the party columns are a partial list
+  (party_columns_complete = false), V008 checks that party votes do not exceed valid votes
+  instead of checking that they add up exactly.
 """
 
 from __future__ import annotations
@@ -20,9 +24,11 @@ from typing import Any
 
 from app.validation.rules import ALL, FIELD_INDICATORS, RULES, SHARE, TURNOUT
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 REQUIRED_TEXT = ["pu_code", "state", "lga", "ward"]
-REQUIRED_COUNTS = ["registered_voters", "accredited_voters", "valid_votes", "rejected_votes", "total_cast"]
+REQUIRED_COUNTS = ["registered_voters", "accredited_voters", "valid_votes"]
+OPTIONAL_COUNTS = ["rejected_votes", "total_cast"]
+COUNT_FIELDS = REQUIRED_COUNTS + OPTIONAL_COUNTS
 INT_RE = re.compile(r"^\+?\d+$")
 NEG_RE = re.compile(r"^-\d+$")
 MAX_COUNT = 2_000_000_000  # fits PostgreSQL integer
@@ -132,6 +138,7 @@ def validate(
     ref = {tuple(norm_label(x) for x in u) for u in admin_units} if admin_units else None
     tol7 = RULES["V007"]["parameters"]["tolerance"]
     tol8 = RULES["V008"]["parameters"]["tolerance"]
+    complete_parties = mapping.get("party_columns_complete", True) is not False
 
     def cell(cells: list[str], col: str) -> str | None:
         i = idx[col]
@@ -172,9 +179,9 @@ def validate(
                 return None
             return int(s)
 
-        for f in REQUIRED_COUNTS:
-            col = fields[f]
-            values[f] = parse_count(f, col, cell(cells, col), col)
+        for f in COUNT_FIELDS:
+            col = fields.get(f)
+            values[f] = parse_count(f, col, cell(cells, col), col) if col else None
 
         party_votes: dict[str, int | None] = {}
         for code, col in parties:
@@ -199,27 +206,38 @@ def validate(
                         f"{lat_s} / {lon_s}",
                     )
 
-        reg, acc, val, rej, tot = (values[f] for f in REQUIRED_COUNTS)
+        reg, acc, val, rej, tot = (values[f] for f in COUNT_FIELDS)
+        has_rej, has_tot = "rejected_votes" in fields, "total_cast" in fields
         ok = lambda *fs: not (set(fs) & bad_fields)  # noqa: E731, B023
 
         if ok("registered_voters", "accredited_voters") and acc > reg:
             add("V006", f"Accredited voters ({acc}) exceed registered voters ({reg}).",
                 fields["accredited_voters"], cell(cells, fields["accredited_voters"]))  # fmt: skip
-        if ok("total_cast", "valid_votes", "rejected_votes") and abs(tot - (val + rej)) > tol7:
+        if has_tot and has_rej and ok("total_cast", "valid_votes", "rejected_votes") and abs(tot - (val + rej)) > tol7:
             add("V007", f"Total cast ({tot}) does not equal valid ({val}) + rejected ({rej}) = {val + rej}.",
                 fields["total_cast"], cell(cells, fields["total_cast"]))  # fmt: skip
-        elif ok("total_cast", "accredited_voters") and tot > acc:
-            add("V007", f"Total cast ({tot}) exceeds accredited voters ({acc}).",
-                fields["total_cast"], cell(cells, fields["total_cast"]))  # fmt: skip
+        elif has_tot and ok("total_cast", "accredited_voters"):
+            if tot > acc:
+                add("V007", f"Total cast ({tot}) exceeds accredited voters ({acc}).",
+                    fields["total_cast"], cell(cells, fields["total_cast"]))  # fmt: skip
+        elif not has_tot and ok("valid_votes", "rejected_votes", "accredited_voters"):
+            counted = val + (rej if has_rej else 0)
+            if counted > acc:
+                what = f"Valid ({val}) + rejected ({rej}) votes" if has_rej else f"Valid votes ({val})"
+                add("V007", f"{what} exceed accredited voters ({acc}).",
+                    fields["valid_votes"], cell(cells, fields["valid_votes"]))  # fmt: skip
         if ok("valid_votes", "party_votes"):
             s = sum(v for v in party_votes.values() if v is not None)
-            if abs(s - val) > tol8:
+            if complete_parties and abs(s - val) > tol8:
                 add("V008", f"Party votes add up to {s}, but valid votes are {val}.",
                     fields["valid_votes"], cell(cells, fields["valid_votes"]))  # fmt: skip
-        if ok("valid_votes", "total_cast") and val > tot:
+            elif not complete_parties and s > val + tol8:
+                add("V008", f"The mapped parties' votes add up to {s}, more than valid votes ({val}).",
+                    fields["valid_votes"], cell(cells, fields["valid_votes"]))  # fmt: skip
+        if has_tot and ok("valid_votes", "total_cast") and val > tot:
             add("V009", f"Valid votes ({val}) exceed total cast ({tot}).", fields["valid_votes"],
                 cell(cells, fields["valid_votes"]))  # fmt: skip
-        if ok("rejected_votes", "total_cast") and rej > tot:
+        if has_tot and has_rej and ok("rejected_votes", "total_cast") and rej > tot:
             add("V009", f"Rejected votes ({rej}) exceed total cast ({tot}).", fields["rejected_votes"],
                 cell(cells, fields["rejected_votes"]))  # fmt: skip
         if ok("valid_votes", "party_votes"):

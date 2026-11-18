@@ -5,8 +5,8 @@ import { getSupabase } from '../lib/supabase'
 import { canUpload, useRole } from '../lib/useRole'
 
 type Field = Schemas['CanonicalField']
-const REQUIRED: Field[] = ['pu_code', 'state', 'lga', 'ward', 'registered_voters', 'accredited_voters', 'valid_votes', 'rejected_votes', 'total_cast']
-const OPTIONAL: Field[] = ['latitude', 'longitude']
+const REQUIRED: Field[] = ['pu_code', 'state', 'lga', 'ward', 'registered_voters', 'accredited_voters', 'valid_votes']
+const OPTIONAL: Field[] = ['rejected_votes', 'total_cast', 'latitude', 'longitude']
 const LABELS: Record<Field, string> = {
   pu_code: 'Polling unit code',
   state: 'State',
@@ -15,8 +15,8 @@ const LABELS: Record<Field, string> = {
   registered_voters: 'Registered voters',
   accredited_voters: 'Accredited voters',
   valid_votes: 'Valid votes',
-  rejected_votes: 'Rejected votes',
-  total_cast: 'Total votes cast',
+  rejected_votes: 'Rejected votes (optional)',
+  total_cast: 'Total votes cast (optional)',
   latitude: 'Latitude (optional)',
   longitude: 'Longitude (optional)',
 }
@@ -73,6 +73,7 @@ export default function Mapping() {
   const [fields, setFields] = useState<Partial<Record<Field, string>>>({})
   const [parties, setParties] = useState<PartyRow[]>([])
   const [templates, setTemplates] = useState<{ id: string; name: string; mapping: Schemas['ColumnMapping'] }[]>([])
+  const [allParties, setAllParties] = useState(true)
   const [templateName, setTemplateName] = useState('')
   const [issues, setIssues] = useState<Schemas['MappingIssue'][] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -110,6 +111,7 @@ export default function Mapping() {
     for (const [k, v] of Object.entries(m.fields ?? {})) if (cols.includes(v as string)) f[k as Field] = v as string
     const byCol = new Map(m.party_columns.map((p) => [p.source_column, p.party_code]))
     setFields(f)
+    setAllParties(m.party_columns_complete !== false)
     setParties(cols.filter((c) => !Object.values(f).includes(c)).map((c) => ({ source_column: c, party_code: byCol.get(c) ?? '', include: byCol.has(c) })))
   }
 
@@ -120,9 +122,10 @@ export default function Mapping() {
     setIssues(null)
     try {
       const res = await api<Schemas['ColumnMappingSaved']>('PUT', `/dataset-versions/${versionId}/mapping`, {
-        schema_version: '1.0.0',
+        schema_version: '1.1.0',
         fields: Object.fromEntries(Object.entries(fields).filter(([, v]) => v)),
         party_columns: parties.filter((p) => p.include).map((p) => ({ source_column: p.source_column, party_code: p.party_code.trim().toUpperCase() })),
+        party_columns_complete: allParties,
         save_as_template_name: templateName.trim() || null,
       })
       setIssues(res.issues)
@@ -208,6 +211,15 @@ export default function Mapping() {
               ))}
             </tbody>
           </table>
+          <label className="check">
+            <input type="checkbox" checked={allParties} onChange={(e) => setAllParties(e.target.checked)} />
+            These columns cover every party on the result sheet
+          </label>
+          <p className="muted small">
+            {allParties
+              ? 'Party votes must add up exactly to valid votes.'
+              : 'Some parties are not in this file, so the listed parties’ votes only need to stay within valid votes.'}
+          </p>
         </fieldset>
         {!readOnly && (
           <div className="grid2">

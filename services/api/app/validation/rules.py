@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-RULESET_VERSION = "1.0.0"
+RULESET_VERSION = "1.1.0"  # 1.1.0: optional rejected/total cast; partial party lists (ADR 0007)
 TURNOUT = "turnout_rate"
 SHARE = "leading_party_share"
 ALL = "all"
@@ -107,7 +107,7 @@ RULES: dict[str, dict[str, Any]] = {
     "V007": {
         "severity": "error",
         "classification": "arithmetic",
-        "description": "Vote reconciliation failed: total votes cast must equal valid plus rejected votes and must not exceed accredited voters.",
+        "description": "Vote reconciliation failed: total votes cast must equal valid plus rejected votes, and votes counted must not exceed accredited voters. Where total cast is not supplied, valid votes (plus rejected votes, if supplied) are compared with accredited voters.",
         "affected_fields": ["total_cast", "valid_votes", "rejected_votes", "accredited_voters"],
         "remediation": "Re-add valid and rejected votes from the source sheet and compare with total cast and accreditation.",
         "excludes_from": [SHARE],
@@ -116,7 +116,7 @@ RULES: dict[str, dict[str, Any]] = {
     "V008": {
         "severity": "error",
         "classification": "arithmetic",
-        "description": "Party votes do not add up to valid votes.",
+        "description": "Party votes do not add up to valid votes. Where the file lists only some parties, the listed parties' votes must not exceed valid votes.",
         "affected_fields": ["party_votes", "valid_votes"],
         "remediation": "Re-add the party votes from the source sheet; check for a missing or misread party column.",
         "excludes_from": [SHARE],

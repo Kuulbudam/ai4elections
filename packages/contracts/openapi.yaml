@@ -488,10 +488,13 @@ components:
       additionalProperties: false
       required: [schema_version, fields, party_columns]
       properties:
-        schema_version: { type: string, const: "1.0.0" }
+        schema_version:
+          type: string
+          enum: ["1.0.0", "1.1.0"]
+          description: "1.1.0 makes rejected_votes and total_cast optional and adds party_columns_complete."
         fields:
           type: object
-          description: Canonical field → source column header.
+          description: "Canonical field → source column header. Required: pu_code, state, lga, ward, registered_voters, accredited_voters, valid_votes."
           propertyNames: { $ref: "#/components/schemas/CanonicalField" }
           additionalProperties: { type: string, minLength: 1, maxLength: 200 }
         party_columns:
@@ -505,6 +508,10 @@ components:
             properties:
               source_column: { type: string, minLength: 1, maxLength: 200 }
               party_code: { type: string, pattern: "^[A-Z0-9_]{1,16}$" }
+        party_columns_complete:
+          type: boolean
+          default: true
+          description: "False when the file lists only some parties. V008 then checks that the listed parties' votes do not exceed valid votes, instead of an exact match."
         save_as_template_name:
           type: [string, "null"]
           maxLength: 120

@@ -290,9 +290,12 @@ export interface components {
         /** @enum {string} */
         CanonicalField: "pu_code" | "state" | "lga" | "ward" | "registered_voters" | "accredited_voters" | "valid_votes" | "rejected_votes" | "total_cast" | "latitude" | "longitude";
         ColumnMapping: {
-            /** @constant */
-            schema_version: "1.0.0";
-            /** @description Canonical field → source column header. */
+            /**
+             * @description 1.1.0 makes rejected_votes and total_cast optional and adds party_columns_complete.
+             * @enum {string}
+             */
+            schema_version: "1.0.0" | "1.1.0";
+            /** @description Canonical field → source column header. Required: pu_code, state, lga, ward, registered_voters, accredited_voters, valid_votes. */
             fields: {
                 [key: string]: string;
             };
@@ -300,6 +303,11 @@ export interface components {
                 source_column: string;
                 party_code: string;
             }[];
+            /**
+             * @description False when the file lists only some parties. V008 then checks that the listed parties' votes do not exceed valid votes, instead of an exact match.
+             * @default true
+             */
+            party_columns_complete: boolean;
             save_as_template_name?: string | null;
         };
         ColumnMappingSaved: {

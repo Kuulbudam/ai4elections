@@ -44,11 +44,11 @@ export default function Validation() {
   const loadVersion = useCallback(async () => {
     const sb = getSupabase()
     if (!sb) return
-    const [v, r] = await Promise.all([
-      sb.from('dataset_versions').select('org_id, project_id, original_filename, version_number, status, mapping_saved_at, validated_at, validation_summary').eq('id', versionId).maybeSingle(),
-      sb.from('validation_rules').select('rule_id, definition').eq('version', '1.0.0').order('rule_id'),
-    ])
+    const v = await sb.from('dataset_versions').select('org_id, project_id, original_filename, version_number, status, mapping_saved_at, validated_at, validation_summary').eq('id', versionId).maybeSingle()
     if (v.error) setError(friendlyError(v.error))
+    // Show the rule texts of the ruleset this version was actually validated with.
+    const ruleset = (v.data as Version | null)?.validation_summary?.ruleset_version ?? '1.1.0'
+    const r = await sb.from('validation_rules').select('rule_id, definition').eq('version', ruleset).order('rule_id')
     setVersion((v.data as Version) ?? null)
     setRules((r.data as Rule[]) ?? [])
   }, [versionId])

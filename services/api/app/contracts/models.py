@@ -117,6 +117,15 @@ class CanonicalField(Enum):
     longitude = "longitude"
 
 
+class SchemaVersion(Enum):
+    """
+    1.1.0 makes rejected_votes and total_cast optional and adds party_columns_complete.
+    """
+
+    field_1_0_0 = "1.0.0"
+    field_1_1_0 = "1.1.0"
+
+
 class PartyColumn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -129,9 +138,19 @@ class ColumnMapping(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    schema_version: Literal["1.0.0"]
-    fields: dict[str, str] = Field(..., description="Canonical field → source column header.")
+    schema_version: SchemaVersion = Field(
+        ...,
+        description="1.1.0 makes rejected_votes and total_cast optional and adds party_columns_complete.",
+    )
+    fields: dict[str, str] = Field(
+        ...,
+        description="Canonical field → source column header. Required: pu_code, state, lga, ward, registered_voters, accredited_voters, valid_votes.",
+    )
     party_columns: list[PartyColumn] = Field(..., max_length=50, min_length=2)
+    party_columns_complete: bool | None = Field(
+        True,
+        description="False when the file lists only some parties. V008 then checks that the listed parties' votes do not exceed valid votes, instead of an exact match.",
+    )
     save_as_template_name: str | None = Field(None, max_length=120)
 
 

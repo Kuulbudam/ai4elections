@@ -300,7 +300,7 @@ def test_mapping_reports_missing_and_duplicate_assignments(api, world):
     bad = {
         **GOOD_MAPPING,
         "fields": {
-            **{k: v for k, v in GOOD_MAPPING["fields"].items() if k != "total_cast"},
+            **{k: v for k, v in GOOD_MAPPING["fields"].items() if k != "valid_votes"},
             "ward": "LGA",
             "latitude": "Latitude",
         },
@@ -313,7 +313,7 @@ def test_mapping_reports_missing_and_duplicate_assignments(api, world):
     r = api.put(f"/dataset-versions/{up['dataset_version_id']}/mapping", json=bad, headers=H(world.a.users["admin"]))
     issues = r.json()["issues"]
     rules = {(i["rule_id"], i.get("field")) for i in issues}
-    assert ("V001", "total_cast") in rules
+    assert ("V001", "valid_votes") in rules
     assert any(i["rule_id"] == "V001" and "together" in i["message"] for i in issues)
     assert any(i["rule_id"] == "V002" and "'LGA'" in i["message"] for i in issues)
     assert any(i["rule_id"] == "V002" and "PA is used twice" in i["message"] for i in issues)
@@ -354,3 +354,21 @@ def test_upload_actions_are_audited_with_actor(api, world):
     actions = [r["action"] for r in rows]
     assert actions[:2] == ["dataset_versions.insert", "dataset_versions.update"]
     assert {r["actor_id"] for r in rows[:2]} == {world.a.users["analyst"]}
+
+
+def test_mapping_without_totals_and_partial_parties_is_complete(api, world):
+    up, _ = upload_and_finalize(api, world, DEMO)
+    drain(world)
+    m = {
+        **GOOD_MAPPING,
+        "schema_version": "1.1.0",
+        "fields": {k: v for k, v in GOOD_MAPPING["fields"].items() if k not in ("rejected_votes", "total_cast")},
+        "party_columns_complete": False,
+    }
+    r = api.put(f"/dataset-versions/{up['dataset_version_id']}/mapping", json=m, headers=H(world.a.users["admin"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["issues"] == [] and r.json()["schema_version"] == "1.1.0"
+    with psycopg.connect(world.dsn, row_factory=dict_row) as c:
+        sql = "SELECT mapping FROM public.dataset_versions WHERE id=%s"
+        stored = c.execute(sql, (up["dataset_version_id"],)).fetchone()
+    assert stored["mapping"]["party_columns_complete"] is False
