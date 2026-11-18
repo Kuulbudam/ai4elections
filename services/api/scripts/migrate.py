@@ -54,9 +54,7 @@ def main() -> int:
                 continue
             with conn.transaction():
                 conn.execute(f.read_text())
-                conn.execute(
-                    "INSERT INTO app.schema_migrations (filename, sha256) VALUES (%s, %s)", (f.name, digest)
-                )
+                conn.execute("INSERT INTO app.schema_migrations (filename, sha256) VALUES (%s, %s)", (f.name, digest))
     print("done")
     return 0
 

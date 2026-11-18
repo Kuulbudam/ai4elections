@@ -72,9 +72,7 @@ def as_service(conn: psycopg.Connection, actor: str | None = None):
 
 
 def _create_user(conn, email: str) -> str:
-    return str(
-        conn.execute("INSERT INTO auth.users (email) VALUES (%s) RETURNING id", (email,)).fetchone()["id"]
-    )
+    return str(conn.execute("INSERT INTO auth.users (email) VALUES (%s) RETURNING id", (email,)).fetchone()["id"])
 
 
 def _seed_org(conn, org: Org) -> None:
@@ -216,9 +214,7 @@ def _seed_org(conn, org: Org) -> None:
             ).fetchone()["id"]
         )
     r["memberships"] = str(
-        conn.execute(
-            "SELECT id FROM public.memberships WHERE org_id=%s AND role='admin'", (org.id,)
-        ).fetchone()["id"]
+        conn.execute("SELECT id FROM public.memberships WHERE org_id=%s AND role='admin'", (org.id,)).fetchone()["id"]
     )
     r["audit_events"] = str(
         conn.execute("SELECT id FROM public.audit_events WHERE org_id=%s LIMIT 1", (org.id,)).fetchone()["id"]

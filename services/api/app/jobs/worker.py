@@ -64,9 +64,7 @@ def run_spike_sleep(ctx: JobContext) -> None:
     t = ledger._t  # noqa: SLF001 - same package
 
     ctx.conn.execute(
-        sql.SQL("INSERT INTO {} (job_id, worker_id, attempt) VALUES (%s, %s, %s)").format(
-            t("spike_executions")
-        ),
+        sql.SQL("INSERT INTO {} (job_id, worker_id, attempt) VALUES (%s, %s, %s)").format(t("spike_executions")),
         (jid, ctx.worker_id, attempt),
     )
     started = time.monotonic()
@@ -91,7 +89,13 @@ def run_spike_sleep(ctx: JobContext) -> None:
         ledger.mark_succeeded(ctx.conn, jid, ctx.worker_id)
 
 
-HANDLERS: dict[str, Callable[[JobContext], None]] = {"spike_sleep": run_spike_sleep}
+def _run_ingest(ctx: JobContext) -> None:
+    from app.jobs.ingest import run_ingest
+
+    run_ingest(ctx)
+
+
+HANDLERS: dict[str, Callable[[JobContext], None]] = {"spike_sleep": run_spike_sleep, "ingest": _run_ingest}
 
 # --------------------------------------------------------------------------- loop
 
@@ -113,20 +117,38 @@ def process_one(conn: psycopg.Connection, worker_id: str, hb_interval: float = 5
     except ledger.LostOwnership:
         log.warning("lost ownership of job=%s; another worker or reconciliation took it", jid)
     except JobError as exc:
-        status = ledger.mark_failed_or_retry(
-            conn, jid, worker_id, error_code=exc.code, retryable=exc.retryable
-        )
+        status = ledger.mark_failed_or_retry(conn, jid, worker_id, error_code=exc.code, retryable=exc.retryable)
         log.warning("job=%s error=%s -> %s", jid, exc.code, status)
+        settle_failed_ingests(conn)
     except Exception:  # noqa: BLE001 - never leave a job silently running
         log.exception("unexpected error in job=%s", jid)
         status = ledger.mark_failed_or_retry(conn, jid, worker_id, error_code="INTERNAL", retryable=True)
         log.warning("job=%s -> %s", jid, status)
+        settle_failed_ingests(conn)
     return ledger.get(conn, jid)
+
+
+def settle_failed_ingests(conn: psycopg.Connection) -> int:
+    """A version whose ingest job has finally failed must not look like it is still ingesting."""
+    if ledger._schema() != "public":  # noqa: SLF001
+        return 0
+    cur = conn.execute(
+        """
+        UPDATE public.dataset_versions v SET status = 'ingest_failed'
+        WHERE v.status IN ('uploaded', 'ingesting')
+          AND EXISTS (SELECT 1 FROM public.processing_jobs j
+                      WHERE j.target_id = v.id AND j.job_type = 'ingest' AND j.status = 'failed')
+          AND NOT EXISTS (SELECT 1 FROM public.processing_jobs j
+                          WHERE j.target_id = v.id AND j.job_type = 'ingest' AND j.status IN ('queued', 'running'))
+        """
+    )
+    return cur.rowcount
 
 
 def drain(conn: psycopg.Connection, worker_id: str, max_jobs: int | None, stale_seconds: int) -> int:
     counts = ledger.reconcile_stale(conn, stale_seconds)
     log.info("reconcile: %s", counts)
+    settle_failed_ingests(conn)
     done = 0
     while max_jobs is None or done < max_jobs:
         if process_one(conn, worker_id) is None:

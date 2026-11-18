@@ -31,7 +31,5 @@ def test_unexpected_error_hides_internals():
 
 
 def test_cors_rejects_unknown_origin():
-    r = client.options(
-        "/health", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"}
-    )
+    r = client.options("/health", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert r.headers.get("access-control-allow-origin") is None

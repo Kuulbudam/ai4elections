@@ -100,3 +100,17 @@ def test_canonical_record_accepts_good_and_rejects_bad():
     assert list(v.iter_errors({**good, "registered_voters": -1}))
     assert list(v.iter_errors({**good, "latitude": 9.0}))  # lat without lon
     assert list(v.iter_errors({**good, "party_votes": {"bad code": 1}}))
+
+
+def test_pyproject_dependencies_match_requirements():
+    """Vercel installs from pyproject.toml; CI and the worker from requirements.txt. They must agree."""
+    import tomllib
+
+    api = Path(__file__).resolve().parents[1]
+    deps = tomllib.loads((api / "pyproject.toml").read_text())["project"]["dependencies"]
+    reqs = [
+        line.strip()
+        for line in (api / "requirements.txt").read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert sorted(d.lower() for d in deps) == sorted(r.lower() for r in reqs)

@@ -7,7 +7,7 @@ on:
   push:
     # phase-* branches too, so migrations are proven on the real project before merge
     branches: [main, "phase-*"]
-    paths: ["supabase/migrations/**", "services/api/scripts/migrate.py", "services/api/scripts/live_isolation_check.py"]
+    paths: ["supabase/migrations/**", "services/api/scripts/**", "services/api/app/**", "data/synthetic/**"]
   workflow_dispatch:
     inputs:
       live_check:
@@ -59,3 +59,6 @@ jobs:
       - name: Live security check (real Auth, Data API, Storage)
         if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
         run: python scripts/live_isolation_check.py
+      - name: Live ingestion check (real JWT, signed upload, storage, worker)
+        if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
+        run: python scripts/live_ingest_check.py
