@@ -86,7 +86,7 @@ export default function ProjectOverview() {
         <Link to={`/orgs/${project.org_id}/projects`}>← Projects</Link>
       </p>
       <div className="row-between">
-        <h2 id="project-heading">{project.election_name}</h2>
+        <h1 id="project-heading">{project.election_name}</h1>
         {canUpload(role) && (
           <Link className="button primary" to={`/projects/${project.id}/upload`}>
             Upload dataset
@@ -162,7 +162,7 @@ export default function ProjectOverview() {
                             <Link to={`/versions/${v.id}/mapping`}>{v.mapping_saved_at ? 'Mapping' : 'Map columns'}</Link>
                             {v.mapping_saved_at && (
                               <>
-                                {' · '}
+                                <span aria-hidden="true">&ensp;</span>
                                 <Link to={`/versions/${v.id}/validation`}>{v.validated_at ? 'Validation' : 'Validate'}</Link>
                               </>
                             )}

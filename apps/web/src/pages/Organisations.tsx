@@ -47,7 +47,8 @@ export default function Organisations() {
 
   return (
     <section className="page" aria-labelledby="orgs-heading">
-      <h2 id="orgs-heading">Organisations</h2>
+      <h1 id="orgs-heading">Organisations</h1>
+      <p className="page-intro">The organisations you belong to and your role in each.</p>
       {orgs === null ? (
         <p className="muted">Loading…</p>
       ) : orgs.length === 0 ? (
@@ -71,7 +72,9 @@ export default function Organisations() {
                   <span className={`role role-${o.role}`}>{o.role}</span>
                 </td>
                 <td>
-                  <Link to={`/orgs/${o.org_id}/projects`}>Projects</Link> · <Link to={`/orgs/${o.org_id}/members`}>Members</Link>
+                  <Link to={`/orgs/${o.org_id}/projects`}>Projects</Link>
+                  <span aria-hidden="true">&ensp;</span>
+                  <Link to={`/orgs/${o.org_id}/members`}>Members</Link>
                 </td>
               </tr>
             ))}

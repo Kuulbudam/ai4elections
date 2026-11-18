@@ -39,7 +39,7 @@ export default function Profile() {
 
   return (
     <section className="page" aria-labelledby="profile-heading">
-      <h2 id="profile-heading">Your profile</h2>
+      <h1 id="profile-heading">Your profile</h1>
       <dl className="facts">
         <dt>Email</dt>
         <dd>{session?.user.email}</dd>

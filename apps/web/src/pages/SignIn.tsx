@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import AuthLayout from '../components/AuthLayout'
 import { friendlyError, getSupabase } from '../lib/supabase'
 
 export default function SignIn() {
@@ -33,10 +34,8 @@ export default function SignIn() {
   }
 
   return (
-    <main className="auth-shell">
-      <section className="card auth-card" aria-labelledby="auth-heading">
-        <h1 className="brand">AI4Elections</h1>
-        <h2 id="auth-heading">{mode === 'signin' ? 'Sign in' : 'Create an account'}</h2>
+    <AuthLayout labelledBy="auth-heading">
+        <h1 id="auth-heading">{mode === 'signin' ? 'Sign in' : 'Create an account'}</h1>
         <form onSubmit={submit} className="form">
           {mode === 'signup' && (
             <label>
@@ -72,8 +71,6 @@ export default function SignIn() {
         <button type="button" className="link" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
           {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
         </button>
-        <p className="muted small">For authorised analysts and researchers. All demo data is synthetic.</p>
-      </section>
-    </main>
+    </AuthLayout>
   )
 }

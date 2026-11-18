@@ -133,7 +133,7 @@ export default function Upload() {
       <p>
         <Link to={`/projects/${projectId}`}>← {project?.election_name ?? 'Project'}</Link>
       </p>
-      <h2 id="upload-heading">Upload results CSV</h2>
+      <h1 id="upload-heading">Upload results CSV</h1>
       <p className="muted small">
         The original file is kept unchanged in private storage and fingerprinted with SHA-256. Every upload creates a new version; nothing is
         overwritten. Use synthetic data only.
@@ -177,7 +177,7 @@ export default function Upload() {
         </label>
         {file && (
           <p className="muted small">
-            {file.name} · {formatBytes(file.size)}
+            {file.name} ({formatBytes(file.size)})
           </p>
         )}
         <button type="submit" className="primary" disabled={busy || !file}>
