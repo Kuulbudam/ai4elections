@@ -70,13 +70,8 @@ def count(v: str | None) -> str:
     return s
 
 
-def build(
-    voter_info: bytes, pu_info: bytes, state: str
-) -> tuple[list[list[str]], list[list[str]], Counter]:
-    info = {
-        r["polling_unit_code"]: r
-        for r in csv.DictReader(io.StringIO(pu_info.decode("utf-8-sig")))
-    }
+def build(voter_info: bytes, pu_info: bytes, state: str) -> tuple[list[list[str]], list[list[str]], Counter]:
+    info = {r["polling_unit_code"]: r for r in csv.DictReader(io.StringIO(pu_info.decode("utf-8-sig")))}
     rows: list[list[str]] = []
     units: set[tuple[str, str, str]] = set()
     stats: Counter = Counter()
@@ -119,9 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     state = a.state.strip().upper()
 
     raw = {n: fetch(n, a.source_dir) for n in FILES}
-    rows, ref, stats = build(
-        raw["voter_info.csv"], raw["AllPollingUnitsInfo.csv"], state
-    )
+    rows, ref, stats = build(raw["voter_info.csv"], raw["AllPollingUnitsInfo.csv"], state)
     if not rows:
         print(f"No polling units found for state {state!r}.", file=sys.stderr)
         return 1
@@ -158,9 +151,7 @@ def main(argv: list[str] | None = None) -> int:
         "  Source Status      - the source's assessment of the result sheet image (e.g. blurred)",
         "  Source Document    - link to the result sheet image on DocumentCloud",
     ]
-    (a.out_dir / f"REAL_CCIJ_2023_{slug}_SOURCE.txt").write_text(
-        "\n".join(lines) + "\n", encoding="utf-8"
-    )
+    (a.out_dir / f"REAL_CCIJ_2023_{slug}_SOURCE.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"\nWrote {data_path}\nWrote {ref_path}")
     return 0
