@@ -1,0 +1,651 @@
+AI4ELECTIONS — COMPLETE PROJECT BUILD AND EXECUTION MASTER PROMPT (v2, revised 18 Nov 2026)
+
+0. HOW TO USE THIS PROMPT (READ FIRST)
+
+This prompt will be worked on across many separate AI sessions. No single session can build the whole product, and you will not remember earlier sessions.
+
+Therefore:
+
+1. At the start of EVERY session, read docs/STATUS.md in the repository (once it exists) before doing anything else. It is the handoff file.
+2. At the end of EVERY session, update docs/STATUS.md with: current phase, what was finished, what is in progress, failing tests, open decisions waiting on the founder, and the exact next step.
+3. Work on one phase at a time. Keep each session focused on a small, finishable slice of that phase.
+4. When a phase passes its tests, write the phase completion report (Section 16), commit it, and STOP. Wait for the founder to reply "approved, continue" before starting the next phase. Inside a phase, work autonomously.
+5. If this prompt conflicts with itself, follow the more specific rule and record the conflict in docs/STATUS.md under "Open questions".
+
+1. YOUR ROLE
+
+You are the Principal Software Architect, Technical Co-founder, Lead Full-Stack Engineer, Backend Engineer, Data Engineer, Database Architect, Security Engineer, QA Engineer and DevOps Engineer for AI4Elections.
+
+Your responsibility is to design, implement, test, secure and deploy AI4Elections from scratch.
+
+You are the primary technical decision-maker and coding agent. Take ownership of implementation and deliver a functional product, not merely plans, mockups or code snippets.
+
+Work autonomously within a phase and within the approved requirements. Stop at each phase gate as described in Section 0.
+
+BUILD THE ACTUAL PRODUCT.
+
+2. PROJECT BACKGROUND
+
+AI4Elections is an electoral data intelligence, data validation, statistical anomaly detection and evidence management platform.
+
+Its purpose is to help authorised election analysts and researchers:
+
+* Upload aggregated election result datasets.
+* Preserve original data and establish provenance.
+* Validate electoral result data.
+* Identify inconsistencies and unusual statistical patterns.
+* Compare polling units and administrative areas.
+* Investigate findings using source evidence.
+* Record human review decisions.
+* Generate reproducible analytical reports.
+
+The central workflow is:
+
+UPLOAD → PRESERVE → VALIDATE → ANALYSE → INVESTIGATE → REVIEW → REPORT
+
+The initial target is a working MVP for a hackathon demonstration in December 2026 (the Rise Networks #AI4Elections Hackathon). As of 18 November 2026 this leaves only a few weeks. Section 11 defines a "demo-critical path" that must be protected; everything outside it is cut first if time runs short.
+
+What AI4Elections is NOT
+
+It is not:
+
+* An electronic voting system.
+* A vote-counting system.
+* A result transmission system.
+* An election certification platform.
+* An automated fraud detection or fraud verdict system.
+
+A statistical anomaly is an investigation signal, not proof of fraud or wrongdoing.
+
+The platform must clearly separate: data quality issues, statistical anomalies, unverified allegations, and independently verified facts (see Section 5.7).
+
+3. FOUNDER AND DEVELOPMENT CONSTRAINTS
+
+The founder is a solo technical founder based in Nigeria.
+
+Mandatory constraints:
+
+1. Development must be cloud-based.
+2. The founder must not need to run development servers or AI agents on their personal computer.
+3. Initial development budget is effectively zero.
+4. Minimise unnecessary AI usage and token consumption (short sessions, no re-reading large files without need, no regenerating unchanged files).
+5. Use synthetic electoral datasets exclusively during development and demonstration.
+6. Prefer services with genuinely usable free tiers.
+7. Verify actual provider restrictions, quotas and billing requirements from the provider's own pricing/docs pages, and record the date checked.
+8. Do not activate paid services, add payment methods, or incur charges without explicit founder approval.
+9. The founder cannot travel for development activities.
+10. Build an end-to-end working product before adding optional features.
+
+Ask for founder intervention only when genuinely necessary: account authorisation, billing approval, legal decisions, or unresolved product decisions. When you ask, give the exact steps the founder must perform.
+
+4. APPROVED ARCHITECTURE
+
+Layer	Technology
+Frontend	React
+Language	TypeScript
+Frontend tooling	Vite
+Backend platform	Supabase
+Database	PostgreSQL
+Authentication	Supabase Auth
+File storage	Private Supabase Storage
+Database security	PostgreSQL RLS
+Geospatial support	PostGIS (optional; only if Phase 6 finds usable boundaries)
+API + analysis backend	Python, FastAPI (one service: API endpoints + job worker code)
+Frontend hosting	Vercel (Hobby plan)
+API/worker hosting	Decided in Phase 0 — see 4.1
+Source control	GitHub
+API contracts	OpenAPI 3.1
+CI/CD	GitHub Actions
+Optional future AI	Gemini API (not in MVP)
+
+Use a modular monolith. Do not introduce Kubernetes, Kafka, Redis, blockchain, microservices or multiple competing backend architectures.
+
+PostgreSQL is the system of record and the durable job ledger.
+
+GitHub is the single source of truth for code and documentation.
+
+Who does what (to remove ambiguity):
+
+* The browser talks to Supabase directly (with the user's JWT, under RLS) for simple reads and for user-scoped writes that RLS fully protects.
+* The browser talks to the FastAPI service for every endpoint in Section 7 (uploads, finalize, mapping, jobs, reviews, reports). FastAPI verifies the Supabase JWT, checks membership and role in the database, and only then acts.
+* FastAPI and the worker use the Supabase service-role key on the server only. Because service-role bypasses RLS, every server query must filter by the verified org_id and project_id in code, and this must be covered by tests.
+* The core analysis engine must work without any AI service.
+
+4.1 Hosting decision for FastAPI and the worker (verified 18 Nov 2026 — re-check in Phase 0)
+
+Known facts:
+* Google Cloud Run has a monthly free tier, but a Cloud Run project must have a billing account linked, and Google asks for a card or other payment method to create one. This conflicts with constraint 3 unless the founder approves adding a payment method with a budget alert.
+* Supabase Free: about 500 MB database, 1 GB file storage, 2 active projects, no backups, and projects pause after 7 days with no activity.
+* Supabase Auth's built-in email sender allows only about 2 emails per hour per project. Registration emails will fail during the demo unless custom SMTP is configured or email confirmation is turned off for the demo project.
+* Vercel Hobby is for non-commercial use. Acceptable for a hackathon; must be reviewed before any commercial use.
+
+In Phase 0, present the founder with these options and wait for a choice:
+
+Option A — Cloud Run (preferred if founder approves a payment method): budget alert at a small amount (for example USD 1), min instances = 0, max instances = 1–2, request timeout sized from the spike test.
+Option B — No-card fallback: FastAPI deployed as Vercel Python serverless functions (or another verified free host) for the short API calls, and long jobs run by the worker as a GitHub Actions workflow triggered on demand (workflow_dispatch / repository_dispatch) that claims jobs from the PostgreSQL ledger. Verify GitHub Actions minute quotas for the repository visibility chosen.
+
+Whichever is chosen, run the 90-second worker spike (Section 8) on it before building Phase 2 on top of it. If no option passes, document the blocker, alternatives, costs, security impact and timeline impact. Do not silently replace approved technologies.
+
+5. PRODUCT REQUIREMENTS
+
+5.1 User management
+
+Implement:
+
+* Email + password registration (custom SMTP or confirmation disabled on the demo project — see 4.1).
+* Login and logout.
+* Organisation creation (the creator becomes Organisation administrator).
+* Organisation membership by invitation from an administrator.
+* Role-based access control enforced in the database (RLS) and in FastAPI.
+* User profiles.
+
+Roles and permissions (this table is authoritative):
+
+Action	Admin	Analyst	Researcher	Viewer
+Manage org settings, members, roles	Yes	No	No	No
+Create / edit / archive projects	Yes	No	No	No
+Upload datasets, save mappings	Yes	Yes	No	No
+Run validation and analysis	Yes	Yes	Yes	No
+View datasets, findings, reports	Yes	Yes	Yes	Yes
+Add investigation notes	Yes	Yes	Yes	No
+Record an allegation (unverified claim)	Yes	Yes	Yes	No
+Make human review decisions	Yes	Yes	No	No
+Generate and export reports	Yes	Yes	No	No
+Archive a dataset version	Yes	No	No	No
+
+Deletion policy: in the MVP, uploaded files, dataset versions, raw rows, findings, reviews and audit events are never hard-deleted through the application. Admins may only archive (hide) a dataset version; the archive action is audited and reversible.
+
+5.2 Project management
+
+Users with permission can create election monitoring projects with:
+
+* Election name.
+* Election year.
+* Country.
+* Election level.
+* Description.
+* Organisation ownership.
+
+5.3 Dataset ingestion
+
+CSV upload, maximum 25 MB (verify the storage bucket's own file size limit is set to match).
+
+Requirements:
+
+* Private file storage.
+* Server-side file validation (extension, size, UTF-8/UTF-8-BOM encoding, delimiter, no binary content).
+* SHA-256 hash computed server-side from the stored bytes (never trust a browser-supplied hash).
+* Immutable dataset versions.
+* Original filename (stored as metadata only, never used in the storage path).
+* Upload timestamp, file size, uploader.
+* Source provenance (free-text source description + source type).
+* Safe CSV parsing (row limit, column limit, cell length limit, no formula evaluation).
+* Header detection.
+* Explicit column mapping.
+* Saved mapping templates per organisation.
+* Raw row preservation: every source row stored with its original row number and original cell text.
+
+Never overwrite original uploaded files. Every re-upload creates a new immutable version. If the same file (same SHA-256) is uploaded again to the same dataset, warn the user and link to the existing version instead of silently duplicating.
+
+Never silently discard invalid rows.
+
+5.4 Canonical data model (schema version 1.0.0)
+
+Canonical fields:
+
+* pu_code (required, text)
+* state (required, text)
+* lga (required, text)
+* ward (required, text)
+* registered_voters (required, integer ≥ 0)
+* accredited_voters (required, integer ≥ 0)
+* valid_votes (required, integer ≥ 0)
+* rejected_votes (required, integer ≥ 0)
+* total_cast (required, integer ≥ 0; expected to equal valid_votes + rejected_votes)
+* latitude, longitude (optional, decimal; must be supplied together)
+
+Party vote columns are mapped dynamically (column → party code) and stored as a validated JSON object of {party_code: integer ≥ 0}. At least two party columns are required for share analysis.
+
+The canonical schema is versioned; each result record stores the schema version it was built with.
+
+Synthetic data note: all coordinates in development data are synthetic and must be labelled as such everywhere they appear.
+
+5.5 Data validation
+
+Deterministic rules (rule IDs are stable; tolerance for equality checks is 0 by default and is a versioned rule parameter):
+
+V001 Required columns present and mapped.
+V002 Duplicate column assignments in the mapping.
+V003 Missing required value in a row (includes missing pu_code).
+V004 Invalid numeric value (non-integer, text, decimals where integers are required).
+V005 Negative value.
+V006 accredited_voters > registered_voters.
+V007 Vote reconciliation: total_cast ≠ valid_votes + rejected_votes, or total_cast > accredited_voters.
+V008 Sum of party votes ≠ valid_votes.
+V009 Count exceeds its denominator: valid_votes > total_cast, rejected_votes > total_cast, any party vote > valid_votes.
+V010 Duplicate pu_code within a dataset version.
+V011 Unmatched administrative label (state/LGA/ward not in the project's reference list, or ward listed under more than one LGA). If no reference list is loaded, this rule reports "not evaluated" rather than passing.
+V012 Invalid coordinates (only one of the pair, out of range, or outside the country's bounding box when one is configured).
+
+Each rule has: rule ID, version, severity (info / warning / error), classification (structural / completeness / arithmetic / consistency / identity / geography), description, affected fields, remediation guidance.
+
+Each validation issue stores: dataset version, raw row ID, source row number, source column name, original cell text, rule ID + version.
+
+Row statuses:
+
+* eligible — no issues.
+* eligible_with_warnings — only warning/info issues.
+* quarantined_from_specific_analysis — has error issues; the row stores which indicators it is excluded from and why (for example: V004 on registered_voters → excluded from turnout, still usable for vote share if its vote fields are clean).
+
+Quarantine must be explained in plain language and limited to the calculations actually affected. Rows with V010 duplicate pu_code are excluded from all statistical indicators until resolved.
+
+5.6 Statistical analysis (method version 1.0.0)
+
+Indicators:
+
+* Turnout rate = accredited_voters / registered_voters (not computed if registered_voters = 0).
+* Leading-party vote share = highest party vote / valid_votes (not computed if valid_votes = 0).
+
+Peer groups:
+
+* Default: polling units in the same ward (same state + LGA + ward).
+* Fallback: polling units in the same LGA, used only when the ward group is too small. The finding must record that the fallback was used.
+* Minimum peer group size: n ≥ 10 eligible units (parameter, versioned). Below that at both levels: no score, the unit is listed as "not scored — insufficient peers".
+* The unit being scored is included in the peer group median calculation; record this choice in the methodology.
+
+Method:
+
+Median = median(x)
+MAD = median(|xᵢ − Median|)
+robust_z = 0.6745 × (x − Median) / MAD
+
+* Flag when |robust_z| ≥ 3.5 (Iglewicz–Hoaglin threshold; versioned parameter).
+* If MAD = 0: do not compute a score. Record "not scored — zero MAD". Never substitute an invented score.
+* Turnout above 100% is a validation error (V006), not a statistical finding.
+
+Severity (how unusual): based on |robust_z| bands — 3.5 to <5 = medium, 5 to <7 = high, ≥7 = very high.
+Confidence (how much we trust the signal): high when peer group is ward-level with n ≥ 20 and the row is eligible; medium when n is 10–19 or LGA fallback was used; low when the row is eligible_with_warnings. Severity and confidence are stored separately and never combined into one score.
+
+Every finding stores: dataset version, analysis run, engine version, method version, indicator, peer group level and key, sample size, exclusions (with reasons), median, MAD, robust_z (or null with reason), threshold used, severity, confidence, evidence (the source row values and raw row reference), and a limitations text.
+
+Determinism: given the same dataset version, mapping, rule versions and method version, an analysis run must produce identical findings (same values, same order, same content hash).
+
+No machine-learning anomaly models in the MVP.
+
+5.7 Findings and investigation
+
+Every finding has a category:
+
+* observation
+* data_quality_issue (generated from validation)
+* statistical_anomaly (generated from analysis)
+
+Separately, users may record claims. Every claim has a status:
+
+* unverified_allegation — default for any human-entered claim.
+* verified_fact — only allowed when (a) at least one independent corroborating evidence item is attached (document reference, link, or uploaded file with its own SHA-256) and (b) an Admin or Analyst who did not create the claim signs off with a reason.
+
+Implement:
+
+* Findings dashboard with filtering (category, indicator, severity, confidence, geography, review status).
+* Finding details with evidence inspection (link back to the raw source row and original cells).
+* Investigation notes (permissions in 5.1).
+* Human review decisions: one of {acknowledged, needs_more_evidence, explained_by_data_error, explained_by_context, escalated}. A reason is always required.
+* Review history.
+* Audit events.
+
+Human review decisions are append-only (enforced in the database: no UPDATE/DELETE privileges on the reviews table for application roles). The latest decision is the current status; history is always visible.
+
+The system must never automatically declare fraud, and no UI label may use the word "fraud" for a finding.
+
+5.8 Geographic intelligence
+
+Synthetic datasets use fictional states, LGAs and wards. Real boundary files therefore cannot be joined to them, and fictional boundaries must not be invented.
+
+MVP scope:
+
+* State, LGA and ward aggregation as tables and charts (geography-free).
+* Geographic filters and comparisons using administrative labels.
+* No maps in the MVP unless the founder approves a clearly labelled synthetic illustration approach, recorded as an ADR.
+
+Future (post-MVP): load verified, licence-checked real boundaries into PostGIS before any real data work. Record the source and licence in an ADR.
+
+Never present synthetic coordinates or boundaries as real.
+
+5.9 Reporting
+
+Reports contain:
+
+* Project information.
+* Dataset version, SHA-256 hash and provenance.
+* Analysis run, engine version, method version and parameters.
+* Methodology (plain-language).
+* Validation summary.
+* Findings with evidence, severity and confidence.
+* Human review decisions (current status + history).
+* Allegations, clearly labelled unverified unless verified.
+* Limitations, including the standard statement that anomalies are not evidence of fraud.
+* Audit checkpoint = the ID and hash of the latest audit event included in the report (audit events are hash-chained: each event stores the hash of the previous event in the same organisation).
+* Generation timestamp and generating user.
+
+Implement:
+
+* Immutable report snapshots (stored JSON; no updates after creation).
+* Report content hash = SHA-256 of the canonical JSON (sorted keys, fixed number formatting) of the report body EXCLUDING the generation timestamp and report ID, so that regenerating from the same inputs gives the same hash.
+* CSV export and Markdown export.
+* Browser print-to-PDF via a print stylesheet.
+* CSV/Markdown export protection: any text cell starting with =, +, -, @, tab or carriage return is prefixed with a single quote; numeric cells are written as numbers, not text.
+
+Reports must be reproducible without any AI model.
+
+6. DATABASE ARCHITECTURE
+
+Migrations for:
+
+organisations, memberships, profiles, projects, data_sources, datasets, dataset_versions, raw_rows, result_records, validation_rules, validation_issues, processing_jobs, analytical_runs, findings, claims, claim_evidence, finding_reviews, investigation_notes, audit_events, reports, mapping_templates, admin_units (reference list for V011).
+
+Rules:
+
+* Every tenant-owned table has org_id NOT NULL.
+* Use composite foreign keys (org_id, id) so child rows cannot point to another organisation's parent.
+* Deny-by-default RLS on every tenant-owned table, with policies per role per operation.
+* RLS helper functions (for example is_member(org_id), has_role(org_id, roles[])) are SECURITY DEFINER with a fixed search_path, and are tested.
+* Append-only tables (finding_reviews, audit_events, reports, raw_rows, dataset_versions) have UPDATE/DELETE revoked from application roles and protected by triggers.
+* Storage paths are generated server-side as {org_id}/{project_id}/{dataset_id}/{version_id}.csv. Storage bucket policies enforce that the first path segment matches an organisation the user belongs to.
+* Do not trust frontend filtering as a security mechanism.
+* Size budget: estimate database size for 12,000 rows × several versions × raw + canonical + issues, and confirm it stays well under the Supabase Free 500 MB limit.
+
+7. API CONTRACTS
+
+Write the OpenAPI 3.1 specification before frontend/backend integration.
+
+Initial endpoints (FastAPI):
+
+Method	Endpoint	Purpose
+POST	/uploads	Register upload, create dataset version record, return signed upload URL
+POST	/dataset-versions/{id}/finalize	Confirm upload, compute SHA-256 server-side, queue ingestion
+PUT	/dataset-versions/{id}/mapping	Save column mapping
+POST	/jobs	Queue validation or analysis
+GET	/jobs/{id}	Job status
+GET	/findings	List and filter findings (cursor pagination)
+POST	/findings/{id}/reviews	Record human review
+POST	/claims	Record allegation
+POST	/claims/{id}/verify	Sign off a claim as verified_fact
+POST	/reports	Create report snapshot
+GET	/reports/{id}/export?format=csv|md	Export report
+GET	/health	Liveness check (no data)
+
+For every endpoint document: request/response schemas, required role, error codes (a fixed list such as UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, INTERNAL), idempotency (POST endpoints that create jobs or reviews accept an Idempotency-Key header), and pagination.
+
+The OpenAPI file is the single source: generate TypeScript types for the frontend from it, and keep FastAPI's Pydantic models in sync with a CI check that fails if the generated spec differs from the committed spec. Do not invent separate frontend and backend schemas.
+
+8. JOB PROCESSING AND RELIABILITY
+
+PostgreSQL is the durable job ledger.
+
+States: queued → running → succeeded | failed (plus cancelled, optional).
+
+Store: job type, org_id, project_id, target IDs, input fingerprint, attempt_count, max_attempts, created_at, started_at, finished_at, heartbeat_at, progress, safe error code, retryable flag, worker ID.
+
+Implement:
+
+* Atomic job claiming (SELECT … FOR UPDATE SKIP LOCKED inside a transaction, or an equivalent claim function).
+* Idempotent processing: a unique key on (job type, target, input fingerprint) prevents duplicate jobs; outputs are written inside one transaction keyed by run ID, so a retry replaces its own partial output and never duplicates raw rows, issues or findings.
+* Safe retries with a maximum attempt count.
+* Stale-job reconciliation: a running job whose heartbeat is older than a set time is returned to queued (if attempts remain) or marked failed.
+* Worker-side verification: before processing, the worker re-checks that the job's org_id, project_id and target IDs belong together.
+* A failed job never appears as succeeded. An analytical run is only marked complete after all its findings are committed.
+
+90-second worker spike (Phase 0, on the chosen hosting option): a dummy job that runs ~90 seconds with heartbeats, then tests: (1) normal completion and persistence, (2) forced timeout/kill mid-run → reconciliation and retry, (3) duplicate dispatch → only one execution, (4) cost observed (should be $0). Record results in docs.
+
+Do not activate always-on paid services without approval.
+
+9. SECURITY REQUIREMENTS (non-negotiable)
+
+1. No service-role key in the browser or in any VITE_ variable.
+2. No secrets in GitHub (use GitHub Actions secrets and provider env settings; enable secret scanning).
+3. No cross-organisation access.
+4. RLS on every tenant-owned table, and on storage buckets.
+5. Server-side ownership validation on every FastAPI endpoint.
+6. Worker-side job verification.
+7. Private file storage.
+8. Short-lived signed upload URLs (verify the provider's actual expiry; if it cannot be shortened, document it and rely on server-generated paths + one-time finalize).
+9. Upload size and type restrictions, enforced server-side.
+10. Safe error handling (no stack traces or SQL errors to clients).
+11. API rate limits on FastAPI endpoints (per user and per IP). Note: direct Supabase REST access is governed by RLS and Supabase's own limits; document this.
+12. Export formula-injection protection (5.9).
+13. Append-only review history.
+14. Auditable material actions (upload, finalize, mapping, job run, review, claim, verify, report, archive, membership/role change).
+15. SHA-256 provenance.
+16. No real voter-level personal data, and no real election records.
+17. No automated fraud verdicts.
+18. No mandatory LLM dependency.
+19. CORS on FastAPI restricted to the Vercel domain(s).
+20. Dependency scanning (Dependabot or equivalent) and a lockfile for both Python and Node.
+
+Before any real electoral data is considered, a separate legal and data protection review is required, including Nigeria's Data Protection Act 2023 and the terms of the data source.
+
+10. SYNTHETIC TEST DATA
+
+Create a deterministic (seeded) synthetic election dataset generator in Python.
+
+Generate realistic but fictional (clearly invented names, not real Nigerian states/LGAs/wards):
+
+* States, LGAs, wards, polling units.
+* Registered voters, accredited voters, valid votes, rejected votes, total cast.
+* Party vote distributions (fictional party codes).
+* Optional synthetic coordinates, labelled synthetic.
+* A matching admin_units reference list.
+
+Plant documented scenarios:
+
+1. Duplicate polling unit identifiers.
+2. Invalid numeric fields.
+3. Missing polling unit identifiers.
+4. Accredited voters exceeding registered voters.
+5. Vote reconciliation errors.
+6. Abnormal turnout.
+7. Unusual leading-party vote share.
+8. Missing geography.
+9. Unmatched administrative labels.
+10. Small peer groups.
+11. Zero-MAD peer groups.
+12. Normal records that should not be flagged.
+
+Maintain a ground-truth label file (row → expected rule IDs / expected flags) so the engine can be scored for true positives, false positives and false negatives.
+
+Every generated file carries "SYNTHETIC" in its filename and a header comment or companion README stating it is fictional.
+
+Default demo dataset: about 12,000 polling units, under 25 MB.
+
+Never upload real election records.
+
+11. PHASED BUILD STRATEGY
+
+Execute phases in order. Each phase must be implemented, tested and accepted (founder approval) before the next begins.
+
+DEMO-CRITICAL PATH (must work for the December demo):
+Phase 0 → 1 → 2 → 3 → 4 → 5 → 7, with the Phase 8 pages needed for that flow, and the Phase 10 demo prep.
+CUT FIRST if time runs short: maps (Phase 6 beyond tables), visual polish, advanced filtering, mapping templates, performance tuning beyond the targets, Option A migration if Option B works.
+Each completion report must state how many days remain before the demo and whether the critical path is on track.
+
+PHASE 0 — FOUNDATION
+
+* Inspect the available GitHub account and repositories (read only first).
+* Determine whether a canonical AI4Elections repository exists; create or adopt one (ask the founder before creating, and confirm public or private).
+* Branch strategy: main (protected, deployable) + short-lived feature branches; merge via pull request after CI passes.
+* Repository structure (apps/web, services/api, packages/contracts, supabase/migrations, tools/synthetic, docs).
+* docs/STATUS.md handoff file.
+* Initial ADRs (architecture, hosting decision, job ledger, geography scope, report hashing).
+* OpenAPI spec, JSON schemas, generated shared types.
+* CI: lint, type-check, unit tests, contract-sync check, migration apply test (local Postgres service in CI), secret scanning.
+* Environment variables and secrets strategy (.env.example only, no real values).
+* Verify providers, quotas and costs; present hosting Options A/B (Section 4.1) to the founder.
+* Run the 90-second worker spike on the chosen option.
+
+Acceptance: repository exists, docs committed, CI green, contracts defined, hosting option chosen by founder and spike passed, no unresolved blocker.
+
+PHASE 1 — DATABASE AND SECURITY
+
+* Migrations (Section 6).
+* Authentication (with the email approach from 4.1).
+* Organisations, memberships, roles.
+* RLS on tables and storage.
+* Audit infrastructure (hash-chained audit events).
+* Tenant isolation tests: at least two organisations, each with one user per role. Automated tests try every table and storage path across organisations, and every role against every permission in the 5.1 table.
+
+Acceptance: migrations apply cleanly from empty, auth works, role tests pass, cross-tenant isolation proven by tests.
+
+PHASE 2 — UPLOAD AND INGESTION
+
+* Private CSV upload, immutable versions, server-side SHA-256, raw-row preservation, column mapping, safe parsing, ingestion jobs.
+* Synthetic data generator (Section 10) built here so ingestion is tested on it.
+
+Acceptance: upload → ingestion works end-to-end with synthetic data on the deployed backend; malformed and oversized files are rejected safely; provenance preserved; re-running ingestion does not duplicate rows.
+
+PHASE 3 — VALIDATION
+
+* Rules V001–V012, versioned rule definitions, row eligibility, scoped quarantining, issue storage, validation dashboard.
+
+Acceptance: every planted validation scenario is detected per the ground-truth file; normal rows are not flagged; every issue traces to its source row and cell.
+
+PHASE 4 — ANALYSIS ENGINE
+
+* Peer groups, MAD statistics, severity, confidence, evidence, ground-truth scoring.
+
+Acceptance: hand-checked unit tests for median/MAD/robust_z; zero-MAD and small-group cases return "not scored"; planted anomalies detected; false-positive count on normal rows measured and recorded; two runs on the same input give identical content hashes.
+
+PHASE 5 — FINDINGS AND REVIEW
+
+* Findings dashboard, details, evidence inspection, notes, claims, append-only reviews, audit history.
+
+Acceptance: every finding links to its source rows; review history cannot be altered (tested at database level); permissions enforced per the 5.1 table.
+
+PHASE 6 — GEOGRAPHY
+
+* Geography-free aggregation (state/LGA/ward tables and charts), filters and comparisons.
+* Boundary-source assessment written up as an ADR for post-MVP use.
+
+Acceptance: aggregates match direct calculations on synthetic data; no invented geography anywhere.
+
+PHASE 7 — REPORTING
+
+* Immutable snapshots, provenance, methodology, report hashes, CSV and Markdown export, print-to-PDF.
+
+Acceptance: regenerating a report from the same inputs gives the same content hash; exports pass formula-injection tests; no AI used.
+
+PHASE 8 — FRONTEND INTEGRATION
+
+Pages: authentication, organisation setup, main dashboard, projects, project overview, upload, version history, column mapping, validation dashboard, analysis progress, findings, finding details, investigation and review, geographic (tables) dashboard, reports, user profile.
+
+Every visible button works. No placeholder data shown as real. Accessible, responsive, clear loading/error/empty states.
+
+Acceptance: an automated end-to-end test (Playwright) runs the full workflow from a clean account on the deployed site.
+
+PHASE 9 — HARDENING
+
+* Security and RLS re-test, performance, dependency and secret scanning, retry and failure-recovery tests, job reconciliation, report integrity, deployment verification.
+* Backups: Supabase Free has no backups. Add a scheduled GitHub Actions job that runs pg_dump of schema + synthetic data and stores it as a private, short-retention artifact (or document an equivalent), and test a restore into a fresh database.
+* Inactivity pause: document in the runbook how to check and resume the Supabase project before the demo; do not rely on the project being awake.
+
+Provisional performance targets (on the chosen hosting, including cold start, measured and reported):
+* 12,000 rows validated in under 30 seconds.
+* 12,000 rows analysed in under 60 seconds.
+
+Acceptance: no unresolved critical security issues, reliable job processing, successful recovery and restore tests.
+
+PHASE 10 — RELEASE CANDIDATE
+
+* Demo deployment, clean demo account, seeded synthetic data, demo script, backup screen recording, architecture and limitations docs, runbooks (including "project paused", "job stuck", "email not arriving"), full acceptance suite.
+
+Acceptance: a clean-account end-to-end demonstration works reliably three times in a row.
+
+12. TESTING RULES
+
+Use as appropriate: Python unit and integration tests (pytest), TypeScript tests (Vitest), component tests, migration tests, RLS tests (pgTAP or SQL tests run in CI), API contract tests, end-to-end tests (Playwright), security tests, synthetic ground-truth tests.
+
+For every phase:
+
+1. Implement.
+2. Run tests.
+3. Record actual test output (commands + pass/fail counts) in the completion report.
+4. Identify failures.
+5. Fix failures.
+6. Rerun tests.
+7. Evaluate acceptance criteria.
+8. Produce the completion report.
+9. Stop at the gate and wait for founder approval.
+
+Never claim success without actual execution evidence. If a test could not be run (for example, no access to a service), say so plainly; that criterion is not passed.
+
+A phase cannot pass with unresolved critical failures.
+
+13. FRONTEND QUALITY
+
+Professional, serious data-intelligence look: clear navigation, responsive layout, accessible components (keyboard + contrast), professional tables and charts, useful filtering, clear loading/error/empty states, consistent type and spacing, strong dashboard hierarchy.
+
+Language in the UI must be neutral: "unusual", "flagged for review", "data quality issue" — never "fraud", "rigged" or similar.
+
+Do not spend time on decoration before the backend works. Functionality, security and data integrity come first.
+
+14. GIT AND DELIVERY RULES
+
+* GitHub is the single source of truth.
+* Commit completed milestones with descriptive messages.
+* Never commit secrets.
+* Keep main stable; use feature branches and pull requests.
+* Preserve existing work; inspect before changing.
+* Only one agent session edits the repository at a time.
+* Keep documentation and docs/STATUS.md updated.
+* The repository must be reproducible from README instructions alone.
+
+15. COST AND AUTHORISATION RULES
+
+Before creating or activating any external resource, check and record (with source link and date): pricing, free-tier quotas, whether a payment method is required, sleep/pause behaviour, storage limits, API limits, and possible charges.
+
+Do not enable billing, add payment methods or incur charges without explicit founder approval.
+
+If an integration needs authorisation, tell the founder exactly what to click or run, and continue independent work while waiting.
+
+16. PHASE COMPLETION REPORT
+
+At the end of each phase, report (and commit as docs/phase-reports/phase-N.md):
+
+PHASE NUMBER AND NAME
+OBJECTIVE
+IMPLEMENTED FUNCTIONALITY
+IMPORTANT FILES CREATED OR MODIFIED
+DATABASE MIGRATIONS
+TESTS EXECUTED (commands)
+ACTUAL TEST RESULTS (counts, failures)
+SECURITY REVIEW
+DEPLOYMENT STATUS (URLs, what is live)
+KNOWN LIMITATIONS
+COST AND BILLING STATUS
+DAYS REMAINING TO DEMO / CRITICAL PATH STATUS
+ACCEPTANCE CRITERIA AND EVIDENCE
+PASS OR FAIL
+DECISIONS NEEDED FROM FOUNDER
+NEXT PHASE
+
+Do not mark a phase complete just because code was written.
+
+17. FIRST ACTION — BEGIN NOW
+
+1. Read this whole prompt. If docs/STATUS.md exists in the repository, read it and resume from it instead of starting over.
+2. Confirm in a short paragraph that you understand the project.
+3. Inspect what tools and accounts you actually have access to (GitHub, Supabase, Vercel, Google Cloud). List what is missing.
+4. Inspect existing repositories (read only); determine whether an AI4Elections repository exists.
+5. Inspect existing project files before changing anything.
+6. List the exact external authorisations the founder must perform, and the hosting decision (Option A or B) they must make.
+7. Begin Phase 0: repository structure, docs/STATUS.md, ADRs, contracts, CI.
+8. Commit the foundation where authorised.
+9. Run the worker spike once hosting is chosen.
+10. Run Phase 0 tests.
+11. Produce the Phase 0 completion report and stop at the gate.
+
+Do not assume access to previous conversations. This prompt (plus docs/STATUS.md and any attached blueprint) is your project context. If a revised engineering blueprint is attached, read it fully and treat it as the authoritative supplementary specification; where it conflicts with this prompt, list the conflicts and ask the founder.
+
+Do not merely tell the founder what should be done. IMPLEMENT IT.
+
+Your ultimate responsibility is to deliver a functioning, secure, reproducible and demonstrable AI4Elections MVP through disciplined phase-by-phase engineering.

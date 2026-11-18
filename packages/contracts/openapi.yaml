@@ -1,0 +1,807 @@
+openapi: 3.1.0
+info:
+  title: AI4Elections API
+  version: 0.1.0
+  description: |
+    Contract for the AI4Elections FastAPI service. This file is the single source of truth (ADR-0006).
+
+    Conventions
+    - Auth: every endpoint except `/health` requires `Authorization: Bearer <Supabase user JWT>`.
+    - Roles: `x-required-roles` lists organisation roles allowed to call the operation. The server checks
+      membership and role in the database for the organisation that owns the target resource.
+    - Errors: every error body is `Error`. Codes are a fixed list (see `ErrorCode`). No stack traces or SQL text.
+    - Idempotency: POST operations marked `x-idempotent: true` accept `Idempotency-Key`. Repeating a request
+      with the same key and body returns the original result; same key with a different body returns 409 CONFLICT.
+    - Pagination: list endpoints use opaque cursors (`cursor`, `limit`), returning `next_cursor` or null.
+    - Rate limits: per user and per IP; exceeding returns 429 RATE_LIMITED with `Retry-After`.
+    - Language: findings are investigation signals, never fraud verdicts.
+servers:
+  - url: https://api.example.invalid
+    description: Placeholder. Real URL set per deployment.
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness check (no data, no auth)
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /uploads:
+    post:
+      operationId: createUpload
+      summary: Register an upload, create a dataset version record, return a signed upload URL
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadRequest" }
+      responses:
+        "201":
+          description: Version registered; upload the file to `upload_url` before it expires
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadResponse" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /dataset-versions/{id}/finalize:
+    post:
+      operationId: finalizeDatasetVersion
+      summary: Confirm the upload, compute SHA-256 server-side from stored bytes, queue ingestion
+      description: One-time operation. Calling it again on a finalized version returns the same result.
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Version finalized and ingestion queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FinalizeResponse" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /dataset-versions/{id}/mapping:
+    put:
+      operationId: saveMapping
+      summary: Save the column mapping for a dataset version
+      x-required-roles: [admin, analyst]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ColumnMapping" }
+      responses:
+        "200":
+          description: Mapping saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ColumnMappingSaved" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /jobs:
+    post:
+      operationId: createJob
+      summary: Queue a validation or analysis job
+      description: Duplicate requests for the same job type, target and input return the existing non-terminal job (200).
+      x-required-roles: [admin, analyst, researcher]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobRequest" }
+      responses:
+        "200":
+          description: An equivalent job already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "202":
+          description: Job queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      summary: Get job status
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /findings:
+    get:
+      operationId: listFindings
+      summary: List and filter findings for one project
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: analytical_run_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: category, in: query, required: false, schema: { $ref: "#/components/schemas/FindingCategory" } }
+        - { name: indicator, in: query, required: false, schema: { $ref: "#/components/schemas/Indicator" } }
+        - { name: severity, in: query, required: false, schema: { $ref: "#/components/schemas/Severity" } }
+        - { name: confidence, in: query, required: false, schema: { $ref: "#/components/schemas/Confidence" } }
+        - { name: review_status, in: query, required: false, schema: { $ref: "#/components/schemas/ReviewStatusFilter" } }
+        - { name: state, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - { name: lga, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - { name: ward, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of findings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingPage" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /findings/{id}/reviews:
+    post:
+      operationId: createReview
+      summary: Record a human review decision (append-only)
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewRequest" }
+      responses:
+        "201":
+          description: Review recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /claims:
+    post:
+      operationId: createClaim
+      summary: Record a human-entered claim (always starts as unverified_allegation)
+      x-required-roles: [admin, analyst, researcher]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClaimRequest" }
+      responses:
+        "201":
+          description: Claim recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Claim" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /claims/{id}/verify:
+    post:
+      operationId: verifyClaim
+      summary: Sign off a claim as verified_fact
+      description: |
+        Allowed only when at least one independent evidence item is attached and the caller did not create the claim.
+        Otherwise 409 CONFLICT with a reason in `details`.
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyClaimRequest" }
+      responses:
+        "200":
+          description: Claim verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Claim" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /reports:
+    post:
+      operationId: createReport
+      summary: Create an immutable report snapshot
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportRequest" }
+      responses:
+        "201":
+          description: Report created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Report" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /reports/{id}/export:
+    get:
+      operationId: exportReport
+      summary: Export a report as CSV or Markdown (formula-injection safe)
+      x-required-roles: [admin, analyst]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - name: format
+          in: query
+          required: true
+          schema: { type: string, enum: [csv, md] }
+      responses:
+        "200":
+          description: Export file
+          headers:
+            X-Report-Content-Hash:
+              description: SHA-256 content hash of the report (ADR-0005)
+              schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+          content:
+            text/csv:
+              schema: { type: string }
+            text/markdown:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth access token of the signed-in user.
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+
+  responses:
+    ValidationFailed:
+      description: Request is invalid
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unauthenticated:
+      description: Missing or invalid token
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Authenticated but not allowed (wrong organisation or role)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Resource not found or not visible to the caller
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: State conflict (already finalized, idempotency key reused with a different body, rule not met)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    RateLimited:
+      description: Too many requests
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Internal:
+      description: Unexpected server error (no internal details exposed)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status: { type: string, enum: [ok] }
+        version: { type: string }
+
+    ErrorCode:
+      type: string
+      enum: [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, INTERNAL]
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code: { $ref: "#/components/schemas/ErrorCode" }
+        message: { type: string, description: "Safe, human-readable message" }
+        request_id: { type: string }
+        details:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    Role:
+      type: string
+      enum: [admin, analyst, researcher, viewer]
+
+    SourceType:
+      type: string
+      enum: [synthetic, official_publication, observer_collation, other]
+
+    UploadRequest:
+      type: object
+      additionalProperties: false
+      required: [project_id, original_filename, size_bytes, content_type, source_type, source_description]
+      properties:
+        project_id: { type: string, format: uuid }
+        dataset_id:
+          type: [string, "null"]
+          format: uuid
+          description: Existing dataset to add a new version to. Null creates a new dataset.
+        dataset_name:
+          type: [string, "null"]
+          maxLength: 200
+          description: Required when dataset_id is null.
+        original_filename: { type: string, minLength: 1, maxLength: 255 }
+        size_bytes: { type: integer, minimum: 1, maximum: 26214400 }
+        content_type: { type: string, enum: [text/csv, application/vnd.ms-excel] }
+        source_type: { $ref: "#/components/schemas/SourceType" }
+        source_description: { type: string, minLength: 1, maxLength: 2000 }
+
+    UploadResponse:
+      type: object
+      additionalProperties: false
+      required: [dataset_id, dataset_version_id, version_number, upload_url, upload_token, expires_at]
+      properties:
+        dataset_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        version_number: { type: integer, minimum: 1 }
+        upload_url: { type: string, format: uri }
+        upload_token: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    DatasetVersionStatus:
+      type: string
+      enum: [awaiting_upload, uploaded, ingesting, ingested, ingest_failed, archived]
+
+    FinalizeResponse:
+      type: object
+      additionalProperties: false
+      required: [dataset_version_id, status, sha256, size_bytes, ingestion_job]
+      properties:
+        dataset_version_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/DatasetVersionStatus" }
+        sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        size_bytes: { type: integer }
+        duplicate_of_version_id:
+          type: [string, "null"]
+          format: uuid
+          description: Set when an identical file (same SHA-256) already exists in this dataset.
+        ingestion_job: { $ref: "#/components/schemas/Job" }
+
+    CanonicalField:
+      type: string
+      enum: [pu_code, state, lga, ward, registered_voters, accredited_voters, valid_votes, rejected_votes, total_cast, latitude, longitude]
+
+    ColumnMapping:
+      type: object
+      additionalProperties: false
+      required: [schema_version, fields, party_columns]
+      properties:
+        schema_version: { type: string, const: "1.0.0" }
+        fields:
+          type: object
+          description: Canonical field → source column header.
+          propertyNames: { $ref: "#/components/schemas/CanonicalField" }
+          additionalProperties: { type: string, minLength: 1, maxLength: 200 }
+        party_columns:
+          type: array
+          minItems: 2
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [source_column, party_code]
+            properties:
+              source_column: { type: string, minLength: 1, maxLength: 200 }
+              party_code: { type: string, pattern: "^[A-Z0-9_]{1,16}$" }
+        save_as_template_name:
+          type: [string, "null"]
+          maxLength: 120
+
+    ColumnMappingSaved:
+      type: object
+      additionalProperties: false
+      required: [dataset_version_id, schema_version, issues]
+      properties:
+        dataset_version_id: { type: string, format: uuid }
+        schema_version: { type: string }
+        template_id:
+          type: [string, "null"]
+          format: uuid
+        issues:
+          description: Mapping-level validation results (V001, V002). Empty when the mapping is complete.
+          type: array
+          items: { $ref: "#/components/schemas/MappingIssue" }
+
+    MappingIssue:
+      type: object
+      additionalProperties: false
+      required: [rule_id, message]
+      properties:
+        rule_id: { type: string, enum: [V001, V002] }
+        field: { type: string }
+        message: { type: string }
+
+    JobType:
+      type: string
+      enum: [ingest, validate, analyse]
+
+    JobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+
+    JobRequest:
+      type: object
+      additionalProperties: false
+      required: [job_type, dataset_version_id]
+      properties:
+        job_type:
+          type: string
+          enum: [validate, analyse]
+          description: Ingestion is queued only by finalize.
+        dataset_version_id: { type: string, format: uuid }
+
+    Job:
+      type: object
+      additionalProperties: false
+      required: [id, job_type, status, progress, attempt_count, max_attempts, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        job_type: { $ref: "#/components/schemas/JobType" }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        progress: { type: number, minimum: 0, maximum: 1 }
+        attempt_count: { type: integer, minimum: 0 }
+        max_attempts: { type: integer, minimum: 1 }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        heartbeat_at: { type: [string, "null"], format: date-time }
+        error_code: { type: [string, "null"] }
+        retryable: { type: [boolean, "null"] }
+        analytical_run_id:
+          type: [string, "null"]
+          format: uuid
+          description: Set for analyse jobs once the run is complete.
+
+    FindingCategory:
+      type: string
+      enum: [observation, data_quality_issue, statistical_anomaly]
+
+    Indicator:
+      type: string
+      enum: [turnout_rate, leading_party_share]
+
+    Severity:
+      type: string
+      enum: [info, low, medium, high, very_high]
+
+    Confidence:
+      type: string
+      enum: [low, medium, high]
+
+    ReviewDecision:
+      type: string
+      enum: [acknowledged, needs_more_evidence, explained_by_data_error, explained_by_context, escalated]
+
+    ReviewStatusFilter:
+      type: string
+      enum: [unreviewed, acknowledged, needs_more_evidence, explained_by_data_error, explained_by_context, escalated]
+
+    PeerGroup:
+      type: object
+      additionalProperties: false
+      required: [level, key, sample_size, fallback_used]
+      properties:
+        level: { type: string, enum: [ward, lga] }
+        key: { type: string, description: "state|lga|ward or state|lga" }
+        sample_size: { type: integer, minimum: 0 }
+        fallback_used: { type: boolean }
+
+    Statistics:
+      type: object
+      additionalProperties: false
+      required: [value, median, mad, robust_z, threshold, not_scored_reason]
+      properties:
+        value: { type: [string, "null"], description: "Decimal string, 6 dp" }
+        median: { type: [string, "null"] }
+        mad: { type: [string, "null"] }
+        robust_z: { type: [string, "null"] }
+        threshold: { type: string }
+        not_scored_reason:
+          type: [string, "null"]
+          enum: [insufficient_peers, zero_mad, denominator_zero, quarantined, null]
+
+    EvidenceItem:
+      type: object
+      additionalProperties: false
+      required: [raw_row_id, source_row_number, cells]
+      properties:
+        raw_row_id: { type: string, format: uuid }
+        source_row_number: { type: integer, minimum: 1 }
+        cells:
+          type: object
+          description: Source column header → original cell text.
+          additionalProperties: { type: string }
+
+    Exclusion:
+      type: object
+      additionalProperties: false
+      required: [raw_row_id, reason]
+      properties:
+        raw_row_id: { type: string, format: uuid }
+        reason: { type: string }
+
+    Finding:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, dataset_version_id, category, severity, confidence, title, explanation, limitations, evidence, created_at, review_status, provenance]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        analytical_run_id: { type: [string, "null"], format: uuid }
+        category: { $ref: "#/components/schemas/FindingCategory" }
+        indicator:
+          oneOf:
+            - $ref: "#/components/schemas/Indicator"
+            - type: "null"
+        rule_id: { type: [string, "null"], description: Validation rule ID for data_quality_issue findings }
+        pu_code: { type: [string, "null"] }
+        state: { type: [string, "null"] }
+        lga: { type: [string, "null"] }
+        ward: { type: [string, "null"] }
+        severity: { $ref: "#/components/schemas/Severity" }
+        confidence: { $ref: "#/components/schemas/Confidence" }
+        title: { type: string }
+        explanation: { type: string }
+        limitations: { type: string }
+        peer_group:
+          oneOf:
+            - $ref: "#/components/schemas/PeerGroup"
+            - type: "null"
+        statistics:
+          oneOf:
+            - $ref: "#/components/schemas/Statistics"
+            - type: "null"
+        exclusions:
+          type: array
+          items: { $ref: "#/components/schemas/Exclusion" }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/EvidenceItem" }
+        review_status: { $ref: "#/components/schemas/ReviewStatusFilter" }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+        created_at: { type: string, format: date-time }
+
+    Provenance:
+      type: object
+      additionalProperties: false
+      required: [dataset_sha256, schema_version, engine_version]
+      properties:
+        dataset_sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        schema_version: { type: string }
+        engine_version: { type: string }
+        method_version: { type: [string, "null"] }
+        rule_version: { type: [string, "null"] }
+
+    FindingPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        next_cursor: { type: [string, "null"] }
+
+    ReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, reason]
+      properties:
+        decision: { $ref: "#/components/schemas/ReviewDecision" }
+        reason: { type: string, minLength: 10, maxLength: 4000 }
+
+    Review:
+      type: object
+      additionalProperties: false
+      required: [id, finding_id, decision, reason, reviewer_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        finding_id: { type: string, format: uuid }
+        decision: { $ref: "#/components/schemas/ReviewDecision" }
+        reason: { type: string }
+        reviewer_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+
+    ClaimStatus:
+      type: string
+      enum: [unverified_allegation, verified_fact]
+
+    ClaimEvidenceInput:
+      type: object
+      additionalProperties: false
+      required: [kind, description]
+      properties:
+        kind: { type: string, enum: [document_reference, link, file] }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        url: { type: [string, "null"], format: uri }
+        file_sha256: { type: [string, "null"], pattern: "^[a-f0-9]{64}$" }
+
+    ClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [project_id, statement]
+      properties:
+        project_id: { type: string, format: uuid }
+        finding_id: { type: [string, "null"], format: uuid }
+        statement: { type: string, minLength: 10, maxLength: 4000 }
+        evidence:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/ClaimEvidenceInput" }
+
+    VerifyClaimRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 10, maxLength: 4000 }
+
+    Claim:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, statement, status, created_by, created_at, evidence_count]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        finding_id: { type: [string, "null"], format: uuid }
+        statement: { type: string }
+        status: { $ref: "#/components/schemas/ClaimStatus" }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        evidence_count: { type: integer, minimum: 0 }
+        verified_by: { type: [string, "null"], format: uuid }
+        verified_at: { type: [string, "null"], format: date-time }
+        verification_reason: { type: [string, "null"] }
+
+    ReportRequest:
+      type: object
+      additionalProperties: false
+      required: [project_id, analytical_run_id]
+      properties:
+        project_id: { type: string, format: uuid }
+        analytical_run_id: { type: string, format: uuid }
+        title: { type: [string, "null"], maxLength: 200 }
+
+    Report:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, analytical_run_id, dataset_version_id, content_hash, audit_checkpoint, generated_at, generated_by]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        analytical_run_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        title: { type: [string, "null"] }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        audit_checkpoint:
+          type: object
+          additionalProperties: false
+          required: [audit_event_id, event_hash]
+          properties:
+            audit_event_id: { type: string, format: uuid }
+            event_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        generated_at: { type: string, format: date-time }
+        generated_by: { type: string, format: uuid }

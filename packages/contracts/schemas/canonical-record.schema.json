@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4elections.invalid/schemas/canonical-record/1.0.0",
+  "title": "Canonical polling-unit result record",
+  "description": "Schema version 1.0.0. One row of election results after mapping. Values that failed validation are null here and remain traceable through raw_row_id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "raw_row_id", "source_row_number", "pu_code", "state", "lga", "ward", "registered_voters", "accredited_voters", "valid_votes", "rejected_votes", "total_cast", "party_votes"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "raw_row_id": { "type": "string", "format": "uuid" },
+    "source_row_number": { "type": "integer", "minimum": 1 },
+    "pu_code": { "type": ["string", "null"], "maxLength": 100 },
+    "state": { "type": ["string", "null"], "maxLength": 200 },
+    "lga": { "type": ["string", "null"], "maxLength": 200 },
+    "ward": { "type": ["string", "null"], "maxLength": 200 },
+    "registered_voters": { "type": ["integer", "null"], "minimum": 0 },
+    "accredited_voters": { "type": ["integer", "null"], "minimum": 0 },
+    "valid_votes": { "type": ["integer", "null"], "minimum": 0 },
+    "rejected_votes": { "type": ["integer", "null"], "minimum": 0 },
+    "total_cast": { "type": ["integer", "null"], "minimum": 0 },
+    "party_votes": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z0-9_]{1,16}$" },
+      "additionalProperties": { "type": ["integer", "null"], "minimum": 0 }
+    },
+    "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 },
+    "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+    "coordinates_synthetic": { "type": "boolean", "default": true }
+  },
+  "dependentRequired": { "latitude": ["longitude"], "longitude": ["latitude"] }
+}

@@ -1,0 +1,68 @@
+name: Worker
+
+# Job worker for the PostgreSQL ledger (ADR-0002, ADR-0003).
+# - repository_dispatch "ai4e-job": sent by the API right after it queues a job.
+# - schedule: safety sweep every 15 min (reconciles stale jobs, picks up lost dispatches).
+# - workflow_dispatch: manual run; mode "spike" runs the Phase 0 90-second worker spike.
+
+on:
+  repository_dispatch:
+    types: [ai4e-job]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "drain = process queued jobs; spike = run the 90 s worker spike"
+        type: choice
+        options: [drain, spike]
+        default: drain
+      duration:
+        description: "Spike job duration in seconds"
+        default: "90"
+
+permissions:
+  contents: read
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Phase 0 has only the spike ledger. Set repo variable LEDGER_SCHEMA=public after Phase 1.
+      LEDGER_SCHEMA: ${{ vars.LEDGER_SCHEMA || 'spike' }}
+      SPIKE_HOST: github-actions/ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - name: Check configuration
+        id: cfg
+        working-directory: .
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL secret not set; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.configured == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.cfg.outputs.configured == 'true'
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/api/requirements.txt
+      - if: steps.cfg.outputs.configured == 'true'
+        run: python -m pip install -r requirements.txt
+      - name: Ensure spike schema exists
+        if: steps.cfg.outputs.configured == 'true' && env.LEDGER_SCHEMA == 'spike'
+        run: python -c "import os,psycopg; c=psycopg.connect(os.environ['DATABASE_URL'],autocommit=True); c.execute(open('spike/schema.sql').read())"
+      - name: Run 90-second worker spike
+        if: steps.cfg.outputs.configured == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'spike'
+        run: python spike/run_spike.py --duration "${{ inputs.duration }}" --stale 20
+      - name: Drain queue
+        if: steps.cfg.outputs.configured == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'spike')
+        run: python -m app.jobs.worker --drain

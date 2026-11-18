@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4elections.invalid/schemas/validation-rule/1.0.0",
+  "title": "Validation rule definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rule_id", "version", "severity", "classification", "description", "affected_fields", "remediation", "excludes_from"],
+  "properties": {
+    "rule_id": { "type": "string", "pattern": "^V[0-9]{3}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "severity": { "enum": ["info", "warning", "error"] },
+    "classification": { "enum": ["structural", "completeness", "arithmetic", "consistency", "identity", "geography"] },
+    "description": { "type": "string", "minLength": 1 },
+    "affected_fields": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "remediation": { "type": "string", "minLength": 1 },
+    "parameters": { "type": "object", "description": "Versioned rule parameters, e.g. {\"tolerance\": 0}" },
+    "excludes_from": {
+      "type": "array",
+      "description": "Indicators a row is quarantined from when this rule fires with severity error.",
+      "items": { "enum": ["turnout_rate", "leading_party_share", "all"] }
+    }
+  }
+}

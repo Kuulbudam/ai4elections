@@ -1,0 +1,26 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+coverage/
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+
+# local data (only synthetic data is ever allowed, and generated files are not committed)
+*.local.csv
+tmp/
