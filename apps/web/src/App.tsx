@@ -1,55 +1,95 @@
 import { useEffect, useState } from 'react'
+import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import type { components } from './api/schema'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { getSupabase } from './lib/supabase'
+import Members from './pages/Members'
+import Organisations from './pages/Organisations'
+import Profile from './pages/Profile'
+import SignIn from './pages/SignIn'
 
 type Health = components['schemas']['Health']
-type ApiState =
-  | { kind: 'not_configured' }
-  | { kind: 'checking' }
-  | { kind: 'ok'; health: Health }
-  | { kind: 'unreachable' }
 
 function apiBaseUrl(): string | undefined {
   const value = import.meta.env.VITE_API_BASE_URL as string | undefined
   return value && value.trim() ? value.trim().replace(/\/$/, '') : undefined
 }
 
-export default function App() {
+export function ApiStatus() {
   const base = apiBaseUrl()
-  const [api, setApi] = useState<ApiState>(base ? { kind: 'checking' } : { kind: 'not_configured' })
+  const [text, setText] = useState(base ? 'Checking API…' : 'API address not configured for this deployment.')
 
   useEffect(() => {
     if (!base) return
     const ctrl = new AbortController()
     fetch(`${base}/health`, { signal: ctrl.signal })
-      .then(async (r) => (r.ok ? setApi({ kind: 'ok', health: (await r.json()) as Health }) : setApi({ kind: 'unreachable' })))
+      .then(async (r) => {
+        if (!r.ok) return setText('API unreachable. Try again shortly.')
+        const h = (await r.json()) as Health
+        setText(`API online (version ${h.version}).`)
+      })
       .catch(() => {
-        if (!ctrl.signal.aborted) setApi({ kind: 'unreachable' })
+        if (!ctrl.signal.aborted) setText('API unreachable. Try again shortly.')
       })
     return () => ctrl.abort()
   }, [base])
 
+  return <span data-testid="api-status">{text}</span>
+}
+
+function Shell() {
+  const { session, loading } = useAuth()
+
+  if (!getSupabase()) {
+    return (
+      <main className="auth-shell">
+        <section className="card auth-card">
+          <h1 className="brand">AI4Elections</h1>
+          <p role="alert">This deployment is not configured: the Supabase URL and public key are missing.</p>
+        </section>
+      </main>
+    )
+  }
+  if (loading) return <p className="muted center">Loading…</p>
+  if (!session) return <SignIn />
+
   return (
-    <main className="shell">
-      <header>
-        <h1>AI4Elections</h1>
-        <p className="tagline">Electoral data validation, anomaly signals and evidence management</p>
-      </header>
+    <BrowserRouter>
+      <div className="layout">
+        <header className="topbar">
+          <Link to="/" className="brand">
+            AI4Elections
+          </Link>
+          <nav aria-label="Main">
+            <NavLink to="/" end>
+              Organisations
+            </NavLink>
+            <NavLink to="/profile">Profile</NavLink>
+          </nav>
+          <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
+            Sign out
+          </button>
+        </header>
+        <main className="content">
+          <Routes>
+            <Route path="/" element={<Organisations />} />
+            <Route path="/orgs/:orgId/members" element={<Members />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="*" element={<p className="empty">Page not found.</p>} />
+          </Routes>
+        </main>
+        <footer className="muted small footer">
+          Findings are signals for human review, not verdicts. All development data is synthetic. <ApiStatus />
+        </footer>
+      </div>
+    </BrowserRouter>
+  )
+}
 
-      <section aria-labelledby="status-heading" className="card">
-        <h2 id="status-heading">System status</h2>
-        <p data-testid="api-status">
-          {api.kind === 'not_configured' && 'API address not configured for this deployment.'}
-          {api.kind === 'checking' && 'Checking API…'}
-          {api.kind === 'ok' && `API online (version ${api.health.version}).`}
-          {api.kind === 'unreachable' && 'API unreachable. Try again shortly.'}
-        </p>
-        <p className="muted">Foundation build (Phase 0). Sign-in and projects arrive in Phase 1.</p>
-      </section>
-
-      <footer className="muted">
-        Findings in this platform are signals for human review, not verdicts. All data shown during development is
-        synthetic.
-      </footer>
-    </main>
+export default function App() {
+  return (
+    <AuthProvider>
+      <Shell />
+    </AuthProvider>
   )
 }
