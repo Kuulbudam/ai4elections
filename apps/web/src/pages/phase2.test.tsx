@@ -46,6 +46,16 @@ describe('column mapping suggestions', () => {
     expect(s.parties.filter((p) => p.include).map((p) => p.party_code)).toEqual(['PA', 'PB'])
     expect(s.parties.find((p) => p.source_column === 'Notes')?.include).toBe(false)
   })
+
+  it('maps the converted CCIJ/VEZA real-data file (no rejected or total-cast column)', () => {
+    const s = suggestMapping([
+      'PU Code', 'State', 'LGA', 'Ward', 'Polling Unit', 'Registered Voters', 'Accredited Voters', 'Valid Votes',
+      'Votes APC', 'Votes PDP', 'Votes LP', 'Votes NNPP', 'Latitude', 'Longitude', 'Source Status', 'Source Document',
+    ])
+    expect(s.fields.valid_votes).toBe('Valid Votes')
+    expect(s.fields.total_cast).toBeUndefined()
+    expect(s.parties.filter((p) => p.include).map((p) => p.party_code)).toEqual(['APC', 'PDP', 'LP', 'NNPP'])
+  })
 })
 
 describe('projects', () => {

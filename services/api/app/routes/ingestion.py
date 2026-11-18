@@ -50,10 +50,9 @@ router = APIRouter()
 UPLOADERS = {"admin", "analyst"}
 ALL_ROLES = {"admin", "analyst", "researcher", "viewer"}
 REQUIRED_FIELDS = [
-    "pu_code", "state", "lga", "ward", "registered_voters", "accredited_voters",
-    "valid_votes", "rejected_votes", "total_cast",
+    "pu_code", "state", "lga", "ward", "registered_voters", "accredited_voters", "valid_votes",
 ]  # fmt: skip
-OPTIONAL_FIELDS = ["latitude", "longitude"]
+OPTIONAL_FIELDS = ["rejected_votes", "total_cast", "latitude", "longitude"]
 MAX_BYTES = 25 * 1024 * 1024
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 

@@ -130,6 +130,8 @@ tr.archived td { color: var(--granite); }
 .status-ingest_failed { color: var(--bad); }
 progress { width: 100%; accent-color: var(--crimson); }
 .inline-label { max-width: 360px; }
+label.check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-weight: 600; }
+label.check input { width: auto; margin: 0; }
 
 /* ---------- sign-in ---------- */
 .auth-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(280px, 5fr) 7fr; background: var(--paper); }

@@ -84,7 +84,7 @@ def test_validation_end_to_end_matches_ground_truth(api, world, ingested):
     )[0]
     s = v["validation_summary"]
     assert v["validation_job_id"] == job["id"]
-    assert s["rows"] == 12_023 and s["reference_list_used"] is True and s["ruleset_version"] == "1.0.0"
+    assert s["rows"] == 12_023 and s["reference_list_used"] is True and s["ruleset_version"] == "1.1.0"
     assert s["row_status"]["eligible"] == sum(1 for t in truth() if not t["expected_rules"])
     rules = {r["rule_id"] for r in q(world, "SELECT rule_id FROM public.validation_rules")}
     assert rules == {f"V{n:03d}" for n in range(1, 13)}

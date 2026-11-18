@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from app.ingest.csv_parse import parse_csv
-from app.validation.engine import validate
+from app.validation.engine import check_mapping, validate
 from app.validation.rules import RULES, definitions
 
 REPO = Path(__file__).resolve().parents[3]
@@ -169,6 +169,51 @@ def test_single_row_rules(over, rules):
     cols = list(row)
     result = validate(cols, [("r1", 2, list(row.values()))], MAPPING)
     assert {i.rule_id for i in result.issues} == rules
+
+
+# Schema 1.1.0: rejected votes and total cast are optional; a partial party list is allowed.
+PARTIAL = {
+    **MAPPING,
+    "schema_version": "1.1.0",
+    "fields": {k: v for k, v in MAPPING["fields"].items() if k not in ("rejected_votes", "total_cast")},
+    "party_columns": MAPPING["party_columns"][:2],
+    "party_columns_complete": False,
+}
+
+
+@pytest.mark.parametrize(
+    "over,rules",
+    [
+        ({}, set()),
+        ({"Votes PA": "20", "Votes PB": "10"}, set()),  # other parties may hold the rest
+        ({"Votes PA": "40", "Votes PB": "10"}, {"V008"}),  # listed parties exceed valid votes
+        ({"Valid Votes": "51", "Votes PB": "21"}, {"V007"}),  # valid votes exceed accredited (50)
+        ({"Rejected Votes": "", "Total Votes Cast": "x"}, set()),  # unmapped columns are not read
+        ({"Valid Votes": ""}, {"V003"}),
+    ],
+)
+def test_partial_party_list_without_totals(over, rules):
+    row = _row(**over)
+    result = validate(list(row), [("r1", 2, list(row.values()))], PARTIAL)
+    assert {i.rule_id for i in result.issues} == rules
+
+
+def test_partial_mapping_needs_no_rejected_or_total():
+    assert check_mapping(list(_row()), PARTIAL) == []
+
+
+def test_rejected_without_total_is_compared_with_accreditation():
+    m = {**PARTIAL, "fields": {**PARTIAL["fields"], "rejected_votes": "Rejected Votes"}}
+    row = _row(**{"Rejected Votes": "3"})  # 48 valid + 3 rejected > 50 accredited
+    result = validate(list(row), [("r1", 2, list(row.values()))], m)
+    assert [i.rule_id for i in result.issues] == ["V007"]
+
+
+def test_complete_flag_defaults_to_exact_match():
+    m = {k: v for k, v in PARTIAL.items() if k != "party_columns_complete"}
+    row = _row(**{"Votes PA": "20"})  # 20 + 18 = 38, valid 48
+    assert [i.rule_id for i in validate(list(row), [("r1", 2, list(row.values()))], m).issues] == ["V008"]
+    assert validate(list(row), [("r1", 2, list(row.values()))], PARTIAL).issues == []
 
 
 def test_ragged_row_missing_cells_are_v003():

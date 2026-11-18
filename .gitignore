@@ -24,3 +24,4 @@ coverage/
 # local data (only synthetic data is ever allowed, and generated files are not committed)
 *.local.csv
 tmp/
+data/real/
