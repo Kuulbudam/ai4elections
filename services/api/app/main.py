@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.contracts.models import Error, Health
+from app.routes import ingestion
 
 VERSION = "0.1.0"
 log = logging.getLogger("ai4e.api")
@@ -60,8 +61,7 @@ async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
 @app.exception_handler(RequestValidationError)
 async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
     details = [
-        {"field": ".".join(str(p) for p in e.get("loc", ())), "message": e.get("msg", "invalid")}
-        for e in exc.errors()
+        {"field": ".".join(str(p) for p in e.get("loc", ())), "message": e.get("msg", "invalid")} for e in exc.errors()
     ]
     return _error(400, "VALIDATION_FAILED", "Request is invalid", details)
 
@@ -70,6 +70,9 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
 async def unexpected_error(_: Request, exc: Exception) -> JSONResponse:
     log.exception("unhandled error", exc_info=exc)
     return _error(500, "INTERNAL", "An unexpected error occurred")
+
+
+app.include_router(ingestion.router)
 
 
 @app.get("/health", response_model=Health)

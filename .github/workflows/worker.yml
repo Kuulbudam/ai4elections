@@ -30,8 +30,9 @@ jobs:
     timeout-minutes: 20
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      # Phase 0 has only the spike ledger. Set repo variable LEDGER_SCHEMA=public after Phase 1.
-      LEDGER_SCHEMA: ${{ vars.LEDGER_SCHEMA || 'spike' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LEDGER_SCHEMA: public
       SPIKE_HOST: github-actions/ubuntu-latest
     defaults:
       run:
@@ -58,10 +59,12 @@ jobs:
       - if: steps.cfg.outputs.configured == 'true'
         run: python -m pip install -r requirements.txt
       - name: Ensure spike schema exists
-        if: steps.cfg.outputs.configured == 'true' && env.LEDGER_SCHEMA == 'spike'
+        if: steps.cfg.outputs.configured == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'spike'
         run: python -c "import os,psycopg; c=psycopg.connect(os.environ['DATABASE_URL'],autocommit=True); c.execute(open('spike/schema.sql').read())"
       - name: Run 90-second worker spike
         if: steps.cfg.outputs.configured == 'true' && github.event_name == 'workflow_dispatch' && inputs.mode == 'spike'
+        env:
+          LEDGER_SCHEMA: spike
         run: python spike/run_spike.py --duration "${{ inputs.duration }}" --stale 20
       - name: Drain queue
         if: steps.cfg.outputs.configured == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'spike')

@@ -219,9 +219,7 @@ def main() -> int:
         f"{URL}/rest/v1/findings?id=eq.{findings['a']}&select=id",
         headers=user_headers(users[("b", "admin")]["token"]),
     )
-    check(
-        "org B admin cannot fetch org A finding by id", r.status_code == 200 and r.json() == [], r.text[:120]
-    )
+    check("org B admin cannot fetch org A finding by id", r.status_code == 200 and r.json() == [], r.text[:120])
 
     r = http.get(f"{URL}/rest/v1/projects?select=id", headers=key_headers(ANON))
     check(
@@ -265,9 +263,7 @@ def main() -> int:
             "reviewer_id": users[("b", "admin")]["id"],
         },
     )
-    check(
-        "org B admin cannot write a review into org A", r.status_code in (401, 403), f"HTTP {r.status_code}"
-    )
+    check("org B admin cannot write a review into org A", r.status_code in (401, 403), f"HTTP {r.status_code}")
 
     r = http.post(
         f"{URL}/rest/v1/investigation_notes",

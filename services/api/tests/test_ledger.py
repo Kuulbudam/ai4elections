@@ -48,9 +48,7 @@ def _enqueue(conn, **payload):
 
 
 def _count(conn, table, job_id):
-    return conn.execute(f"SELECT count(*) AS n FROM spike.{table} WHERE job_id = %s", (job_id,)).fetchone()[
-        "n"
-    ]
+    return conn.execute(f"SELECT count(*) AS n FROM spike.{table} WHERE job_id = %s", (job_id,)).fetchone()["n"]
 
 
 def test_duplicate_enqueue_returns_existing_job(conn):

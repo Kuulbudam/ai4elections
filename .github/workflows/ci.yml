@@ -34,7 +34,7 @@ jobs:
           cache-dependency-path: services/api/requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
       - name: Lint
-        run: ruff check . && ruff format --check .
+        run: ruff check . ../../tools && ruff format --check . ../../tools
       - name: Contract sync (Pydantic models vs openapi.yaml)
         run: python scripts/gen_models.py --check
       - name: Tests (incl. job-ledger tests on real Postgres)

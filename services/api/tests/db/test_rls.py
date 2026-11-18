@@ -116,9 +116,7 @@ def test_composite_fk_blocks_cross_org_links_even_for_service_role(world, conn):
 
 def test_cannot_update_other_org_project(world, conn):
     with as_user(conn, world.b.users["admin"]) as c:
-        cur = c.execute(
-            "UPDATE public.projects SET description='hijack' WHERE id=%s", (world.a.rows["projects"],)
-        )
+        cur = c.execute("UPDATE public.projects SET description='hijack' WHERE id=%s", (world.a.rows["projects"],))
         assert cur.rowcount == 0
 
 
@@ -299,9 +297,7 @@ def test_dataset_version_provenance_is_immutable(world, conn):
 def test_material_actions_are_audited(world, conn):
     actions = {
         r["action"]
-        for r in conn.execute(
-            "SELECT action FROM public.audit_events WHERE org_id=%s", (world.a.id,)
-        ).fetchall()
+        for r in conn.execute("SELECT action FROM public.audit_events WHERE org_id=%s", (world.a.id,)).fetchall()
     }
     for expected in (
         "organisations.insert",
@@ -357,8 +353,7 @@ def test_concurrent_audited_writes_keep_a_single_chain(world):
                 as_user(c, org.users["analyst"], commit=True),
             ):
                 c.execute(
-                    "INSERT INTO public.investigation_notes (org_id, finding_id, body, author_id) "
-                    "VALUES (%s,%s,%s,%s)",
+                    "INSERT INTO public.investigation_notes (org_id, finding_id, body, author_id) VALUES (%s,%s,%s,%s)",
                     (org.id, org.rows["findings"], f"concurrent note {i}", org.users["analyst"]),
                 )
         except Exception as exc:  # noqa: BLE001
@@ -371,10 +366,7 @@ def test_concurrent_audited_writes_keep_a_single_chain(world):
         t.join()
     assert not errs
     with psycopg.connect(world.dsn) as c:
-        seqs = [
-            r[0]
-            for r in c.execute("SELECT seq FROM public.audit_events WHERE org_id=%s ORDER BY seq", (org.id,))
-        ]
+        seqs = [r[0] for r in c.execute("SELECT seq FROM public.audit_events WHERE org_id=%s ORDER BY seq", (org.id,))]
         assert seqs == list(range(1, len(seqs) + 1))
         assert c.execute("SELECT app.audit_chain_first_break(%s)", (org.id,)).fetchone()[0] is None
 
@@ -383,9 +375,7 @@ def test_concurrent_audited_writes_keep_a_single_chain(world):
 
 
 def test_every_public_table_has_rls_and_every_tenant_table_has_org_id(conn):
-    no_rls = conn.execute(
-        "SELECT tablename FROM pg_tables WHERE schemaname='public' AND NOT rowsecurity"
-    ).fetchall()
+    no_rls = conn.execute("SELECT tablename FROM pg_tables WHERE schemaname='public' AND NOT rowsecurity").fetchall()
     assert no_rls == []
     for table in TENANT_TABLES:
         col = conn.execute(
@@ -410,9 +400,7 @@ def test_job_heartbeats_are_not_audited_but_status_changes_are(world, conn):
     jid = world.a.rows["processing_jobs"]
 
     def n() -> int:
-        return conn.execute(
-            "SELECT count(*) AS n FROM public.audit_events WHERE entity_id=%s", (jid,)
-        ).fetchone()["n"]
+        return conn.execute("SELECT count(*) AS n FROM public.audit_events WHERE entity_id=%s", (jid,)).fetchone()["n"]
 
     with conn.transaction(force_rollback=True):
         before = n()
