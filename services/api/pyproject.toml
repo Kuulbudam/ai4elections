@@ -14,8 +14,11 @@ select = ["E", "F", "I", "B", "UP", "S"]
 ignore = ["S101"]  # assert is fine in tests
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/*" = ["S603"]
-"tests/*" = ["S"]
+"scripts/*" = ["S603", "S608", "E501"]
+"tests/**" = ["S", "E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

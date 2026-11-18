@@ -1,0 +1,61 @@
+name: Database
+
+# Applies supabase/migrations to the real Supabase project, then runs the live security check
+# (Auth + Data API + Storage) against it. Runs when migrations change on main/phase-* branches, or manually.
+
+on:
+  push:
+    # phase-* branches too, so migrations are proven on the real project before merge
+    branches: [main, "phase-*"]
+    paths: ["supabase/migrations/**", "services/api/scripts/migrate.py", "services/api/scripts/live_isolation_check.py"]
+  workflow_dispatch:
+    inputs:
+      live_check:
+        description: "Run the live security check after migrating"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - name: Check configuration
+        id: cfg
+        working-directory: .
+        run: |
+          [ -n "$DATABASE_URL" ] && echo "db=true" >> "$GITHUB_OUTPUT" || echo "db=false" >> "$GITHUB_OUTPUT"
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "api=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "api=false" >> "$GITHUB_OUTPUT"
+            echo "Supabase API secrets not set; live check skipped." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/api/requirements*.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Apply pending migrations
+        if: steps.cfg.outputs.db == 'true'
+        run: python scripts/migrate.py
+      - name: Live security check (real Auth, Data API, Storage)
+        if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
+        run: python scripts/live_isolation_check.py
