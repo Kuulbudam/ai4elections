@@ -59,20 +59,20 @@ jobs:
       PGURL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
-      - name: Apply supabase/migrations in order, then the spike schema
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install "psycopg[binary]==3.2.12"
+      - name: Supabase shim, then migrations via the real migration tool (twice = idempotent)
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          files=(supabase/migrations/*.sql)
-          echo "Found ${#files[@]} migration file(s)"
-          for f in "${files[@]}"; do
-            echo "Applying $f"
-            psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$f"
-          done
+          psql "$PGURL" -v ON_ERROR_STOP=1 -q -f supabase/tests/supabase_shim.sql
+          DATABASE_URL="$PGURL" python services/api/scripts/migrate.py
+          DATABASE_URL="$PGURL" python services/api/scripts/migrate.py | tee /tmp/second.txt
+          grep -q "0 pending" /tmp/second.txt
           psql "$PGURL" -v ON_ERROR_STOP=1 -q -f services/api/spike/schema.sql
-          # Applying twice must not fail (idempotent spike schema)
-          psql "$PGURL" -v ON_ERROR_STOP=1 -q -f services/api/spike/schema.sql
-          psql "$PGURL" -c "\dt spike.*"
+          echo "Tables without RLS (must be none):"
+          test "$(psql "$PGURL" -Atc "select count(*) from pg_tables where schemaname='public' and not rowsecurity")" = "0"
 
   web:
     name: Web (contract sync, lint, typecheck, tests, build)
