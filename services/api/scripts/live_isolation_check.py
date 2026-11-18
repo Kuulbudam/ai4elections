@@ -23,6 +23,7 @@ import uuid
 
 import httpx
 import psycopg
+from live_auth import upgrade_to_aal2
 
 URL = os.environ["SUPABASE_URL"].rstrip("/")
 ANON = os.environ["SUPABASE_ANON_KEY"]
@@ -82,6 +83,16 @@ def main() -> int:
                 check(f"sign in {role}-{tag}", False, f"HTTP {t.status_code}")
                 return report()
     check("register + password sign-in for 8 users", True)
+
+    # --- 1b. two-step verification is required: a password-only session gets nothing
+    aal1 = users[("a", "admin")]["token"]
+    r = http.post(f"{URL}/rest/v1/rpc/create_organisation", headers=user_headers(aal1), json={"p_name": "no mfa"})
+    check("password-only session cannot create an organisation", r.status_code in (401, 403), f"HTTP {r.status_code}")
+    r = http.get(f"{URL}/rest/v1/profiles?select=id", headers=user_headers(aal1))
+    check("password-only session reads no rows", r.status_code == 200 and r.json() == [], r.text[:80])
+    for u in users.values():
+        u["token"] = upgrade_to_aal2(http, URL, ANON, u["token"])
+    check("authenticator-app code verified for 8 users (aal2)", True)
 
     # --- 2. profile trigger ran for every new user
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as db:

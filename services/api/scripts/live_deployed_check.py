@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import httpx
+from live_auth import upgrade_to_aal2
 
 API = os.environ["DEPLOYED_API_URL"].rstrip("/")
 WEB = os.environ["DEPLOYED_WEB_URL"].rstrip("/")
@@ -75,6 +76,9 @@ def main() -> int:
     tok = http.post(
         f"{SB}/auth/v1/token?grant_type=password", headers={"apikey": ANON}, json={"email": email, "password": pw}
     ).json()["access_token"]
+    r = http.get(f"{API}/jobs/00000000-0000-0000-0000-000000000000", headers={"Authorization": f"Bearer {tok}"})
+    check("deployed API refuses a password-only session", r.status_code == 401, f"HTTP {r.status_code}")
+    tok = upgrade_to_aal2(http, SB, ANON, tok)
     user = {"apikey": ANON, "Authorization": f"Bearer {tok}"}
     uid = http.get(f"{SB}/auth/v1/user", headers=user).json()["id"]
     org = http.post(

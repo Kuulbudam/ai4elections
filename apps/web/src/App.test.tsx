@@ -21,6 +21,7 @@ function fakeClient(opts: { session?: unknown; tables?: Record<string, Result>; 
       signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
       signUp: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       signOut: vi.fn(),
+      mfa: { getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }) },
     },
     from: vi.fn((t: string) => query(tables[t] ?? { data: [], error: null })),
     rpc: vi.fn().mockResolvedValue(opts.rpc ?? { data: null, error: null }),

@@ -59,12 +59,16 @@ class World:
 
 
 @contextmanager
-def as_user(conn: psycopg.Connection, user_id: str | None, role: str = "authenticated", commit: bool = False):
-    """Run statements as a Supabase API caller: SET ROLE + JWT claims, inside one transaction."""
+def as_user(
+    conn: psycopg.Connection, user_id: str | None, role: str = "authenticated", commit: bool = False, aal: str = "aal2"
+):
+    """Run statements as a Supabase API caller: SET ROLE + JWT claims, inside one transaction.
+
+    Defaults to a fully verified session (aal2: password + authenticator code)."""
     tx = conn.transaction(force_rollback=not commit)
     with tx:
         conn.execute(f"SET LOCAL ROLE {role}")
-        claims = json.dumps({"sub": user_id, "role": role}) if user_id else ""
+        claims = json.dumps({"sub": user_id, "role": role, "aal": aal}) if user_id else ""
         conn.execute("SELECT set_config('request.jwt.claims', %s, true)", (claims,))
         yield conn
 

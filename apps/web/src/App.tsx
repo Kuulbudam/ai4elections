@@ -10,6 +10,7 @@ import Profile from './pages/Profile'
 import ProjectOverview from './pages/ProjectOverview'
 import Projects from './pages/Projects'
 import SignIn from './pages/SignIn'
+import { TwoStepChallenge, TwoStepEnrol } from './pages/TwoStep'
 import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 
@@ -43,7 +44,7 @@ export function ApiStatus() {
 }
 
 function Shell() {
-  const { session, loading } = useAuth()
+  const { session, loading, aal } = useAuth()
 
   if (!getSupabase()) {
     return (
@@ -57,6 +58,7 @@ function Shell() {
   }
   if (loading) return <p className="muted center">Loading…</p>
   if (!session) return <SignIn />
+  if (aal.current !== 'aal2') return aal.next === 'aal2' ? <TwoStepChallenge /> : <TwoStepEnrol />
 
   return (
     <BrowserRouter>
