@@ -47,6 +47,25 @@ def get_storage() -> Storage:
     return _storage
 
 
+def classify_dispatch_error(r: httpx.Response) -> str:
+    """Map GitHub's error to a short code. GitHub error messages never echo the token."""
+    try:
+        message = str(r.json().get("message", "")).lower()
+    except ValueError:
+        message = ""
+    if r.status_code == 401:
+        return "http_401_bad_credentials"
+    if r.status_code == 403 and "personal access token" in message:
+        return "http_403_token_permission"
+    if r.status_code == 403 and "rate limit" in message:
+        return "http_403_rate_limited"
+    if r.status_code == 403 and ("blocked" in message or "disabled" in message):
+        return "http_403_blocked"
+    if r.status_code == 404:
+        return "http_404_repo_not_visible"
+    return f"http_{r.status_code}"
+
+
 _REPO_RE = re.compile(r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_]{20,255}$")
 
@@ -89,8 +108,8 @@ class Dispatcher:
                 continue
             if r.status_code == 204 or r.status_code < 300:
                 return "ok"
-            result = f"http_{r.status_code}"
-            log.warning("dispatch attempt %d failed: HTTP %s", attempt + 1, r.status_code)
+            result = classify_dispatch_error(r)
+            log.warning("dispatch attempt %d failed: %s", attempt + 1, result)
             if r.status_code < 500:
                 break  # 4xx will not fix itself on retry
         return result

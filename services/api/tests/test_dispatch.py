@@ -18,7 +18,8 @@ class Recorder:
         r = self.responses.pop(0)
         if isinstance(r, Exception):
             raise r
-        return httpx.Response(r, request=httpx.Request("POST", url))
+        status, body = (r, {}) if isinstance(r, int) else r
+        return httpx.Response(status, json=body, request=httpx.Request("POST", url))
 
 
 @pytest.fixture()
@@ -54,10 +55,19 @@ def test_whitespace_pasted_into_vercel_is_stripped(env):
     assert rec.calls[0]["url"].endswith("/repos/Kuulbudam/ai4elections/dispatches")
 
 
-@pytest.mark.parametrize("status", [401, 403, 404, 422])
-def test_client_errors_are_reported_and_not_retried(env, status):
-    result, rec = run(env, [status])
-    assert result == f"http_{status}" and len(rec.calls) == 1
+@pytest.mark.parametrize(
+    "response,code",
+    [
+        ((401, {"message": "Bad credentials"}), "http_401_bad_credentials"),
+        ((403, {"message": "Resource not accessible by personal access token"}), "http_403_token_permission"),
+        ((403, {"message": "API rate limit exceeded"}), "http_403_rate_limited"),
+        ((404, {"message": "Not Found"}), "http_404_repo_not_visible"),
+        ((422, {"message": "Invalid request"}), "http_422"),
+    ],
+)
+def test_client_errors_are_classified_and_not_retried(env, response, code):
+    result, rec = run(env, [response])
+    assert result == code and len(rec.calls) == 1
 
 
 def test_server_error_is_retried_once(env):
