@@ -2,7 +2,7 @@
 
 Read this first in every session. Update it last.
 
-**Last updated:** 18 Nov 2026
+**Last updated:** 19 Nov 2026
 **Current phase:** 3 — Validation: **PASSED** (report `docs/phase-reports/phase-3.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 4.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
@@ -37,6 +37,14 @@ Read this first in every session. Update it last.
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
 
+## Between Phase 3 and Phase 4 (founder requests, 18–19 Nov)
+
+- **Two-step verification (TOTP) required for everyone** (PR #20): enforced in Postgres (restrictive RLS + storage + RPCs need `aal2`) and in the API. Live check 18/18.
+- **Redesign** to a plain institutional research style; **Google sign-in first**, email/password as fallback (PR #21). Google provider enabled in Supabase.
+- **Real data** (PR #22, ADR-0007): CCIJ/VEZA 2023 presidential polling-unit results for **Plateau**, downloaded at run time by `tools/real_data/prepare_ccij.py` (nothing committed; output in git-ignored `data/real/`). Ruleset/schema **1.1.0**: rejected votes and total cast optional; `party_columns_complete=false` for partial party lists.
+  Live (real project): 4,989 PUs, 207 wards; validated in 7.9 s. V003 3,308 issues on 1,016 PUs (blank/unreadable sheets), V006 23, V007 324 (valid votes above BVAS accreditation), V008 91, V009 22. Flags mean "check against the sheet", not misconduct.
+- Licence: source repo has no licence file; founder is asking CCIJ. Fallback is the synthetic data, no code change.
+
 ## Worker dispatch from production (18 Nov) — RESOLVED
 
 - Cause: GitHub returned 403 "Resource not accessible by personal access token" (`dispatch_result=http_403_token_permission`).
@@ -61,9 +69,12 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 4 on branch `phase-4-analysis`: peer groups (ward, LGA fallback, n ≥ 10), MAD robust z (threshold 3.5, zero-MAD and insufficient-peers handled), severity/confidence, evidence, data_quality_issue findings from validation, analytical runs with content hash, ground-truth scoring, analyse job + POST /jobs, analysis progress page.
+Phase 4 on branch `phase-4-analysis`: peer groups (ward, LGA fallback, n ≥ 10), MAD robust z (threshold 3.5, zero-MAD and insufficient-peers handled), severity/confidence, evidence, data_quality_issue findings from validation, analytical runs with content hash, ground-truth scoring, analyse job + POST /jobs, analysis progress page. Also replace the never-firing GitHub cron with a Supabase pg_cron sweep (keeps the project awake). Peer statistics must work with ruleset 1.1.0 data (no total cast, partial party list).
 
 ## Open questions / to verify
+
+- CCIJ reply on terms of use (founder).
+- Founder to confirm Google sign-in lands on two-step setup; inner pages of the redesign to be checked once signed in.
 
 - Scheduled worker sweep never fired with `*/15`; changed to `7,22,37,52 * * * *` in Phase 2. Verify it fires after merge (it also keeps Supabase awake).
 - Dispatch latency (API → `repository_dispatch` → runner claims job): measure once the API is on Vercel (Phase 2).
