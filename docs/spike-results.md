@@ -15,7 +15,19 @@ Note: a first attempt was invalidated because a parallel CI simulation dropped t
 
 ## Run 2 — GitHub Actions runner + Supabase Free (chosen hosting)
 
-**Pending.** Needs `DATABASE_URL` secret (see `docs/founder-setup.md`). Run: Actions → Worker → mode `spike`. Paste the job summary table here.
+**PASS — 18 Nov 2026.** Workflow run 44363949162 (`workflow_dispatch`, mode `spike`, duration 90 s, commit 891f896), GitHub-hosted `ubuntu-latest` runner → Supabase Free via Session pooler.
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| normal 90 s run | PASS | `run_spike.py` exits 0 only if all three scenarios pass; step "Run 90-second worker spike" = success |
+| kill → reconcile → retry | PASS | as above |
+| duplicate dispatch → one execution | PASS | as above |
+| spike step wall time | 4 min 12 s | 17:55:23 → 17:59:35 UTC (90 + ~30 + 22 + 90 + ~10 s expected) |
+| cost | $0 | public repo, standard runner; Supabase Free |
+
+Earlier runs 44347487253, 44350155927, 44362839186 failed at "Ensure spike schema exists" (database connection, before the founder's final `DATABASE_URL` value). No code change was needed between them and the passing run.
+
+Note: the per-scenario table is in the run's job summary on GitHub (needs sign-in to view logs).
 
 ## Not yet measured
 

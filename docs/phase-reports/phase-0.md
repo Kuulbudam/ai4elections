@@ -1,6 +1,6 @@
 # Phase 0 — Foundation: completion report
 
-**Date:** 18 Nov 2026 **Result:** NOT YET PASSED — everything done except the hosted spike, which waits on the Supabase project + `DATABASE_URL` secret.
+**Date:** 18 Nov 2026 **Result:** PASS (18 Nov 2026) — awaiting founder approval to start Phase 1.
 
 ## Objective
 
@@ -51,11 +51,12 @@ pytest covers: health, error shape, no internal leak, CORS rejection, spec valid
 
 ## Deployment status
 
-Foundation pushed to `main`. GitHub CI run 44341531979: API, Web, Migrations, Secret scan all **success** (18 Nov 2026). Supabase project not created yet; nothing user-facing deployed.
+Foundation pushed to `main`. GitHub CI run 44341531979: API, Web, Migrations, Secret scan all **success** (18 Nov 2026). Supabase Free project created by founder; `DATABASE_URL` Actions secret set; hosted spike passed (run 44363949162). Nothing user-facing deployed yet.
 
 ## Known limitations
 
-- Hosted spike (GitHub Actions + Supabase) not yet run.
+- Scheduled 15-min sweep has not fired yet (GitHub schedules can take time to start on a new repo). Verify in Phase 1; it is also the Supabase keep-awake.
+- Actions `checkout@v4`/`setup-python@v5` run on deprecated Node 20 (warning only); Dependabot will bump them.
 - Dispatch latency unmeasured until the API is deployed.
 - Dev-only `picomatch` advisory (no fix available), see STATUS.md.
 
@@ -65,7 +66,7 @@ $0. No payment method added anywhere. All services on free plans (`docs/provider
 
 ## Days to demo / critical path
 
-Demo date not yet confirmed (December 2026). On track if founder steps 1–4 are done within 1–2 days.
+Demo **8 Dec 2026 — 20 days left**. Phase 0 done on day 0. Critical path (Phases 1, 2, 3, 4, 5, 7 + needed Phase 8 pages + Phase 10) is tight but on track; see STATUS.md schedule.
 
 ## Acceptance criteria and evidence
 
@@ -76,12 +77,12 @@ Demo date not yet confirmed (December 2026). On track if founder steps 1–4 are
 | CI works | PASS — GitHub run 44341531979, 4/4 jobs success |
 | Contracts defined | PASS |
 | Hosting option chosen | PASS (Option B, founder 18 Nov) |
-| Worker spike passed on chosen hosting | Local PASS; hosted run pending (Supabase + secret) |
+| Worker spike passed on chosen hosting | PASS — local 3/3 and GitHub Actions + Supabase run 44363949162 |
 | No unresolved provider blocker | PASS (all checked; no card needed) |
 
 ## Decisions needed from founder
 
-Steps 2–4 in `docs/founder-setup.md`, and the exact demo date.
+Approve Phase 1 ("approved, continue").
 
 ## Next phase
 
