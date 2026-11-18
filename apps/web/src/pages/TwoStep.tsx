@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import AuthLayout from '../components/AuthLayout'
 import { getSupabase } from '../lib/supabase'
 
 function codeError(message: string | undefined): string {
@@ -133,16 +134,13 @@ export function TwoStepEnrol() {
 
 function TwoStepShell({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
   return (
-    <main className="auth-shell">
-      <section className="card auth-card" aria-labelledby="twostep-heading">
-        <p className="brand">AI4Elections</p>
+    <AuthLayout labelledBy="twostep-heading">
         <h1 id="twostep-heading">{title}</h1>
         <p className="small">{intro}</p>
         {children}
         <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
           Sign out
         </button>
-      </section>
-    </main>
+    </AuthLayout>
   )
 }

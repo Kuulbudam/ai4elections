@@ -71,7 +71,7 @@ export default function Projects() {
       <p>
         <Link to="/">← Organisations</Link>
       </p>
-      <h2 id="projects-heading">{orgName ? `${orgName} — projects` : 'Projects'}</h2>
+      <h1 id="projects-heading">{orgName ? `${orgName} — projects` : 'Projects'}</h1>
       {projects === null ? (
         <p className="muted">Loading…</p>
       ) : projects.length === 0 ? (

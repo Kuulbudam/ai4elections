@@ -143,9 +143,9 @@ export default function Mapping() {
       <p>
         <Link to={`/projects/${version.project_id}`}>← Project</Link>
       </p>
-      <h2 id="mapping-heading">
+      <h1 id="mapping-heading">
         Map columns — {version.original_filename} (v{version.version_number})
-      </h2>
+      </h1>
       <p className="muted small">Tell the system which column in your file holds each standard field. Nothing in the original file changes.</p>
       {templates.length > 0 && !readOnly && (
         <label className="inline-label">

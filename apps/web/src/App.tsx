@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import type { components } from './api/schema'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
+import AuthLayout from './components/AuthLayout'
 import { getSupabase } from './lib/supabase'
 import Mapping from './pages/Mapping'
 import Members from './pages/Members'
@@ -48,12 +49,9 @@ function Shell() {
 
   if (!getSupabase()) {
     return (
-      <main className="auth-shell">
-        <section className="card auth-card">
-          <h1 className="brand">AI4Elections</h1>
-          <p role="alert">This deployment is not configured: the Supabase URL and public key are missing.</p>
-        </section>
-      </main>
+      <AuthLayout>
+        <p role="alert">This deployment is not configured: the Supabase URL and public key are missing.</p>
+      </AuthLayout>
     )
   }
   if (loading) return <p className="muted center">Loading…</p>
@@ -64,18 +62,24 @@ function Shell() {
     <BrowserRouter>
       <div className="layout">
         <header className="topbar">
-          <Link to="/" className="brand">
-            AI4Elections
-          </Link>
-          <nav aria-label="Main">
+          <div className="masthead">
+            <Link to="/" className="brand">
+              AI4Elections
+              <span className="brand-sub">Electoral results validation and evidence review</span>
+            </Link>
+            <div className="account">
+              <span>{session.user.email}</span>
+              <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
+                Sign out
+              </button>
+            </div>
+          </div>
+          <nav className="mainnav" aria-label="Main">
             <NavLink to="/" end>
               Organisations
             </NavLink>
             <NavLink to="/profile">Profile</NavLink>
           </nav>
-          <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
-            Sign out
-          </button>
         </header>
         <main className="content">
           <Routes>
@@ -90,8 +94,13 @@ function Shell() {
             <Route path="*" element={<p className="empty">Page not found.</p>} />
           </Routes>
         </main>
-        <footer className="muted small footer">
-          Findings are signals for human review, not verdicts. All development data is synthetic. <ApiStatus />
+        <footer className="footer">
+          <div className="footer-inner">
+            <p>Findings are signals for human review, not verdicts of wrongdoing. Every figure links back to its source row.</p>
+            <p>
+              <ApiStatus />
+            </p>
+          </div>
         </footer>
       </div>
     </BrowserRouter>

@@ -114,9 +114,9 @@ export default function Validation() {
         <Link to={`/projects/${version.project_id}`}>← Project</Link>
       </p>
       <div className="row-between">
-        <h2 id="validation-heading">
+        <h1 id="validation-heading">
           Validation — {version.original_filename} (v{version.version_number})
-        </h2>
+        </h1>
         {canRun && (
           <button type="button" className="primary" onClick={() => void run()} disabled={!!running || !version.mapping_saved_at}>
             {s ? 'Re-run validation' : 'Run validation'}
@@ -150,7 +150,7 @@ export default function Validation() {
             <Stat label="Quarantined from some analysis" value={s.row_status.quarantined_from_specific_analysis} tone="bad" />
           </div>
           <p className="muted small">
-            Excluded from turnout analysis: {s.excluded_from.turnout_rate.toLocaleString()} rows · excluded from vote-share analysis:{' '}
+            Excluded from turnout analysis: {s.excluded_from.turnout_rate.toLocaleString()} rows. Excluded from vote-share analysis:{' '}
             {s.excluded_from.leading_party_share.toLocaleString()} rows. Rows are only excluded from the calculations their problem affects. Rule set{' '}
             {s.ruleset_version}, validated {version.validated_at ? new Date(version.validated_at).toLocaleString() : ''}.
           </p>

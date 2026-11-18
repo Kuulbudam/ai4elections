@@ -81,7 +81,7 @@ export default function Members() {
       <p>
         <Link to="/">← Organisations</Link>
       </p>
-      <h2 id="members-heading">{orgName ? `${orgName} — members` : 'Members'}</h2>
+      <h1 id="members-heading">{orgName ? `${orgName} — members` : 'Members'}</h1>
       {members === null ? (
         <p className="muted">Loading…</p>
       ) : (
