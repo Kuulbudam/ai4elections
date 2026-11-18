@@ -9,7 +9,7 @@ on:
   repository_dispatch:
     types: [ai4e-job]
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"  # off the top of the hour: GitHub drops/delays :00 schedules under load
   workflow_dispatch:
     inputs:
       mode:

@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 18 Nov 2026
-**Current phase:** 1 — Database and security: **PASSED** (report `docs/phase-reports/phase-1.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 2.
+**Current phase:** 2 — Upload and ingestion: **PASSED** (report `docs/phase-reports/phase-2.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 3.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Decisions made (founder, 18 Nov 2026)
@@ -25,6 +25,12 @@ Read this first in every session. Update it last.
 - 4 migrations applied to the real project; 234 local tests; live security check 15/15 (run 44368401747).
 - FastAPI JWT verification + DB role checks; web sign-in, organisations, members, profile.
 
+## Done (Phase 2)
+
+- Synthetic generator + committed demo data (`data/synthetic/`).
+- Upload/finalize/mapping/job endpoints, ingestion worker, rate limits, idempotency; web upload + mapping pages.
+- Live ingestion check 9/9 on real Supabase (12,023 rows in 13.1 s).
+
 ## Working schedule to 8 Dec (target dates, adjust as we go)
 
 | Dates | Work |
@@ -43,11 +49,11 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 2 on branch `phase-2-ingestion`: synthetic generator, `POST /uploads`, finalize, mapping, ingestion job, API rate limits, deploy web + API to Vercel. Needs from founder: Vercel login (free Hobby, sign in with GitHub).
+Phase 3 on branch `phase-3-validation`: rules V001–V012 as versioned definitions, result_records build from mapping, row statuses and scoped quarantine, validation issues, POST /jobs (validate), validation page, ground-truth scoring. Founder: Vercel setup + dispatch token (steps sent 18 Nov; record URLs here).
 
 ## Open questions / to verify
 
-- Scheduled 15-min worker sweep has not fired yet; verify it starts (it also keeps Supabase awake).
+- Scheduled worker sweep never fired with `*/15`; changed to `7,22,37,52 * * * *` in Phase 2. Verify it fires after merge (it also keeps Supabase awake).
 - Dispatch latency (API → `repository_dispatch` → runner claims job): measure once the API is on Vercel (Phase 2).
 
 ## Known issues
