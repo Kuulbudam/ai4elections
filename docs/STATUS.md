@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 18 Nov 2026
-**Current phase:** 0 — Foundation: **PASSED**. Stopped at gate; waiting for founder "approved, continue" to start Phase 1.
+**Current phase:** 1 — Database and security: **PASSED** (report `docs/phase-reports/phase-1.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 2.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Decisions made (founder, 18 Nov 2026)
@@ -11,7 +11,7 @@ Read this first in every session. Update it last.
 - Hosting: **Option B**, no card. API on Vercel Hobby, worker on GitHub Actions (ADR-0002).
 - Repo: `Kuulbudam/ai4elections`, **public**.
 - Auth email: confirmation **off** on the demo Supabase project.
-- Supabase Free project created; `DATABASE_URL` (Session pooler) stored as Actions secret.
+- Supabase Free project created; Actions secrets: `DATABASE_URL` (Session pooler), `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Done (Phase 0)
 
@@ -19,6 +19,11 @@ Read this first in every session. Update it last.
 - OpenAPI 3.1 contract + JSON schemas; generated Pydantic + TS types with CI sync checks.
 - FastAPI skeleton, job ledger + worker, web shell, CI, worker workflow, Dependabot.
 - CI green on GitHub (run 44341531979). Hosted 90 s spike PASS (run 44363949162). Report: `docs/phase-reports/phase-0.md`.
+
+## Done (Phase 1)
+
+- 4 migrations applied to the real project; 234 local tests; live security check 15/15 (run 44368401747).
+- FastAPI JWT verification + DB role checks; web sign-in, organisations, members, profile.
 
 ## Working schedule to 8 Dec (target dates, adjust as we go)
 
@@ -38,7 +43,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 1 on a feature branch (`phase-1-db-security`), merged by PR after CI. Needs from founder in Phase 1: Supabase project URL, anon key, and service-role key as Actions secrets (exact names will be given), and a Vercel login for Phase 2.
+Phase 2 on branch `phase-2-ingestion`: synthetic generator, `POST /uploads`, finalize, mapping, ingestion job, API rate limits, deploy web + API to Vercel. Needs from founder: Vercel login (free Hobby, sign in with GitHub).
 
 ## Open questions / to verify
 

@@ -11,9 +11,15 @@
 
 Same inputs (dataset version, mapping, rule versions, method version, reviews up to the checkpoint) ⇒ same hash.
 
-## Audit chain
+## Audit chain (as implemented in Phase 1)
 
-Each `audit_events` row stores `prev_hash` (hash of the previous event in the same organisation) and `event_hash = SHA-256(prev_hash || canonical_json(event_without_hashes))`. A report's **audit checkpoint** is the `id` and `event_hash` of the latest audit event included.
+Each `audit_events` row has a per-organisation `seq` (1, 2, 3, …), `prev_hash` (the previous event's hash in the same organisation) and
+
+`event_hash = SHA-256( prev_hash | org_id | seq | actor_id | action | entity_type | entity_id | created_at (UTC, microseconds) | details::jsonb-text )`
+
+computed inside PostgreSQL (`app.audit_hash`). Appends are serialised per organisation with an advisory lock, so the chain never forks (tested with 12 concurrent writers). `details` uses PostgreSQL's deterministic `jsonb` text form. `app.audit_chain_first_break(org)` recomputes the chain and returns the first broken `seq` (tested by simulating a superuser tamper). Members call `public.audit_chain_status(org)`.
+
+A report's **audit checkpoint** is the `id` and `event_hash` of the latest audit event included.
 
 ## Exports
 
