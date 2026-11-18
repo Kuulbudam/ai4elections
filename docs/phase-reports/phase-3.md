@@ -54,7 +54,7 @@ Validation rules V001–V012 with versioned definitions, row eligibility, scoped
 
 **Ground-truth result:** on the 12,023-row synthetic file, the issues found per (row, rule) **match the answer key exactly**: 79 expected, 79 found, **0 false positives, 0 missed** (V003 12, V004 9, V005 5, V006 8, V007 8, V008 11, V009 5, V010 10, V011 6, V012 5). All **11,893 normal rows** are clean, and every planted row has its documented quarantine scope.
 
-**Performance on the real platform:** ingestion of 12,023 rows took 6.6 s; **validation took 6.4 s** (target < 30 s). That run had no reference list and no coordinates mapped, so it found 68 issues: 85 minus the 6 V011 and 5 V012 issues not checked, and minus 6 more that the stricter local test mapping adds.
+**Performance on the real platform:** ingestion of 12,023 rows took 6.6 s; **validation took 6.4 s** (target < 30 s). That run had no reference list and no coordinates mapped, so it found 68 issues: exactly the 79 expected minus the 6 V011 and 5 V012 issues that weren't checked.
 
 Other new tests:
 - every issue links to its raw source row and original cell;
