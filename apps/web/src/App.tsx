@@ -3,10 +3,14 @@ import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import type { components } from './api/schema'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { getSupabase } from './lib/supabase'
+import Mapping from './pages/Mapping'
 import Members from './pages/Members'
 import Organisations from './pages/Organisations'
 import Profile from './pages/Profile'
+import ProjectOverview from './pages/ProjectOverview'
+import Projects from './pages/Projects'
 import SignIn from './pages/SignIn'
+import Upload from './pages/Upload'
 
 type Health = components['schemas']['Health']
 
@@ -74,6 +78,10 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Organisations />} />
             <Route path="/orgs/:orgId/members" element={<Members />} />
+            <Route path="/orgs/:orgId/projects" element={<Projects />} />
+            <Route path="/projects/:projectId" element={<ProjectOverview />} />
+            <Route path="/projects/:projectId/upload" element={<Upload />} />
+            <Route path="/versions/:versionId/mapping" element={<Mapping />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<p className="empty">Page not found.</p>} />
           </Routes>

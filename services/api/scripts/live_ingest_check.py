@@ -64,10 +64,9 @@ def make_user(http: httpx.Client, label: str) -> dict:
     return {"id": r.json()["id"], "token": t.json()["access_token"]}
 
 
-def rest(http, user, method, path, **kw):
-    return http.request(
-        method, f"{URL}/rest/v1/{path}", headers={"apikey": ANON, "Authorization": f"Bearer {user['token']}"}, **kw
-    )
+def rest(http, user, method, path, extra_headers=None, **kw):
+    headers = {"apikey": ANON, "Authorization": f"Bearer {user['token']}", **(extra_headers or {})}
+    return http.request(method, f"{URL}/rest/v1/{path}", headers=headers, **kw)
 
 
 def main() -> int:
@@ -81,7 +80,7 @@ def main() -> int:
         a,
         "POST",
         "projects",
-        headers={"apikey": ANON, "Authorization": f"Bearer {a['token']}", "Prefer": "return=representation"},
+        extra_headers={"Prefer": "return=representation"},
         json={
             "org_id": org,
             "election_name": "SYNTHETIC CI Election",

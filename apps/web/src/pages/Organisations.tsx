@@ -71,7 +71,7 @@ export default function Organisations() {
                   <span className={`role role-${o.role}`}>{o.role}</span>
                 </td>
                 <td>
-                  <Link to={`/orgs/${o.org_id}/members`}>Members</Link>
+                  <Link to={`/orgs/${o.org_id}/projects`}>Projects</Link> · <Link to={`/orgs/${o.org_id}/members`}>Members</Link>
                 </td>
               </tr>
             ))}
