@@ -222,7 +222,11 @@ export default function Mapping() {
         )}
         {readOnly && <p className="muted small">Only admins and analysts can change the mapping.</p>}
       </form>
-      {issues && issues.length === 0 && <p className="notice">Mapping saved. All required fields are mapped.</p>}
+      {issues && issues.length === 0 && (
+        <p className="notice">
+          Mapping saved. All required fields are mapped. <Link to={`/versions/${versionId}/validation`}>Go to validation</Link>
+        </p>
+      )}
       {issues && issues.length > 0 && (
         <div className="card" role="alert">
           <p>Mapping saved, but it is not complete yet:</p>

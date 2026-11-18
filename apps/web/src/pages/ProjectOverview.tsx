@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { friendlyError, getSupabase } from '../lib/supabase'
 import { canUpload, useRole } from '../lib/useRole'
+import ReferenceList from './ReferenceList'
 import { formatBytes, LEVELS } from '../lib/format'
 
 type Project = {
@@ -26,6 +27,7 @@ type Version = {
   mapping_saved_at: string | null
   duplicate_of_version_id: string | null
   archived_at: string | null
+  validated_at: string | null
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -52,7 +54,7 @@ export default function ProjectOverview() {
       sb.from('datasets').select('id, name').eq('project_id', projectId).order('created_at'),
       sb
         .from('dataset_versions')
-        .select('id, dataset_id, version_number, status, original_filename, size_bytes, sha256, row_count, created_at, mapping_saved_at, duplicate_of_version_id, archived_at')
+        .select('id, dataset_id, version_number, status, original_filename, size_bytes, sha256, row_count, created_at, mapping_saved_at, duplicate_of_version_id, archived_at, validated_at')
         .eq('project_id', projectId)
         .order('version_number', { ascending: false }),
     ])
@@ -106,6 +108,8 @@ export default function ProjectOverview() {
         )}
       </dl>
 
+      <ReferenceList projectId={project.id} orgId={project.org_id} canEdit={canUpload(role)} />
+
       <h3>Datasets and versions</h3>
       {datasets.length === 0 ? (
         <p className="empty">No datasets yet.{canUpload(role) ? ' Upload a CSV of polling-unit results to start.' : ''}</p>
@@ -154,7 +158,15 @@ export default function ProjectOverview() {
                       <td>{new Date(v.created_at).toLocaleString()}</td>
                       <td>
                         {v.status === 'ingested' && !v.archived_at && (
-                          <Link to={`/versions/${v.id}/mapping`}>{v.mapping_saved_at ? 'Edit mapping' : 'Map columns'}</Link>
+                          <>
+                            <Link to={`/versions/${v.id}/mapping`}>{v.mapping_saved_at ? 'Mapping' : 'Map columns'}</Link>
+                            {v.mapping_saved_at && (
+                              <>
+                                {' · '}
+                                <Link to={`/versions/${v.id}/validation`}>{v.validated_at ? 'Validation' : 'Validate'}</Link>
+                              </>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

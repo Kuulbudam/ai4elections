@@ -11,6 +11,7 @@ import ProjectOverview from './pages/ProjectOverview'
 import Projects from './pages/Projects'
 import SignIn from './pages/SignIn'
 import Upload from './pages/Upload'
+import Validation from './pages/Validation'
 
 type Health = components['schemas']['Health']
 
@@ -82,6 +83,7 @@ function Shell() {
             <Route path="/projects/:projectId" element={<ProjectOverview />} />
             <Route path="/projects/:projectId/upload" element={<Upload />} />
             <Route path="/versions/:versionId/mapping" element={<Mapping />} />
+            <Route path="/versions/:versionId/validation" element={<Validation />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<p className="empty">Page not found.</p>} />
           </Routes>
