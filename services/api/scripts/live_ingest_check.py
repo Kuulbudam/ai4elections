@@ -136,7 +136,7 @@ def main() -> int:
     # 4. ingestion by the real worker code
     t0 = time.monotonic()
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True, row_factory=dict_row) as db:
-        worker.drain(db, f"ci-{RUN}", max_jobs=5, stale_seconds=600)
+        worker.drain(db, f"ci-{RUN}", max_jobs=None, stale_seconds=600)
         took = time.monotonic() - t0
         v = db.execute("SELECT * FROM public.dataset_versions WHERE id=%s", (up["dataset_version_id"],)).fetchone()
         n = db.execute(

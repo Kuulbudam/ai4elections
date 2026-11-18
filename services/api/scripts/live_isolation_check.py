@@ -159,7 +159,7 @@ def main() -> int:
                 )
                 job = db.execute(
                     "INSERT INTO public.processing_jobs (org_id, project_id, job_type, target_id, input_fingerprint, "
-                    "created_by) VALUES (%s,%s,'analyse',%s,'ci',%s) RETURNING id",
+                    "created_by, status, finished_at) VALUES (%s,%s,'analyse',%s,'ci',%s,'succeeded',now()) RETURNING id",
                     (org, pid, vid, admin_id),
                 ).fetchone()[0]
                 run = db.execute(
