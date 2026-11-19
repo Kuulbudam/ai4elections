@@ -147,6 +147,39 @@ def main() -> int:
         status == "succeeded",
         f"status={status}; start latency ≈ {started}; finalize→done {total:.0f}s",
     )
+    if status != "succeeded":
+        return report()
+
+    # mapping → validation → analysis through the deployed API, each job run by a dispatched worker
+    vid = u["dataset_version_id"]
+    mapping = {
+        "schema_version": "1.1.0",
+        "fields": {
+            "pu_code": "PU Code", "state": "State", "lga": "LGA", "ward": "Ward",
+            "registered_voters": "Registered Voters", "accredited_voters": "Accredited Voters",
+            "valid_votes": "Valid Votes", "rejected_votes": "Rejected Votes", "total_cast": "Total Votes Cast",
+        },
+        "party_columns": [{"source_column": f"Votes P{c}", "party_code": f"P{c}"} for c in "ABCDE"],
+        "party_columns_complete": True,
+    }  # fmt: skip
+    m = http.put(f"{API}/dataset-versions/{vid}/mapping", headers=bearer, json=mapping)
+    check("deployed mapping (schema 1.1.0)", m.status_code == 200 and m.json().get("issues") == [], m.text[:160])
+    for job_type in ("validate", "analyse"):
+        t0 = time.monotonic()
+        r = http.post(f"{API}/jobs", headers=bearer, json={"job_type": job_type, "dataset_version_id": vid})
+        if not check(f"deployed POST /jobs ({job_type})", r.status_code == 202, f"HTTP {r.status_code} {r.text[:160]}"):
+            return report()
+        j = r.json()
+        while time.monotonic() - t0 < 300 and j.get("status") in ("queued", "running"):
+            time.sleep(5)
+            j = http.get(f"{API}/jobs/{j['id']}", headers=bearer).json()
+        detail = f"status={j.get('status')} in {time.monotonic() - t0:.0f}s"
+        if job_type == "analyse":
+            detail += f"; run {j.get('analytical_run_id')}"
+            ok = j.get("status") == "succeeded" and bool(j.get("analytical_run_id"))
+        else:
+            ok = j.get("status") == "succeeded"
+        check(f"{job_type} job dispatched and succeeded", ok, detail)
     return report()
 
 

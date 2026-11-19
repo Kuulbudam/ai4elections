@@ -14,6 +14,7 @@ import SignIn from './pages/SignIn'
 import { TwoStepChallenge, TwoStepEnrol } from './pages/TwoStep'
 import Upload from './pages/Upload'
 import Validation from './pages/Validation'
+import Analysis from './pages/Analysis'
 
 type Health = components['schemas']['Health']
 
@@ -90,6 +91,7 @@ function Shell() {
             <Route path="/projects/:projectId/upload" element={<Upload />} />
             <Route path="/versions/:versionId/mapping" element={<Mapping />} />
             <Route path="/versions/:versionId/validation" element={<Validation />} />
+            <Route path="/versions/:versionId/analysis" element={<Analysis />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<p className="empty">Page not found.</p>} />
           </Routes>

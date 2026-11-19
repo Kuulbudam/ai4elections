@@ -154,6 +154,9 @@ export default function Validation() {
             {s.excluded_from.leading_party_share.toLocaleString()} rows. Rows are only excluded from the calculations their problem affects. Rule set{' '}
             {s.ruleset_version}, validated {version.validated_at ? new Date(version.validated_at).toLocaleString() : ''}.
           </p>
+          <p>
+            <Link to={`/versions/${versionId}/analysis`}>Go to analysis</Link>
+          </p>
           {!s.reference_list_used && (
             <p className="notice warn">
               No reference list of administrative units is loaded for this project, so rule V011 (unmatched state / LGA / ward labels) was not

@@ -101,10 +101,17 @@ def _run_validate(ctx: JobContext) -> None:
     run_validate(ctx)
 
 
+def _run_analyse(ctx: JobContext) -> None:
+    from app.jobs.analyse import run_analyse
+
+    run_analyse(ctx)
+
+
 HANDLERS: dict[str, Callable[[JobContext], None]] = {
     "spike_sleep": run_spike_sleep,
     "ingest": _run_ingest,
     "validate": _run_validate,
+    "analyse": _run_analyse,
 }
 
 # --------------------------------------------------------------------------- loop

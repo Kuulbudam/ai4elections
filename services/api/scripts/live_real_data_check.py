@@ -34,6 +34,7 @@ import live_ingest_check as L  # noqa: E402
 import prepare_ccij  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.analysis.engine import Unit, analyse  # noqa: E402
 from app.ingest.csv_parse import parse_csv  # noqa: E402
 from app.jobs import worker  # noqa: E402
 from app.main import app  # noqa: E402
@@ -67,9 +68,17 @@ def main() -> int:
         ref = list(csv.reader(io.StringIO((Path(d) / "REAL_CCIJ_2023_reference_plateau.csv").read_text())))[1:]
 
     parsed = parse_csv(data)
-    expected = validate(
-        parsed.columns, [(f"r{n}", n, c) for n, c in parsed.rows], MAPPING, [tuple(u) for u in ref]
-    ).summary()
+    vres = validate(parsed.columns, [(f"r{n}", n, c) for n, c in parsed.rows], MAPPING, [tuple(u) for u in ref])
+    expected = vres.summary()
+    expected_analysis = analyse(
+        [
+            Unit(r.raw_row_id, r.source_row_number, r.values["pu_code"], r.values["state"], r.values["lga"],
+                 r.values["ward"], r.values["registered_voters"], r.values["accredited_voters"],
+                 r.values["valid_votes"], r.party_votes, r.row_status, r.excluded_from, r.exclusion_reasons)
+            for r in vres.records
+        ],
+        [i.__dict__ for i in vres.issues],
+    ).summary  # fmt: skip
 
     import httpx
 
@@ -160,6 +169,23 @@ def main() -> int:
         "deployed validation matches the engine exactly",
         same and s.get("ruleset_version") == "1.1.0",
         f"{took:.1f}s; issues {s.get('issues_by_rule')}; rows {s.get('rows_by_rule')}; status {s.get('row_status')}",
+    )
+    ja = api.post("/jobs", headers=auth, json={"job_type": "analyse", "dataset_version_id": up["dataset_version_id"]})
+    check("POST /jobs (analyse)", ja.status_code == 202, f"HTTP {ja.status_code}")
+    t0 = time.monotonic()
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True, row_factory=dict_row) as db:
+        worker.drain(db, f"ci-real-{L.RUN}-a", max_jobs=None, stale_seconds=600)
+        took = time.monotonic() - t0
+        run = db.execute(
+            "SELECT r.summary FROM public.analytical_runs r JOIN public.dataset_versions v "
+            "ON v.latest_analysis_run_id = r.id WHERE v.id=%s",
+            (up["dataset_version_id"],),
+        ).fetchone()
+    got = {k: v for k, v in ((run or {}).get("summary") or {}).items() if k != "content_hash"}
+    check(
+        "deployed analysis matches the engine exactly",
+        got == expected_analysis,
+        f"{took:.1f}s; statistical {got.get('statistical_findings')}, data quality {got.get('data_quality_findings')}",
     )
     return L.report()
 

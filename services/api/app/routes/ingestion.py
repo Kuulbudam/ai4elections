@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 
 from app import idempotency
+from app.analysis.engine import ENGINE_VERSION, METHOD_VERSION
 from app.auth import CurrentUser
 from app.contracts.models import (
     ColumnMapping,
@@ -329,10 +330,10 @@ def create_job(
     )
     authorize(db, str(v["org_id"]), user, RUNNERS)
     job_type = body.job_type.value
-    if job_type != "validate":
-        raise HTTPException(status_code=400, detail="Analysis jobs are not available yet")
     if v["archived_at"] is not None:
         raise HTTPException(status_code=409, detail="This version is archived")
+    if job_type == "analyse":
+        return _queue_analysis(db, v, user, idempotency_key, body, dispatch)
     if v["status"] != "ingested":
         raise HTTPException(status_code=409, detail="The file must finish ingesting first")
     if not v["mapping"]:
@@ -361,6 +362,39 @@ def create_job(
             input_fingerprint=fingerprint,
             created_by=user.id,
             payload={"mapping": v["mapping"], "ruleset_version": RULESET_VERSION},
+        )
+    if created:
+        record_dispatch(db, str(job["id"]), dispatch(str(job["id"])))
+    view = Job(**job_view(job)).model_dump(mode="json")
+    status = 202 if created else 200
+    idempotency.remember(db, user.id, idempotency_key, "POST /jobs", body, status, view)
+    return JSONResponse(status_code=status, content=view)
+
+
+def _queue_analysis(db, v, user, idempotency_key, body, dispatch) -> Any:
+    row = db.execute(
+        "SELECT validation_job_id::text AS vj FROM public.dataset_versions WHERE id = %s", (str(v["id"]),)
+    ).fetchone()
+    if not row or not row["vj"]:
+        raise HTTPException(status_code=409, detail="Run validation before analysis")
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            {"validation_job_id": row["vj"], "engine": ENGINE_VERSION, "method": METHOD_VERSION},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    with db.transaction():
+        act_as(db, user)
+        job, created = enqueue_job(
+            db,
+            org_id=str(v["org_id"]),
+            project_id=str(v["project_id"]),
+            job_type="analyse",
+            target_id=str(v["id"]),
+            input_fingerprint=fingerprint,
+            created_by=user.id,
+            payload={"validation_job_id": row["vj"], "method_version": METHOD_VERSION},
         )
     if created:
         record_dispatch(db, str(job["id"]), dispatch(str(job["id"])))
