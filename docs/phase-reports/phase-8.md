@@ -46,3 +46,20 @@ Web unit tests 38; typecheck; lint; build; CI green. The end-to-end test was run
 ## Next
 
 Phase 9, hardening: security and RLS re-test, performance against targets, dependency and secret scanning, retry and recovery tests, job reconciliation, report integrity, backups (scheduled `pg_dump`, restore test) and the "project paused" runbook.
+
+## Addendum (19 Nov, founder feedback: navigation, to-do, charts)
+
+- **Project workspace menu** on every project page:
+  - the six-step workflow (Upload, Map, Check, Analyse, Review, Report), each marked done, next or later, with live counts (e.g. "15 high or very high to review");
+  - Explore links (overview, analysis dashboard, areas, findings, claims, reports, team);
+  - an always-visible **Ask the data** for admins and analysts.
+  - On phones it becomes a horizontal strip. The page is never rebuilt when the menu loads; a test caught that bug and it was fixed.
+- **Home page** is now a to-do list: headline numbers, then one "next action" button per project.
+- **Analysis dashboard** (`GET /dataset-versions/{id}/dashboard`; counts tested equal to the run):
+  - a KPI row and a filter bar (indicator, area) that drives every chart;
+  - a distribution of turnout or share across units, with unusual units marked;
+  - each unusual unit plotted against its peer median (click to open);
+  - ranked unusual units by area (click to filter);
+  - the how-unusual mix, and data quality findings by rule.
+  - Palette and checks follow the dataviz method: one series hue, reserved status colours with labels, hover tooltips, keyboard access.
+- Accessibility: the scan flagged clickable chart points inside an image role. Those charts are now groups. Live e2e run 44531755323: PASS.
