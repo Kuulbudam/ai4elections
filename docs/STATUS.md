@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 5 — Findings and review: **PASSED** (report `docs/phase-reports/phase-5.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 6.
+**Current phase:** 6 — Geography: **PASSED** (report `docs/phase-reports/phase-6.md`). Next: data assistant, then Phase 7.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Working rule (founder, 19 Nov 2026) — read this first
@@ -49,6 +49,10 @@ Read this first in every session. Update it last.
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
 
+## Done (Phase 6)
+
+- GET /areas (state/LGA/ward totals, party totals, finding counts, reference flag); Areas page with charts and comparison; ADR-0009. Totals equal an independent CSV calculation at all levels. Live 18/18, 22/22, Plateau 12/12; production 23/23.
+
 ## Done (Phase 5)
 
 - Findings API (list with filters + cursor, detail with original cells), reviews, claims, verification; finding_overview view; verification needs evidence (DB trigger). Web: findings dashboard, finding detail, claims register. ADR-0008.
@@ -91,7 +95,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 6 on branch `phase-6-geography`: state/LGA/ward aggregation tables and charts, filters, comparisons (no map, ADR-0004).
+Data assistant on branch `phase-6b-assistant` (see Working rule above), then Phase 7 reports.
 
 ## Open questions / to verify
 
