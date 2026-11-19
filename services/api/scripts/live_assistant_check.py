@@ -31,6 +31,7 @@ import psycopg  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from psycopg.rows import dict_row  # noqa: E402
 
+from app.assistant.llm import DEFAULT_BASE_URL, choose_model, list_models  # noqa: E402
 from app.assistant.service import FORBIDDEN, REPLACED  # noqa: E402
 from app.jobs import worker  # noqa: E402
 from app.main import app  # noqa: E402
@@ -51,6 +52,10 @@ def drain(tag: str) -> None:
 
 def main() -> int:
     check = L.check
+    listed = list_models(os.environ["LLM_API_KEY"].strip(), DEFAULT_BASE_URL)
+    print("Provider lists models:", ", ".join(listed) or "(none / could not list)", flush=True)
+    check("provider key works and a tool-capable model is listed", bool(listed),
+          f"using {choose_model(os.environ['LLM_API_KEY'].strip(), DEFAULT_BASE_URL)}")  # fmt: skip
     http = httpx.Client(timeout=120)
     api = TestClient(app, raise_server_exceptions=False)
     a = L.make_user(http, "assistant")
@@ -80,6 +85,7 @@ def main() -> int:
     check("assistant is switched on", st.get("enabled") is True, str(st))
 
     def ask(q: str) -> tuple[int, dict, float]:
+        time.sleep(35)  # free tier: ~8k tokens per minute; space questions as a person would
         t0 = time.monotonic()
         r = api.post("/assistant/ask", headers=auth, json={"project_id": proj, "question": q})
         return (
@@ -91,7 +97,7 @@ def main() -> int:
     code, out, took = ask("Which state has the most unusual turnout flags, and how many does it have?")
     ans = out.get("answer", "")
     check("factual question answered from lookups", code == 200 and any(x["ok"] for x in out.get("lookups", [])),
-          f"HTTP {code} in {took:.1f}s; lookups {[x['name'] for x in out.get('lookups', [])]}")  # fmt: skip
+          f"HTTP {code} in {took:.1f}s; lookups {[x['name'] for x in out.get('lookups', [])]}; {out.get('message', '')}")  # fmt: skip
     check("answer names the right state and count",
           top["state"].lower() in ans.lower() and str(top["findings"]["unusual_turnout"]) in ans,
           f"expected {top['state']} / {top['findings']['unusual_turnout']}; grounded={out.get('grounded')}: {ans[:160]!r}")  # fmt: skip

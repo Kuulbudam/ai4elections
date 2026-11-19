@@ -18,7 +18,8 @@ import psycopg
 from app.routes.areas import area_list
 from app.routes.findings import _SELECT, find_rows
 
-MAX_FINDINGS = 20
+MAX_FINDINGS = 10
+MAX_AREAS = 40
 SEVERITIES = ["very_high", "high", "medium", "low"]
 DECISIONS = ["unreviewed", "acknowledged", "needs_more_evidence", "explained_by_data_error", "explained_by_context",
              "escalated"]  # fmt: skip
@@ -82,24 +83,21 @@ def project_overview(ctx: Ctx) -> dict[str, Any]:
     out = []
     for v in vs:
         vsum, a = v["validation_summary"] or {}, v["analysis"] or {}
-        item: dict[str, Any] = {
-            "dataset_version_id": str(v["id"]), "dataset": v["dataset"], "file": v["original_filename"],
-            "version": v["version_number"], "status": v["status"], "rows": v["row_count"], "validated": v["validated"],
-        }  # fmt: skip
+        item: dict[str, Any] = {"dataset_version_id": str(v["id"]), "dataset": v["dataset"], "file": v["original_filename"],
+                                "version": v["version_number"], "polling_unit_rows": v["row_count"], "validated": v["validated"]}  # fmt: skip
         if vsum:
-            item["validation"] = {"row_status": vsum.get("row_status"), "issues_by_rule": vsum.get("issues_by_rule"),
-                                  "rows_by_rule": vsum.get("rows_by_rule")}  # fmt: skip
+            item["validation"] = {"row_status": vsum.get("row_status"), "issues_by_rule": vsum.get("issues_by_rule")}
         if a:
-            item["analysis"] = {
-                ind: {k: a["indicators"][ind][k] for k in ("scored", "flagged", "flagged_by_severity", "not_scored")}
-                for ind in a.get("indicators", {})
-            } | {"data_quality_findings": a.get("data_quality_findings")}
+            ind = a.get("indicators", {})
+            item["analysis"] = {k: {"scored": x["scored"], "flagged": x["flagged"], "by_severity": x["flagged_by_severity"]}
+                                for k, x in ind.items()} | {"data_quality_findings": a.get("data_quality_findings")}  # fmt: skip
         out.append(item)
         ctx.cite("version", f"{v['original_filename']} v{v['version_number']}", f"/versions/{v['id']}/analysis")
     return {"project": dict(p), "dataset_versions": out}
 
 
-def area_totals(ctx: Ctx, dataset_version_id: Any, level: Any, state: Any = None, lga: Any = None) -> dict[str, Any]:
+def area_totals(ctx: Ctx, dataset_version_id: Any, level: Any, state: Any = None, lga: Any = None,
+                with_party_totals: Any = False) -> dict[str, Any]:  # fmt: skip
     if level not in ("state", "lga", "ward"):
         raise ToolInputError("level must be state, lga or ward")
     v = _version(ctx, dataset_version_id)
@@ -110,22 +108,32 @@ def area_totals(ctx: Ctx, dataset_version_id: Any, level: Any, state: Any = None
     if lga and not state:
         raise ToolInputError("give the state as well as the LGA")
     res = area_list(ctx.db, v, level, state, lga)
+    rows = res["items"]
+    flags = lambda a: (a["findings"] or {}).get("unusual_turnout", 0) + (a["findings"] or {}).get("unusual_share", 0)  # noqa: E731
+    if len(rows) > MAX_AREAS:
+        rows = sorted(rows, key=lambda a: (-flags(a), str(a.get(level))))[:MAX_AREAS]
     items = []
-    for a in res["items"][:80]:
-        items.append({
-            "state": a["state"], "lga": a["lga"], "ward": a["ward"], "polling_units": a["units"],
-            "turnout_percent": _pct(a["turnout"]["rate"]), "turnout_units_counted": a["turnout"]["units"],
-            "registered": a["turnout"]["registered_voters"], "accredited": a["turnout"]["accredited_voters"],
-            "valid_votes": a["vote_share"]["valid_votes"], "party_totals": a["vote_share"]["party_totals"],
-            "leading_party": a["vote_share"]["leading_party"],
-            "leading_share_percent": _pct(a["vote_share"]["leading_share"]),
-            "findings": a["findings"], "in_reference_list": a["in_reference_list"],
-        })  # fmt: skip
+    for a in rows:
+        f = a["findings"] or {}
+        item = {
+            "area": a[level] if level != "state" else a["state"], "units": a["units"],
+            "turnout_pct": _pct(a["turnout"]["rate"]), "registered": a["turnout"]["registered_voters"],
+            "accredited": a["turnout"]["accredited_voters"], "leading": a["vote_share"]["leading_party"],
+            "leading_pct": _pct(a["vote_share"]["leading_share"]),
+            "flags": {"turnout": f.get("unusual_turnout"), "share": f.get("unusual_share"),
+                      "very_high": f.get("very_high"), "data_quality": f.get("data_quality")} if f else None,
+        }  # fmt: skip
+        if with_party_totals:
+            item["valid_votes"] = a["vote_share"]["valid_votes"]
+            item["party_totals"] = a["vote_share"]["party_totals"]
+        if a["in_reference_list"] is False:
+            item["not_in_reference_list"] = True
+        items.append(item)
     q = f"?state={state}" if state else ""
     q += f"&lga={lga}" if lga else ""
     ctx.cite("areas", f"Area totals ({level}{': ' + (lga or state) if state else ''})", f"/versions/{v['id']}/areas{q}")
-    return {"level": level, "state": state, "lga": lga, "areas": items, "truncated": len(res["items"]) > 80,
-            "note": "Totals count only units the analysis could use; party totals cover only parties in the file."}  # fmt: skip
+    return {"level": level, "within": lga or state, "areas": items, "total_areas": len(res["items"]),
+            **({"note": f"only the {MAX_AREAS} areas with most flags shown"} if len(res["items"]) > MAX_AREAS else {})}  # fmt: skip
 
 
 def search_findings(ctx: Ctx, **f: Any) -> dict[str, Any]:
@@ -147,20 +155,23 @@ def search_findings(ctx: Ctx, **f: Any) -> dict[str, Any]:
         if not v["latest_analysis_run_id"]:
             raise ToolInputError("This version has not been analysed yet")
         run = v["latest_analysis_run_id"]
-    limit = max(1, min(int(f.get("limit") or 10), MAX_FINDINGS))
+    try:
+        limit = max(1, min(int(f.get("limit") or 5), MAX_FINDINGS))
+    except (TypeError, ValueError):
+        limit = 5
     rows, _ = find_rows(ctx.db, ctx.project_id, run, filters, None, 5000)
     out = []
     for r in rows[:limit]:
         st = r["statistics"] or {}
         out.append({
-            "finding_id": str(r["id"]), "title": r["title"], "category": r["category"], "indicator": r["indicator"],
-            "rule_id": r["rule_id"], "pu_code": r["pu_code"], "state": r["state"], "lga": r["lga"], "ward": r["ward"],
-            "severity": r["severity"], "confidence": r["confidence"], "review_status": r["review_status"],
-            **({"value_percent": _pct(st.get("value")), "peer_median_percent": _pct(st.get("median")),
-                "robust_z": st.get("robust_z"), "peers": (r["peer_group"] or {}).get("n")} if st else {}),
+            "finding_id": str(r["id"]), "category": r["category"], "indicator": r["indicator"], "rule_id": r["rule_id"],
+            "pu_code": r["pu_code"], "lga": r["lga"], "ward": r["ward"], "severity": r["severity"],
+            "confidence": r["confidence"], "review": r["review_status"],
+            **({"value_pct": _pct(st.get("value")), "peer_median_pct": _pct(st.get("median")),
+                "z": st.get("robust_z"), "peers": (r["peer_group"] or {}).get("n")} if st else {}),
         })  # fmt: skip
         ctx.cite("finding", r["title"], f"/findings/{r['id']}")
-    return {"matching": len(rows), "returned": len(out), "order": "most unusual first", "findings": out}
+    return {"matching": len(rows), "returned": len(out), "findings": out}
 
 
 def get_finding(ctx: Ctx, finding_id: Any) -> dict[str, Any]:
@@ -239,15 +250,15 @@ def validation_issues(ctx: Ctx, dataset_version_id: Any, rule_id: Any = None, li
 _S = {"type": "string"}
 SPECS: list[dict[str, Any]] = [
     {"name": "project_overview", "fn": project_overview,
-     "description": "The project and its dataset versions, with validation and analysis summaries. Call this first to get dataset_version_id values.",
+     "description": "Project, its dataset versions (ids) and validation/analysis summaries.",
      "parameters": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "area_totals", "fn": area_totals,
-     "description": "Totals by state, LGA or ward for one dataset version: polling units, turnout %, registered, accredited, valid votes, party totals, leading party, finding counts. Use state (and lga) to drill down.",
+     "description": "USE FOR ANY COMPARISON OF AREAS (which state/LGA/ward has most/least/highest...). Per-area totals for a dataset version: units, turnout %, registered, accredited, leading party %, and flag counts (flags.turnout = unusual-turnout units, flags.share, flags.very_high, flags.data_quality). level=state for states; add state to list its LGAs; add lga to list its wards. with_party_totals adds party votes.",
      "parameters": {"type": "object", "required": ["dataset_version_id", "level"], "additionalProperties": False,
                     "properties": {"dataset_version_id": _S, "level": {"type": "string", "enum": ["state", "lga", "ward"]},
-                                   "state": _S, "lga": _S}}},
+                                   "state": _S, "lga": _S, "with_party_totals": {"type": "boolean"}}}},
     {"name": "search_findings", "fn": search_findings,
-     "description": "Search findings (statistical outliers and data quality issues), most unusual first. Returns the number matching and up to `limit` items.",
+     "description": "Individual findings (polling units), most unusual first: number matching plus up to `limit` (default 5). Use for questions about specific units or examples, not for comparing areas.",
      "parameters": {"type": "object", "additionalProperties": False, "properties": {
          "dataset_version_id": _S,
          "category": {"type": "string", "enum": ["statistical_anomaly", "data_quality_issue"]},
@@ -256,18 +267,28 @@ SPECS: list[dict[str, Any]] = [
          "review_status": {"type": "string", "enum": DECISIONS},
          "state": _S, "lga": _S, "ward": _S, "limit": {"type": "integer", "minimum": 1, "maximum": MAX_FINDINGS}}}},
     {"name": "get_finding", "fn": get_finding,
-     "description": "One finding in full: explanation, statistics, peer group, the source row's original cells, review history and claims.",
+     "description": "One finding: explanation, statistics, peers, the source row's original cells, reviews, claims.",
      "parameters": {"type": "object", "required": ["finding_id"], "additionalProperties": False, "properties": {"finding_id": _S}}},
     {"name": "claims_overview", "fn": claims_overview,
-     "description": "Counts of claims by status and the latest claims. unverified_allegation is not a fact.",
+     "description": "Claim counts by status and the latest claims. unverified_allegation is not a fact.",
      "parameters": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "validation_issues", "fn": validation_issues,
-     "description": "Data check results for a dataset version: counts by rule, what each rule means, and example issues with the original cell.",
+     "description": "Data check results for a dataset version: counts by rule, rule meanings, example issues.",
      "parameters": {"type": "object", "required": ["dataset_version_id"], "additionalProperties": False,
                     "properties": {"dataset_version_id": _S, "rule_id": _S, "limit": {"type": "integer", "minimum": 1, "maximum": 20}}}},
 ]  # fmt: skip
 BY_NAME = {s["name"]: s for s in SPECS}
 
 
+def _loose(schema: dict[str, Any]) -> dict[str, Any]:
+    """Lookups validate their own inputs, so the schema sent to the provider is lenient: providers reject a whole
+    reply when a tool call breaks a strict schema (e.g. one extra argument)."""
+    out = {k: v for k, v in schema.items() if k != "additionalProperties"}
+    if "properties" in out:
+        out["properties"] = {k: _loose(v) for k, v in out["properties"].items()}
+    return out
+
+
 def openai_tools() -> list[dict[str, Any]]:
-    return [{"type": "function", "function": {k: s[k] for k in ("name", "description", "parameters")}} for s in SPECS]
+    return [{"type": "function", "function": {"name": s["name"], "description": s["description"],
+                                              "parameters": _loose(s["parameters"])}} for s in SPECS]  # fmt: skip

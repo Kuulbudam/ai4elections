@@ -7,22 +7,40 @@ LLM_MODEL. The key is read on the server only and never logged or returned.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Protocol
 
 import httpx
 
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# Used in this order when LLM_MODEL is not set: the first one the provider currently lists (all support tool calling).
+PREFERRED_MODELS = [
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "moonshotai/kimi-k2-instruct",
+    "qwen/qwen3-32b",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "openai/gpt-oss-20b",
+]
+_chosen: dict[str, str] = {}
+MAX_REPLY_TOKENS = 1200  # providers count the requested maximum against the per-minute token budget
 
 
 class LLMError(Exception):
     """The model service failed; the message is safe to show (no key, no prompt)."""
 
+    def __init__(self, message: str, code: str | None = None, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retry_after = retry_after
+
 
 class ChatModel(Protocol):
     name: str
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
+    ) -> dict[str, Any]:
         """Return the assistant message: {"content": str|None, "tool_calls": [...]}."""
         ...
 
@@ -34,30 +52,82 @@ class OpenAICompatible:
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         self._timeout = timeout
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        body = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto", "temperature": 0}
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto",
+                                "temperature": temperature, "max_completion_tokens": MAX_REPLY_TOKENS}  # fmt: skip
+        if "gpt-oss" in self.name:
+            body["reasoning_effort"] = "low"  # fewer hidden reasoning tokens against the per-minute budget
         try:
             r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
         except httpx.HTTPError as e:
             raise LLMError("The assistant service could not be reached. Try again shortly.") from e
+        if r.status_code == 404:
+            _chosen.pop(self.base_url, None)  # pick again next time
+            raise LLMError(f"The assistant's model ({self.name}) is not available from the provider.")
         if r.status_code == 429:
-            raise LLMError("The assistant is busy (free-tier limit reached). Try again in a minute.")
+            try:
+                wait = float(r.headers.get("retry-after", ""))
+            except ValueError:
+                wait = None
+            raise LLMError(f"The assistant is busy (free-tier limit reached{_limit_detail(r)}). Try again in a minute.",
+                           code="rate_limit", retry_after=wait)  # fmt: skip
         if r.status_code in (401, 403):
             raise LLMError("The assistant is not authorised with its provider. An administrator must check the key.")
         if r.status_code >= 400:
-            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}).")
+            reason = _reason(r)
+            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}{reason}).",
+                           code=reason.lstrip(": ") or None)  # fmt: skip
         try:
             return r.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError("The assistant service returned an unexpected response.") from e
 
 
+def _limit_detail(r: httpx.Response) -> str:
+    """e.g. 'Limit 8000, Used 6100, Requested 2400' from the provider's 429 message (no prompt content)."""
+    try:
+        m = re.search(r"Limit \d+, Used \d+, Requested \d+", r.json().get("error", {}).get("message", ""))
+        return f": {m.group(0)}" if m else ""
+    except (ValueError, AttributeError):
+        return ""
+
+
+def _reason(r: httpx.Response) -> str:
+    """The provider's error code (never the prompt, never the key)."""
+    try:
+        e = r.json().get("error", {})
+        code = e.get("code") or e.get("type")
+        return f": {str(code)[:60]}" if code else ""
+    except ValueError:
+        return ""
+
+
+def list_models(api_key: str, base_url: str) -> list[str]:
+    """Model ids the provider lists for this key (empty on any failure)."""
+    try:
+        r = httpx.get(f"{base_url.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+        r.raise_for_status()
+        return sorted(m["id"] for m in r.json().get("data", []) if m.get("active", True))
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return []
+
+
+def choose_model(api_key: str, base_url: str) -> str:
+    if base_url in _chosen:
+        return _chosen[base_url]
+    listed = set(list_models(api_key, base_url))
+    model = next((m for m in PREFERRED_MODELS if m in listed), PREFERRED_MODELS[0])
+    if listed:
+        _chosen[base_url] = model
+    return model
+
+
 def configured_model() -> ChatModel | None:
     key = os.environ.get("LLM_API_KEY", "").strip()
     if not key:
         return None
-    return OpenAICompatible(
-        key,
-        os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL,
-        os.environ.get("LLM_MODEL", "").strip() or DEFAULT_MODEL,
-    )
+    base = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
+    model = os.environ.get("LLM_MODEL", "").strip() or choose_model(key, base)
+    return OpenAICompatible(key, base, model)
