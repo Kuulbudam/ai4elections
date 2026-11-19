@@ -7,6 +7,28 @@ type OrgRow = { org_id: string; role: Role; organisations: { name: string } | nu
 type ProjectRow = { id: string; org_id: string; election_name: string; election_year: number }
 type WorkRow = { project: ProjectRow; versions: number; analysed: number; toReview: number; unverified: number; reports: number }
 
+async function fetchWork(sb: NonNullable<ReturnType<typeof getSupabase>>): Promise<WorkRow[]> {
+  const [p, v, f, c, r] = await Promise.all([
+    sb.from('projects').select('id, org_id, election_name, election_year').is('archived_at', null).order('created_at', { ascending: false }).limit(50),
+    sb.from('dataset_versions').select('project_id, latest_analysis_run_id').is('archived_at', null).limit(1000),
+    sb.from('finding_overview').select('project_id, analytical_run_id').eq('category', 'statistical_anomaly').in('severity', ['very_high', 'high']).eq('review_status', 'unreviewed').limit(5000),
+    sb.from('claims').select('project_id').eq('status', 'unverified_allegation').limit(5000),
+    sb.from('reports').select('project_id').limit(5000),
+  ])
+  const latest = new Set(((v.data ?? []) as { latest_analysis_run_id: string | null }[]).map((x) => x.latest_analysis_run_id).filter(Boolean))
+  const count = <T extends { project_id: string }>(rows: T[] | null, pid: string, keep: (x: T) => boolean = () => true) =>
+    (rows ?? []).filter((x) => x.project_id === pid && keep(x)).length
+  return ((p.data ?? []) as ProjectRow[]).map((pr) => ({
+      project: pr,
+      versions: count(v.data as { project_id: string }[], pr.id),
+      analysed: count(v.data as { project_id: string; latest_analysis_run_id: string | null }[], pr.id, (x) => !!x.latest_analysis_run_id),
+      toReview: count(f.data as { project_id: string; analytical_run_id: string }[], pr.id, (x) => latest.has(x.analytical_run_id)),
+      unverified: count(c.data as { project_id: string }[], pr.id),
+      reports: count(r.data as { project_id: string }[], pr.id),
+    }))
+}
+
+
 export default function Organisations() {
   const { session } = useAuth()
   const [orgs, setOrgs] = useState<OrgRow[] | null>(null)
@@ -25,28 +47,14 @@ export default function Organisations() {
       .order('created_at')
     if (error) setError(friendlyError(error))
     setOrgs((data as unknown as OrgRow[]) ?? [])
-    // Dashboard: what needs attention in each project (all reads under RLS).
-    const [p, v, f, c, r] = await Promise.all([
-      sb.from('projects').select('id, org_id, election_name, election_year').is('archived_at', null).order('created_at', { ascending: false }).limit(50),
-      sb.from('dataset_versions').select('project_id, latest_analysis_run_id').is('archived_at', null).limit(1000),
-      sb.from('finding_overview').select('project_id, analytical_run_id').eq('category', 'statistical_anomaly').in('severity', ['very_high', 'high']).eq('review_status', 'unreviewed').limit(5000),
-      sb.from('claims').select('project_id').eq('status', 'unverified_allegation').limit(5000),
-      sb.from('reports').select('project_id').limit(5000),
-    ])
-    const latest = new Set(((v.data ?? []) as { latest_analysis_run_id: string | null }[]).map((x) => x.latest_analysis_run_id).filter(Boolean))
-    const count = <T extends { project_id: string }>(rows: T[] | null, pid: string, keep: (x: T) => boolean = () => true) =>
-      (rows ?? []).filter((x) => x.project_id === pid && keep(x)).length
-    setWork(
-      ((p.data ?? []) as ProjectRow[]).map((pr) => ({
-        project: pr,
-        versions: count(v.data as { project_id: string }[], pr.id),
-        analysed: count(v.data as { project_id: string; latest_analysis_run_id: string | null }[], pr.id, (x) => !!x.latest_analysis_run_id),
-        toReview: count(f.data as { project_id: string; analytical_run_id: string }[], pr.id, (x) => latest.has(x.analytical_run_id)),
-        unverified: count(c.data as { project_id: string }[], pr.id),
-        reports: count(r.data as { project_id: string }[], pr.id),
-      })),
-    )
+    // Dashboard: what needs attention in each project (all reads under RLS). Never blocks the page.
+    try {
+      setWork(await fetchWork(sb))
+    } catch {
+      setWork([])
+    }
   }, [session])
+
 
   useEffect(() => {
     // load() only sets state after awaiting the network, never synchronously
