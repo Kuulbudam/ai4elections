@@ -171,6 +171,8 @@ export default function ProjectOverview() {
                                   <>
                                     <span aria-hidden="true">&ensp;</span>
                                     <Link to={`/versions/${v.id}/analysis`}>Analysis</Link>
+                                    <span aria-hidden="true">&ensp;</span>
+                                    <Link to={`/versions/${v.id}/areas`}>Areas</Link>
                                   </>
                                 )}
                               </>

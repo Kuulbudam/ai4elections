@@ -197,6 +197,13 @@ def main() -> int:
             cells.get("PU Code") == items[0]["pu_code"],
             f"HTTP {d.status_code}",
         )
+    ar = http.get(f"{API}/areas", headers=bearer, params={"dataset_version_id": vid, "level": "lga"})
+    its = ar.json().get("items", []) if ar.status_code == 200 else []
+    check(
+        "deployed GET /areas",
+        ar.status_code == 200 and sum(i["units"] for i in its) == 12_023,
+        f"HTTP {ar.status_code}",
+    )
     return report()
 
 
