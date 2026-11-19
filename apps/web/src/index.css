@@ -206,3 +206,19 @@ h1 { overflow-wrap: anywhere; }
 .chip { border: 1px solid var(--rule); background: #fff; padding: 6px 10px; border-radius: 2px; cursor: pointer; font: inherit; font-size: 0.92rem; }
 .chip:hover { border-color: var(--link); }
 .ask { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; max-width: 860px; }
+
+/* Reports */
+.actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+code.hash { word-break: break-all; font-size: 0.85rem; }
+.review-block { margin-bottom: 10px; }
+@media print {
+  .topbar, .footer, .no-print, .mainnav { display: none !important; }
+  body { background: #fff; color: #000; font-size: 10.5pt; }
+  .content, .page { max-width: none; margin: 0; padding: 0; }
+  .report h2 { break-after: avoid; margin-top: 16pt; }
+  .report table { font-size: 9pt; }
+  .report tr { break-inside: avoid; }
+  .report a { color: #000; text-decoration: none; }
+  .notice { border: 1px solid #999; }
+  .table th { background: none; }
+}

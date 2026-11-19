@@ -204,6 +204,15 @@ def main() -> int:
         ar.status_code == 200 and sum(i["units"] for i in its) == 12_023,
         f"HTTP {ar.status_code}",
     )
+    rv = http.get(f"{API}/jobs/{j['id']}", headers=bearer).json()  # the analyse job from above
+    rep = http.post(
+        f"{API}/reports", headers=bearer, json={"project_id": proj, "analytical_run_id": rv.get("analytical_run_id")}
+    )
+    ok = rep.status_code == 201
+    if ok:
+        ex = http.get(f"{API}/reports/{rep.json()['id']}/export", headers=bearer, params={"format": "md"})
+        ok = ex.status_code == 200 and ex.headers.get("x-report-content-hash") == rep.json()["content_hash"]
+    check("deployed report generated and exported", ok, f"HTTP {rep.status_code}")
     st = http.get(f"{API}/assistant/status", headers=bearer)
     if not (st.status_code == 200 and st.json().get("enabled") is True):
         print(f"NOTE data assistant not enabled on the deployed API ({st.text[:80]}); skipping its check", flush=True)

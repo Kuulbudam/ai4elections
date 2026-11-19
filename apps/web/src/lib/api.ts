@@ -51,6 +51,29 @@ export async function api<T>(method: string, path: string, body?: unknown, extra
   return (await res.json()) as T
 }
 
+/** GET a text file from the API (exports); returns the text and response headers. */
+export async function apiText(path: string): Promise<{ text: string; headers: Headers }> {
+  const { data } = (await getSupabase()?.auth.getSession()) ?? { data: { session: null } }
+  const token = data.session?.access_token
+  if (!token) throw new ApiError(401, 'UNAUTHENTICATED', 'Your session has expired. Sign in again.')
+  let res: Response
+  try {
+    res = await fetch(`${base()}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Could not reach the server. Check your connection and try again.')
+  }
+  if (!res.ok) {
+    let err: Partial<Schemas['Error']> = {}
+    try {
+      err = await res.json()
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(res.status, err.code ?? 'INTERNAL', err.message ?? 'Download failed. Please try again.')
+  }
+  return { text: await res.text(), headers: res.headers }
+}
+
 /** PUT the file to the signed upload URL, reporting progress (0..1). */
 export function uploadToSignedUrl(url: string, file: Blob, onProgress: (p: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {

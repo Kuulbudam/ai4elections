@@ -88,7 +88,8 @@ export default function ProjectOverview() {
       <div className="row-between">
         <h1 id="project-heading">{project.election_name}</h1>
         <span>
-          <Link to={`/projects/${project.id}/findings`}>Findings</Link> · <Link to={`/projects/${project.id}/claims`}>Claims register</Link>
+          <Link to={`/projects/${project.id}/findings`}>Findings</Link> · <Link to={`/projects/${project.id}/claims`}>Claims register</Link> ·{' '}
+          <Link to={`/projects/${project.id}/reports`}>Reports</Link>
           {(role === 'admin' || role === 'analyst') && (
             <>
               {' '}
