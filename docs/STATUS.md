@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 3 — Validation: **PASSED** (report `docs/phase-reports/phase-3.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 4.
+**Current phase:** 4 — Analysis engine: **PASSED** (report `docs/phase-reports/phase-4.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 5.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Decisions made (founder, 18 Nov 2026)
@@ -37,6 +37,11 @@ Read this first in every session. Update it last.
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
 
+## Done (Phase 4)
+
+- MAD peer analysis (method 1.0.0), data quality findings, analyse job, analysis page, findings append-only. 30/30 planted anomalies (all very high); 102 false flags on normal rows (0.43%, none very high); identical hash on rerun.
+- Live: real project 18/18, 15/15, Plateau 11/11; production 20/20 (upload → validate → analyse via API dispatch).
+
 ## Between Phase 3 and Phase 4 (founder requests, 18–19 Nov)
 
 - **Two-step verification (TOTP) required for everyone** (PR #20): enforced in Postgres (restrictive RLS + storage + RPCs need `aal2`) and in the API. Live check 18/18.
@@ -69,14 +74,14 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 4 on branch `phase-4-analysis`: peer groups (ward, LGA fallback, n ≥ 10), MAD robust z (threshold 3.5, zero-MAD and insufficient-peers handled), severity/confidence, evidence, data_quality_issue findings from validation, analytical runs with content hash, ground-truth scoring, analyse job + POST /jobs, analysis progress page. Also replace the never-firing GitHub cron with a Supabase pg_cron sweep (keeps the project awake). Peer statistics must work with ruleset 1.1.0 data (no total cast, partial party list).
+Phase 5 on branch `phase-5-findings`: findings dashboard + details (evidence back to raw cells), investigation notes, append-only reviews, claims (verified only with independent evidence + second admin/analyst sign-off), audit history.
 
 ## Open questions / to verify
 
 - CCIJ reply on terms of use (founder).
 - Founder to confirm Google sign-in lands on two-step setup; inner pages of the redesign to be checked once signed in.
 
-- Scheduled worker sweep never fired with `*/15`; changed to `7,22,37,52 * * * *` in Phase 2. Verify it fires after merge (it also keeps Supabase awake).
+- GitHub schedule fired once (19 Nov 01:03 UTC) but is throttled; API dispatch is the main path. Consider a DB-side sweep in Phase 9.
 - Dispatch latency (API → `repository_dispatch` → runner claims job): measure once the API is on Vercel (Phase 2).
 
 ## Known issues
