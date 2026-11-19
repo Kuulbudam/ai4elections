@@ -73,12 +73,12 @@ def test_answer_built_from_real_lookups_is_grounded_cited_and_stored(api, world,
 
     def answer(m):
         overview, areas, found, detail = m.tool_results[-4:]
-        top = max(areas["areas"], key=lambda a: a["findings"]["unusual_turnout"])
+        top = max(areas["areas"], key=lambda a: a["flags"]["turnout"])
         f = found["findings"][0]
         return {"content": (
-            f"{top['state']} has the most unusual-turnout flags ({top['findings']['unusual_turnout']}); its turnout is "
-            f"{top['turnout_percent']}% across {top['turnout_units_counted']} counted units. "
-            f"The strongest is {f['pu_code']}: {f['value_percent']}% against a ward median of {f['peer_median_percent']}%. "
+            f"{top['area']} has the most unusual-turnout flags ({top['flags']['turnout']}); its turnout is "
+            f"{top['turnout_pct']}% across {top['units']} polling units. "
+            f"The strongest is {f['pu_code']}: {f['value_pct']}% against a ward median of {f['peer_median_pct']}%. "
             f"Source row {detail['source_row']['row_number']}. {found['matching']} very-high turnout flags in total."
         )}  # fmt: skip
 

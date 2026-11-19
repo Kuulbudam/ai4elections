@@ -27,9 +27,10 @@ _chosen: dict[str, str] = {}
 class LLMError(Exception):
     """The model service failed; the message is safe to show (no key, no prompt)."""
 
-    def __init__(self, message: str, code: str | None = None) -> None:
+    def __init__(self, message: str, code: str | None = None, retry_after: float | None = None) -> None:
         super().__init__(message)
         self.code = code
+        self.retry_after = retry_after
 
 
 class ChatModel(Protocol):
@@ -62,7 +63,12 @@ class OpenAICompatible:
             _chosen.pop(self.base_url, None)  # pick again next time
             raise LLMError(f"The assistant's model ({self.name}) is not available from the provider.")
         if r.status_code == 429:
-            raise LLMError("The assistant is busy (free-tier limit reached). Try again in a minute.")
+            try:
+                wait = float(r.headers.get("retry-after", ""))
+            except ValueError:
+                wait = None
+            raise LLMError("The assistant is busy (free-tier limit reached). Try again in a minute.",
+                           code="rate_limit", retry_after=wait)  # fmt: skip
         if r.status_code in (401, 403):
             raise LLMError("The assistant is not authorised with its provider. An administrator must check the key.")
         if r.status_code >= 400:

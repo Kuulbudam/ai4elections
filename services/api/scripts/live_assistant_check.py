@@ -85,6 +85,7 @@ def main() -> int:
     check("assistant is switched on", st.get("enabled") is True, str(st))
 
     def ask(q: str) -> tuple[int, dict, float]:
+        time.sleep(35)  # free tier: ~8k tokens per minute; space questions as a person would
         t0 = time.monotonic()
         r = api.post("/assistant/ask", headers=auth, json={"project_id": proj, "question": q})
         return (
