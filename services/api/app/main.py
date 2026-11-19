@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.contracts.models import Error, Health
-from app.routes import areas, assistant, findings, ingestion, reports
+from app.routes import areas, assistant, dashboard, findings, ingestion, reports
 
 VERSION = "0.1.0"
 log = logging.getLogger("ai4e.api")
@@ -80,6 +80,7 @@ app.include_router(findings.router)
 app.include_router(areas.router)
 app.include_router(assistant.router)
 app.include_router(reports.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health", response_model=Health)

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, sleep, type Job } from '../lib/api'
 import { friendlyError, getSupabase } from '../lib/supabase'
 import { useRole } from '../lib/useRole'
+import AnalysisDashboard from '../components/AnalysisDashboard'
 
 type Indicator = 'turnout_rate' | 'leading_party_share'
 type IndicatorSummary = {
@@ -155,11 +156,6 @@ export default function Analysis() {
 
   return (
     <section className="page" aria-labelledby="analysis-heading">
-      <p>
-        <Link to={`/projects/${version.project_id}`}>← Project</Link> · <Link to={`/versions/${versionId}/validation`}>Validation</Link> ·{' '}
-        <Link to={`/projects/${version.project_id}/findings`}>All findings</Link> · <Link to={`/versions/${versionId}/areas`}>Areas</Link> ·{' '}
-        <Link to={`/projects/${version.project_id}/reports`}>Reports</Link>
-      </p>
       <div className="row-between">
         <h1 id="analysis-heading">
           Analysis — {version.original_filename} (v{version.version_number})
@@ -194,12 +190,7 @@ export default function Analysis() {
         version.validated_at && !running && <p className="empty">This version has not been analysed yet.</p>
       ) : (
         <>
-          <div className="stats" role="list" aria-label="Analysis summary">
-            <Stat label="Polling units" value={s.units} />
-            <Stat label="Unusual turnout" value={s.indicators.turnout_rate.flagged} tone="warn" />
-            <Stat label="Unusual leading-party share" value={s.indicators.leading_party_share.flagged} tone="warn" />
-            <Stat label="Data quality findings" value={s.data_quality_findings} tone="bad" />
-          </div>
+          <AnalysisDashboard versionId={versionId} runId={run.id} />
 
           <h3>How each indicator was scored</h3>
           <table className="table compact">
@@ -364,14 +355,5 @@ export default function Analysis() {
         </>
       )}
     </section>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: 'good' | 'warn' | 'bad' }) {
-  return (
-    <div className={`stat ${tone ?? ''}`} role="listitem">
-      <div className="stat-value">{value.toLocaleString()}</div>
-      <div className="stat-label">{label}</div>
-    </div>
   )
 }

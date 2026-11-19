@@ -61,6 +61,9 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     await page.getByRole('button', { name: 'Create project' }).click()
     await page.getByRole('link', { name: 'SYNTHETIC E2E Election' }).click()
     await expect(page.getByRole('heading', { name: 'SYNTHETIC E2E Election' })).toBeVisible()
+    // the project menu shows the workflow, with step 1 as the next step
+    const flow = page.getByRole('navigation', { name: 'Workflow' })
+    await expect(flow.getByRole('link', { name: /Upload data.*next step/ })).toBeVisible()
   })
   const projectUrl = page.url()
 
@@ -89,12 +92,22 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     await page.getByRole('link', { name: 'Go to analysis' }).click()
   })
 
+  await test.step('home page shows what to do next', async () => {
+    const back = page.url()
+    await page.goto('/')
+    await expect(page.getByRole('list', { name: 'What to do next' }).getByRole('link', { name: 'Run the analysis' })).toBeVisible()
+    await page.goto(back)
+  })
+
   await test.step('run analysis', async () => {
     await page.getByRole('button', { name: 'Run analysis' }).click()
     const stats = page.getByRole('list', { name: 'Analysis summary' })
     await expect(stats).toBeVisible({ timeout: 300_000 })
     await expect(stats.getByText('49')).toBeVisible()
     await expect(stats.getByText('91')).toBeVisible()
+    await expect(page.getByRole('img', { name: /Turnout: distribution across/ })).toBeVisible()
+    await expect(page.getByRole('img', { name: /unusual units/ }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /Ask the data/ })).toBeVisible()
     await axe(page, 'analysis')
   })
 

@@ -15,6 +15,7 @@ import { TwoStepChallenge, TwoStepEnrol } from './pages/TwoStep'
 import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 import Analysis from './pages/Analysis'
+import ProjectShell from './components/ProjectShell'
 import Areas from './pages/Areas'
 import Reports from './pages/Reports'
 import ReportView from './pages/ReportView'
@@ -90,25 +91,27 @@ function Shell() {
           </nav>
         </header>
         <main className="content">
-          <Routes>
-            <Route path="/" element={<Organisations />} />
-            <Route path="/orgs/:orgId/members" element={<Members />} />
-            <Route path="/orgs/:orgId/projects" element={<Projects />} />
-            <Route path="/projects/:projectId" element={<ProjectOverview />} />
-            <Route path="/projects/:projectId/upload" element={<Upload />} />
-            <Route path="/versions/:versionId/mapping" element={<Mapping />} />
-            <Route path="/versions/:versionId/validation" element={<Validation />} />
-            <Route path="/versions/:versionId/analysis" element={<Analysis />} />
-            <Route path="/versions/:versionId/areas" element={<Areas />} />
-            <Route path="/projects/:projectId/findings" element={<Findings />} />
-            <Route path="/projects/:projectId/claims" element={<Claims />} />
-            <Route path="/projects/:projectId/assistant" element={<Assistant />} />
-            <Route path="/projects/:projectId/reports" element={<Reports />} />
-            <Route path="/reports/:reportId" element={<ReportView />} />
-            <Route path="/findings/:findingId" element={<FindingDetail />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<p className="empty">Page not found.</p>} />
-          </Routes>
+          <ProjectShell>
+            <Routes>
+              <Route path="/" element={<Organisations />} />
+              <Route path="/orgs/:orgId/members" element={<Members />} />
+              <Route path="/orgs/:orgId/projects" element={<Projects />} />
+              <Route path="/projects/:projectId" element={<ProjectOverview />} />
+              <Route path="/projects/:projectId/upload" element={<Upload />} />
+              <Route path="/versions/:versionId/mapping" element={<Mapping />} />
+              <Route path="/versions/:versionId/validation" element={<Validation />} />
+              <Route path="/versions/:versionId/analysis" element={<Analysis />} />
+              <Route path="/versions/:versionId/areas" element={<Areas />} />
+              <Route path="/projects/:projectId/findings" element={<Findings />} />
+              <Route path="/projects/:projectId/claims" element={<Claims />} />
+              <Route path="/projects/:projectId/assistant" element={<Assistant />} />
+              <Route path="/projects/:projectId/reports" element={<Reports />} />
+              <Route path="/reports/:reportId" element={<ReportView />} />
+              <Route path="/findings/:findingId" element={<FindingDetail />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="*" element={<p className="empty">Page not found.</p>} />
+            </Routes>
+          </ProjectShell>
         </main>
         <footer className="footer">
           <div className="footer-inner">

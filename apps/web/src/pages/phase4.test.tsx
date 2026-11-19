@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { setSupabaseForTests } from '../lib/supabase'
@@ -58,14 +58,24 @@ function client(role: string, latestRun: string | null, calls: string[][] = []) 
   }
 }
 
+const dashboard = {
+  dataset_version_id: 'v1', analytical_run_id: 'run1', lgas: ['Synthia / Alder', 'Synthia / Birch'],
+  units: [[0, 0.35, 0.5], [0, 0.36, 0.52], [1, 0.91, 0.6], [1, null, null]],
+  flagged: [{ finding_id: 'f1', pu_code: 'SY-01-02-03-00004', ward: 'Birch', lga: 1, indicator: 'turnout_rate', value: 0.91, median: 0.35, robust_z: 12.59, severity: 'very_high', review_status: 'unreviewed' }],
+  kpi: { units: 12023, turnout_counted: 11990, share_counted: 11979, unusual_turnout: 49, unusual_share: 91, very_high: 38, data_quality: 79, to_review: 55 },
+  severity: { turnout_rate: { medium: 31, high: 3, very_high: 15 } }, data_quality_by_rule: { V003: 12, V004: 9 },
+}  // prettier-ignore
+
 beforeEach(() => {
   vi.stubEnv('VITE_API_BASE_URL', 'https://api.test')
   window.history.pushState({}, '', '/versions/v1/analysis')
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => (url.includes('/dashboard') ? dashboard : { status: 'ok' }) })))
 })
 afterEach(() => {
   cleanup()
   setSupabaseForTests(undefined)
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 
 describe('analysis page', () => {
@@ -84,6 +94,17 @@ describe('analysis page', () => {
     expect(calls).toContainEqual(['eq', 'category', 'statistical_anomaly'])
     expect(document.body.textContent).not.toMatch(/fraud|rigg/i)
     expect(screen.queryByRole('button', { name: /Run analysis/ })).toBeNull() // viewers cannot run
+  })
+
+  it('draws the dashboard charts and cross-filters by area', async () => {
+    setSupabaseForTests(client('viewer', 'run1') as never)
+    render(<App />)
+    expect(await screen.findByRole('img', { name: /Turnout: distribution across 3 polling units/ })).toBeTruthy()
+    expect(screen.getByRole('img', { name: /against Peer group median for 1 unusual units/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Synthia \/ Birch: 1 unusual units/ }))
+    expect(await screen.findByRole('img', { name: /distribution across 1 polling units/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: 'Leading-party share' }))
+    expect(await screen.findByText('No unusual units for this indicator.')).toBeTruthy()
   })
 
   it('offers to run analysis when none exists', async () => {

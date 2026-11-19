@@ -270,6 +270,30 @@ paths:
         "502": { description: The model service failed, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "503": { description: The assistant is not set up, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
+  /dataset-versions/{id}/dashboard:
+    get:
+      operationId: versionDashboard
+      summary: Data for the analysis dashboard charts of one validated dataset version
+      description: |
+        Compact arrays so the browser can draw and cross-filter charts: one entry per polling unit with its LGA
+        index, turnout and leading-party share (null when the analysis could not use it), the flagged units from the
+        latest analysis run, and summary counts. Values use the analysis's own counting rules.
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VersionDashboard" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
   /findings/{id}:
     get:
       operationId: getFinding
@@ -933,6 +957,50 @@ components:
         grounded: { type: boolean, description: "False when the answer used no lookup or has figures not found in the lookups" }
         note: { type: [string, "null"], enum: [wording, unmatched_figures, no_lookup, null] }
         model: { type: string }
+
+    VersionDashboard:
+      type: object
+      additionalProperties: false
+      required: [dataset_version_id, lgas, units, flagged, kpi, severity, data_quality_by_rule]
+      properties:
+        dataset_version_id: { type: string, format: uuid }
+        analytical_run_id: { type: [string, "null"], format: uuid }
+        lgas:
+          type: array
+          description: "Area labels, 'STATE / LGA'; units refer to them by index"
+          items: { type: string }
+        units:
+          type: array
+          description: "One [lga_index, turnout, leading_share] per polling unit; turnout/share are 0..1 or null"
+          items: { type: array, items: { type: [number, "null"] }, minItems: 3, maxItems: 3 }
+        flagged:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [finding_id, lga, indicator, value, median, robust_z, severity]
+            properties:
+              finding_id: { type: string, format: uuid }
+              pu_code: { type: [string, "null"] }
+              ward: { type: [string, "null"] }
+              lga: { type: integer }
+              indicator: { type: string, enum: [turnout_rate, leading_party_share] }
+              value: { type: number }
+              median: { type: number }
+              robust_z: { type: number }
+              severity: { type: string }
+              review_status: { type: string }
+        kpi:
+          type: object
+          additionalProperties: { type: integer }
+        severity:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: { type: integer }
+        data_quality_by_rule:
+          type: object
+          additionalProperties: { type: integer }
 
     ReviewRequest:
       type: object
