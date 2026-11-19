@@ -119,3 +119,20 @@ def test_numbers_from_the_question_and_rounding_are_accepted():
     )
     assert service.ungrounded_numbers("z = +7.84", [{"z": "7.8400"}]) == []
     assert service.ungrounded_numbers("1,470 issues", [{"n": 1470}]) == []
+
+
+def test_model_choice_follows_what_the_provider_lists(monkeypatch):
+    from app.assistant import llm
+
+    llm._chosen.clear()
+    monkeypatch.setattr(llm, "list_models", lambda k, b: ["qwen/qwen3-32b", "whisper-large-v3"])
+    assert llm.choose_model("k", "https://x") == "qwen/qwen3-32b"
+    llm._chosen.clear()
+    monkeypatch.setattr(llm, "list_models", lambda k, b: [])
+    assert llm.choose_model("k", "https://y") == llm.PREFERRED_MODELS[0]  # cannot list: try the first, do not cache
+    assert "https://y" not in llm._chosen
+    monkeypatch.setenv("LLM_API_KEY", "k")
+    monkeypatch.setenv("LLM_MODEL", "my-model")
+    assert llm.configured_model().name == "my-model"
+    monkeypatch.delenv("LLM_API_KEY")
+    assert llm.configured_model() is None

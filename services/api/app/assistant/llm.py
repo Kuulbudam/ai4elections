@@ -12,7 +12,16 @@ from typing import Any, Protocol
 import httpx
 
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# Used in this order when LLM_MODEL is not set: the first one the provider currently lists (all support tool calling).
+PREFERRED_MODELS = [
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "moonshotai/kimi-k2-instruct",
+    "qwen/qwen3-32b",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "openai/gpt-oss-20b",
+]
+_chosen: dict[str, str] = {}
 
 
 class LLMError(Exception):
@@ -40,6 +49,9 @@ class OpenAICompatible:
             r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
         except httpx.HTTPError as e:
             raise LLMError("The assistant service could not be reached. Try again shortly.") from e
+        if r.status_code == 404:
+            _chosen.pop(self.base_url, None)  # pick again next time
+            raise LLMError(f"The assistant's model ({self.name}) is not available from the provider.")
         if r.status_code == 429:
             raise LLMError("The assistant is busy (free-tier limit reached). Try again in a minute.")
         if r.status_code in (401, 403):
@@ -52,12 +64,30 @@ class OpenAICompatible:
             raise LLMError("The assistant service returned an unexpected response.") from e
 
 
+def list_models(api_key: str, base_url: str) -> list[str]:
+    """Model ids the provider lists for this key (empty on any failure)."""
+    try:
+        r = httpx.get(f"{base_url.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
+        r.raise_for_status()
+        return sorted(m["id"] for m in r.json().get("data", []) if m.get("active", True))
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return []
+
+
+def choose_model(api_key: str, base_url: str) -> str:
+    if base_url in _chosen:
+        return _chosen[base_url]
+    listed = set(list_models(api_key, base_url))
+    model = next((m for m in PREFERRED_MODELS if m in listed), PREFERRED_MODELS[0])
+    if listed:
+        _chosen[base_url] = model
+    return model
+
+
 def configured_model() -> ChatModel | None:
     key = os.environ.get("LLM_API_KEY", "").strip()
     if not key:
         return None
-    return OpenAICompatible(
-        key,
-        os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL,
-        os.environ.get("LLM_MODEL", "").strip() or DEFAULT_MODEL,
-    )
+    base = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
+    model = os.environ.get("LLM_MODEL", "").strip() or choose_model(key, base)
+    return OpenAICompatible(key, base, model)
