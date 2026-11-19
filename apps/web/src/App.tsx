@@ -15,6 +15,7 @@ import { TwoStepChallenge, TwoStepEnrol } from './pages/TwoStep'
 import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 import Analysis from './pages/Analysis'
+import Areas from './pages/Areas'
 import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
@@ -95,6 +96,7 @@ function Shell() {
             <Route path="/versions/:versionId/mapping" element={<Mapping />} />
             <Route path="/versions/:versionId/validation" element={<Validation />} />
             <Route path="/versions/:versionId/analysis" element={<Analysis />} />
+            <Route path="/versions/:versionId/areas" element={<Areas />} />
             <Route path="/projects/:projectId/findings" element={<Findings />} />
             <Route path="/projects/:projectId/claims" element={<Claims />} />
             <Route path="/findings/:findingId" element={<FindingDetail />} />

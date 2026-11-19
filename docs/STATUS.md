@@ -6,6 +6,18 @@ Read this first in every session. Update it last.
 **Current phase:** 5 — Findings and review: **PASSED** (report `docs/phase-reports/phase-5.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 6.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
+## Working rule (founder, 19 Nov 2026) — read this first
+
+- **Build the phases one after another without waiting for "approved, continue".** Move to the next phase ONLY when
+  the current phase has been thoroughly tested and works as intended: all acceptance criteria met, CI green, live
+  checks on the real Supabase project and the production deployed check passing. Do not assume; follow the master
+  prompt's rules. If anything fails or is uncertain, stop and report instead of moving on.
+- **Data assistant (LLM) is required**: staff ask questions about the data in plain language and get answers.
+  Build it after Phase 6 (it reuses the area and findings lookups). Decisions: founder has **no LLM provider or key
+  yet** (pick a free tier without a card, check data-use terms, ask founder to create the key); **admins and analysts
+  only**. Design: fixed, tested lookup tools through the API with the user's own permissions (no free-form SQL);
+  every number cited and linked; never says fraud; questions and answers audited; platform works if it is off.
+
 ## Decisions made (founder, 18 Nov 2026)
 
 - Hosting: **Option B**, no card. API on Vercel Hobby, worker on GitHub Actions (ADR-0002).

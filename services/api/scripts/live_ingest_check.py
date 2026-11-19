@@ -274,6 +274,14 @@ def main() -> int:
     check("claim starts unverified; its author cannot verify it",
           cl.status_code == 201 and cl.json().get("status") == "unverified_allegation" and ver.status_code == 409,
           f"create {cl.status_code}, self-verify {ver.status_code}")  # fmt: skip
+
+    # 9. area totals (Phase 6)
+    ar = api.get("/areas", headers=auth_a, params={"dataset_version_id": up["dataset_version_id"], "level": "state"})
+    its = ar.json().get("items", []) if ar.status_code == 200 else []
+    check("GET /areas state totals add up to the file and the run",
+          sum(i["units"] for i in its) == 12_023
+          and sum(i["findings"]["unusual_turnout"] + i["findings"]["unusual_share"] for i in its) == 140,
+          f"HTTP {ar.status_code}; {len(its)} states")  # fmt: skip
     return report()
 
 

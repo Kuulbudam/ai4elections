@@ -336,6 +336,58 @@ class Provenance(BaseModel):
     rule_version: str | None = None
 
 
+class Level1(Enum):
+    state = "state"
+    lga = "lga"
+    ward = "ward"
+
+
+class Turnout(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    units: int = Field(..., ge=0)
+    registered_voters: int = Field(..., ge=0)
+    accredited_voters: int = Field(..., ge=0)
+    rate: str | None = Field(..., description="accredited ÷ registered over the counted units, 6 dp")
+
+
+class VoteShare(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    units: int = Field(..., ge=0)
+    valid_votes: int = Field(..., ge=0)
+    party_totals: dict[str, int]
+    leading_party: str | None = None
+    leading_share: str | None = Field(..., description="leading party ÷ valid votes, 6 dp")
+
+
+class Findings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    unusual_turnout: int = Field(..., ge=0)
+    unusual_share: int = Field(..., ge=0)
+    very_high: int = Field(..., ge=0)
+    data_quality: int = Field(..., ge=0)
+    unreviewed: int = Field(..., ge=0)
+
+
+class AreaSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    state: str | None = None
+    lga: str | None = None
+    ward: str | None = None
+    in_reference_list: bool | None = None
+    units: int = Field(..., description="Polling-unit rows in this area", ge=0)
+    turnout: Turnout
+    vote_share: VoteShare
+    findings: Findings | None = None
+
+
 class ReviewRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -508,3 +560,16 @@ class FindingPage(BaseModel):
     )
     items: list[Finding]
     next_cursor: str | None = None
+
+
+class AreaList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dataset_version_id: UUID
+    analytical_run_id: UUID | None = None
+    level: Level1
+    state: str | None = None
+    lga: str | None = None
+    reference_list_used: bool | None = None
+    items: list[AreaSummary]

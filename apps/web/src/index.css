@@ -181,3 +181,11 @@ tr.flagged th::after { content: " ●"; color: var(--bad); }
 .badge-unverified { background: var(--warn-bg); border-color: #ecd49a; color: var(--warn-ink); }
 .badge-verified { background: #e3f1e6; border-color: #b9dcc1; color: #1e5b2c; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Phase 6: areas */
+.crumbs { margin: 8px 0 16px; }
+.crumbs button.link:disabled { color: var(--ink); text-decoration: none; cursor: default; font-weight: 600; }
+.charts { align-items: start; margin: 8px 0 20px; }
+.chart { margin: 0; }
+.chart figcaption { margin-bottom: 6px; }
+.chart svg { display: block; max-width: 100%; }

@@ -192,6 +192,36 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /areas:
+    get:
+      operationId: listAreas
+      summary: State, LGA or ward totals for one dataset version (tables and charts; no maps)
+      description: |
+        Totals use the same rules as the analysis: a unit counts towards turnout only if validation did not
+        exclude it from turnout and registered voters > 0; towards vote share only if it was not excluded from
+        vote share and all its party counts are present. Finding counts come from the version's latest
+        analysis run. Labels are shown exactly as in the data; `in_reference_list` says whether the project's
+        reference list contains the area.
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - { name: dataset_version_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: level, in: query, required: true, schema: { type: string, enum: [state, lga, ward] } }
+        - { name: state, in: query, required: false, schema: { type: string, maxLength: 200 } }
+        - { name: lga, in: query, required: false, schema: { type: string, maxLength: 200 } }
+      responses:
+        "200":
+          description: One row per area
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AreaList" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
   /findings/{id}:
     get:
       operationId: getFinding
@@ -742,6 +772,63 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Finding" }
         next_cursor: { type: [string, "null"] }
+
+    AreaList:
+      type: object
+      additionalProperties: false
+      required: [dataset_version_id, level, items]
+      properties:
+        dataset_version_id: { type: string, format: uuid }
+        analytical_run_id: { type: [string, "null"], format: uuid }
+        level: { type: string, enum: [state, lga, ward] }
+        state: { type: [string, "null"] }
+        lga: { type: [string, "null"] }
+        reference_list_used: { type: boolean }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AreaSummary" }
+
+    AreaSummary:
+      type: object
+      additionalProperties: false
+      required: [state, units, turnout, vote_share]
+      properties:
+        state: { type: [string, "null"] }
+        lga: { type: [string, "null"] }
+        ward: { type: [string, "null"] }
+        in_reference_list: { type: [boolean, "null"] }
+        units: { type: integer, minimum: 0, description: "Polling-unit rows in this area" }
+        turnout:
+          type: object
+          additionalProperties: false
+          required: [units, registered_voters, accredited_voters, rate]
+          properties:
+            units: { type: integer, minimum: 0 }
+            registered_voters: { type: integer, minimum: 0 }
+            accredited_voters: { type: integer, minimum: 0 }
+            rate: { type: [string, "null"], description: "accredited ÷ registered over the counted units, 6 dp" }
+        vote_share:
+          type: object
+          additionalProperties: false
+          required: [units, valid_votes, party_totals, leading_party, leading_share]
+          properties:
+            units: { type: integer, minimum: 0 }
+            valid_votes: { type: integer, minimum: 0 }
+            party_totals:
+              type: object
+              additionalProperties: { type: integer, minimum: 0 }
+            leading_party: { type: [string, "null"] }
+            leading_share: { type: [string, "null"], description: "leading party ÷ valid votes, 6 dp" }
+        findings:
+          type: [object, "null"]
+          additionalProperties: false
+          required: [unusual_turnout, unusual_share, very_high, data_quality, unreviewed]
+          properties:
+            unusual_turnout: { type: integer, minimum: 0 }
+            unusual_share: { type: integer, minimum: 0 }
+            very_high: { type: integer, minimum: 0 }
+            data_quality: { type: integer, minimum: 0 }
+            unreviewed: { type: integer, minimum: 0 }
 
     ReviewRequest:
       type: object

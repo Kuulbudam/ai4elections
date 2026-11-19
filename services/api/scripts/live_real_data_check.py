@@ -187,6 +187,17 @@ def main() -> int:
         got == expected_analysis,
         f"{took:.1f}s; statistical {got.get('statistical_findings')}, data quality {got.get('data_quality_findings')}",
     )
+    ar = api.get("/areas", headers=auth, params={"dataset_version_id": up["dataset_version_id"], "level": "lga"})
+    its = ar.json().get("items", []) if ar.status_code == 200 else []
+    ind = expected_analysis["indicators"]
+    check(
+        "Plateau LGA totals agree with the analysis",
+        sum(i["units"] for i in its) == 4989
+        and sum(i["turnout"]["units"] for i in its) == ind["turnout_rate"]["eligible"]
+        and sum(i["vote_share"]["units"] for i in its) == ind["leading_party_share"]["eligible"]
+        and all(i["in_reference_list"] for i in its),
+        f"HTTP {ar.status_code}; {len(its)} LGAs",
+    )
     return L.report()
 
 

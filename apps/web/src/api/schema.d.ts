@@ -129,6 +129,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State, LGA or ward totals for one dataset version (tables and charts; no maps)
+         * @description Totals use the same rules as the analysis: a unit counts towards turnout only if validation did not
+         *     exclude it from turnout and registered voters > 0; towards vote share only if it was not excluded from
+         *     vote share and all its party counts are present. Finding counts come from the version's latest
+         *     analysis run. Labels are shown exactly as in the data; `in_reference_list` says whether the project's
+         *     reference list contains the area.
+         */
+        get: operations["listAreas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{id}": {
         parameters: {
             query?: never;
@@ -474,6 +498,50 @@ export interface components {
         FindingPage: {
             items: components["schemas"]["Finding"][];
             next_cursor: string | null;
+        };
+        AreaList: {
+            /** Format: uuid */
+            dataset_version_id: string;
+            /** Format: uuid */
+            analytical_run_id?: string | null;
+            /** @enum {string} */
+            level: "state" | "lga" | "ward";
+            state?: string | null;
+            lga?: string | null;
+            reference_list_used?: boolean;
+            items: components["schemas"]["AreaSummary"][];
+        };
+        AreaSummary: {
+            state: string | null;
+            lga?: string | null;
+            ward?: string | null;
+            in_reference_list?: boolean | null;
+            /** @description Polling-unit rows in this area */
+            units: number;
+            turnout: {
+                units: number;
+                registered_voters: number;
+                accredited_voters: number;
+                /** @description accredited ÷ registered over the counted units, 6 dp */
+                rate: string | null;
+            };
+            vote_share: {
+                units: number;
+                valid_votes: number;
+                party_totals: {
+                    [key: string]: number;
+                };
+                leading_party: string | null;
+                /** @description leading party ÷ valid votes, 6 dp */
+                leading_share: string | null;
+            };
+            findings?: {
+                unusual_turnout: number;
+                unusual_share: number;
+                very_high: number;
+                data_quality: number;
+                unreviewed: number;
+            } | null;
         };
         ReviewRequest: {
             decision: components["schemas"]["ReviewDecision"];
@@ -858,6 +926,38 @@ export interface operations {
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listAreas: {
+        parameters: {
+            query: {
+                dataset_version_id: string;
+                level: "state" | "lga" | "ward";
+                state?: string;
+                lga?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One row per area */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaList"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };
