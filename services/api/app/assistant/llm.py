@@ -7,6 +7,7 @@ LLM_MODEL. The key is read on the server only and never logged or returned.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Protocol
 
 import httpx
@@ -22,6 +23,7 @@ PREFERRED_MODELS = [
     "openai/gpt-oss-20b",
 ]
 _chosen: dict[str, str] = {}
+MAX_REPLY_TOKENS = 1200  # providers count the requested maximum against the per-minute token budget
 
 
 class LLMError(Exception):
@@ -53,8 +55,10 @@ class OpenAICompatible:
     def chat(
         self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
     ) -> dict[str, Any]:
-        body = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto",
-                "temperature": temperature}  # fmt: skip
+        body: dict[str, Any] = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto",
+                                "temperature": temperature, "max_completion_tokens": MAX_REPLY_TOKENS}  # fmt: skip
+        if "gpt-oss" in self.name:
+            body["reasoning_effort"] = "low"  # fewer hidden reasoning tokens against the per-minute budget
         try:
             r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
         except httpx.HTTPError as e:
@@ -67,7 +71,7 @@ class OpenAICompatible:
                 wait = float(r.headers.get("retry-after", ""))
             except ValueError:
                 wait = None
-            raise LLMError("The assistant is busy (free-tier limit reached). Try again in a minute.",
+            raise LLMError(f"The assistant is busy (free-tier limit reached{_limit_detail(r)}). Try again in a minute.",
                            code="rate_limit", retry_after=wait)  # fmt: skip
         if r.status_code in (401, 403):
             raise LLMError("The assistant is not authorised with its provider. An administrator must check the key.")
@@ -79,6 +83,15 @@ class OpenAICompatible:
             return r.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError("The assistant service returned an unexpected response.") from e
+
+
+def _limit_detail(r: httpx.Response) -> str:
+    """e.g. 'Limit 8000, Used 6100, Requested 2400' from the provider's 429 message (no prompt content)."""
+    try:
+        m = re.search(r"Limit \d+, Used \d+, Requested \d+", r.json().get("error", {}).get("message", ""))
+        return f": {m.group(0)}" if m else ""
+    except (ValueError, AttributeError):
+        return ""
 
 
 def _reason(r: httpx.Response) -> str:
