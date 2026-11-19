@@ -16,6 +16,7 @@ import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 import Analysis from './pages/Analysis'
 import Areas from './pages/Areas'
+import Assistant from './pages/Assistant'
 import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
@@ -99,6 +100,7 @@ function Shell() {
             <Route path="/versions/:versionId/areas" element={<Areas />} />
             <Route path="/projects/:projectId/findings" element={<Findings />} />
             <Route path="/projects/:projectId/claims" element={<Claims />} />
+            <Route path="/projects/:projectId/assistant" element={<Assistant />} />
             <Route path="/findings/:findingId" element={<FindingDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<p className="empty">Page not found.</p>} />

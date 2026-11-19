@@ -121,7 +121,22 @@ def list_findings(
 ) -> Any:
     p = row_or_404(db.execute("SELECT id, org_id FROM public.projects WHERE id = %s", (str(project_id),)).fetchone())
     authorize(db, str(p["org_id"]), user, ALL_ROLES)
-    where, args = ["project_id = %s"], [str(p["id"])]
+    filters = {"category": category, "indicator": indicator, "severity": severity, "confidence": confidence,
+               "review_status": review_status, "state": state, "lga": lga, "ward": ward}  # fmt: skip
+    rows, nxt = find_rows(db, str(p["id"]), analytical_run_id, filters, cursor, limit)
+    return FindingPage(items=[_finding_view(r) for r in rows], next_cursor=nxt).model_dump(mode="json")
+
+
+def find_rows(
+    db: psycopg.Connection,
+    project_id: str,
+    analytical_run_id: uuid.UUID | str | None,
+    filters: dict[str, Any],
+    cursor: str | None,
+    limit: int,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Filtered, ordered page of findings for one project. Caller must have authorised the project."""
+    where, args = ["project_id = %s"], [project_id]
     if analytical_run_id:
         where.append("analytical_run_id = %s")
         args.append(str(analytical_run_id))
@@ -130,13 +145,14 @@ def list_findings(
             "analytical_run_id IN (SELECT latest_analysis_run_id FROM public.dataset_versions "
             "WHERE project_id = %s AND archived_at IS NULL AND latest_analysis_run_id IS NOT NULL)"
         )
-        args.append(str(p["id"]))
-    for col, val in (("category", category), ("indicator", indicator), ("severity", severity),
-                     ("confidence", confidence), ("review_status", review_status)):  # fmt: skip
+        args.append(project_id)
+    for col in ("category", "indicator", "severity", "confidence", "review_status"):
+        val = filters.get(col)
         if val is not None:
             where.append(f"{col} = %s")
-            args.append(val.value)
-    for col, val in (("state", state), ("lga", lga), ("ward", ward)):
+            args.append(getattr(val, "value", val))
+    for col in ("state", "lga", "ward"):
+        val = filters.get(col)
         if val and val.strip():
             where.append(f"lower({col}) = lower(%s)")
             args.append(" ".join(val.split()))
@@ -153,8 +169,7 @@ def list_findings(
     rows = db.execute(sql, [*args, limit + 1]).fetchall()
     more = len(rows) > limit
     rows = rows[:limit]
-    nxt = f"{rows[-1]['sev_rank']}:{rows[-1]['id']}" if more and rows else None
-    return FindingPage(items=[_finding_view(r) for r in rows], next_cursor=nxt).model_dump(mode="json")
+    return rows, (f"{rows[-1]['sev_rank']}:{rows[-1]['id']}" if more and rows else None)
 
 
 @router.get("/findings/{finding_id}", response_model=Finding)

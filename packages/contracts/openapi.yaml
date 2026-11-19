@@ -222,6 +222,54 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /assistant/status:
+    get:
+      operationId: assistantStatus
+      summary: Whether the data assistant is switched on (an LLM key is configured)
+      x-required-roles: [admin, analyst, researcher, viewer]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantStatus" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /assistant/ask:
+    post:
+      operationId: assistantAsk
+      summary: Ask the data assistant a question about one project
+      description: |
+        The model may only call fixed, tested lookups bound to this project. Answers are checked for wording and for
+        figures that do not appear in the lookups' results. Every question and answer is stored (append-only).
+        503 when no LLM is configured; the rest of the platform does not depend on it.
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssistantQuestion" }
+      responses:
+        "200":
+          description: The answer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantAnswer" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502": { description: The model service failed, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: The assistant is not set up, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
   /findings/{id}:
     get:
       operationId: getFinding
@@ -449,7 +497,7 @@ components:
 
     ErrorCode:
       type: string
-      enum: [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, INTERNAL]
+      enum: [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, VALIDATION_FAILED, CONFLICT, RATE_LIMITED, INTERNAL, UPSTREAM_FAILED, UNAVAILABLE]
 
     Error:
       type: object
@@ -829,6 +877,62 @@ components:
             very_high: { type: integer, minimum: 0 }
             data_quality: { type: integer, minimum: 0 }
             unreviewed: { type: integer, minimum: 0 }
+
+    AssistantStatus:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+        model: { type: [string, "null"] }
+
+    AssistantQuestion:
+      type: object
+      additionalProperties: false
+      required: [project_id, question]
+      properties:
+        project_id: { type: string, format: uuid }
+        question: { type: string, minLength: 1, maxLength: 2000 }
+        history:
+          type: array
+          maxItems: 16
+          items:
+            type: object
+            additionalProperties: false
+            required: [role, content]
+            properties:
+              role: { type: string, enum: [user, assistant] }
+              content: { type: string, maxLength: 8000 }
+
+    AssistantAnswer:
+      type: object
+      additionalProperties: false
+      required: [id, answer, citations, lookups, grounded, model]
+      properties:
+        id: { type: string, format: uuid }
+        answer: { type: string }
+        citations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [kind, label, href]
+            properties:
+              kind: { type: string }
+              label: { type: string }
+              href: { type: string, description: "App path, e.g. /findings/{id}" }
+        lookups:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, ok]
+            properties:
+              name: { type: string }
+              ok: { type: boolean }
+        grounded: { type: boolean, description: "False when the answer used no lookup or has figures not found in the lookups" }
+        note: { type: [string, "null"], enum: [wording, unmatched_figures, no_lookup, null] }
+        model: { type: string }
 
     ReviewRequest:
       type: object
