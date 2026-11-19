@@ -71,6 +71,27 @@ describe('data assistant page', () => {
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST https://api.test/assistant/ask') && c.includes('"project_id":"p1"'))).toBe(true))
   })
 
+  it('does not blank the page when the browser returns a Promise from scrollIntoView (newer Chrome)', async () => {
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function () {
+      return Promise.resolve() as never
+    }
+    try {
+      stub(true)
+      setSupabaseForTests(client('analyst') as never)
+      render(<App />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Which LGAs have the most unusual turnout?' }))
+      expect(await screen.findByText('JOS NORTH has the most flags (12).')).toBeTruthy()
+      fireEvent.change(screen.getByLabelText('Your question'), { target: { value: 'And the second most?' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+      await waitFor(() => expect(screen.getAllByRole('article', { name: 'Answer' })).toHaveLength(2))
+      expect(screen.getByRole('heading', { name: /Ask the data/ })).toBeTruthy()
+      expect(screen.queryByText('This page hit a problem')).toBeNull()
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it('tells researchers it is for admins and analysts, and says when it is not set up', async () => {
     stub(true)
     setSupabaseForTests(client('researcher') as never)
