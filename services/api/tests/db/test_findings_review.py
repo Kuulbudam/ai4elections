@@ -215,21 +215,25 @@ def test_list_filter_paginate_and_inspect(api, world, ingested):  # noqa: F811
     assert _analyse(api, world, ingested).status_code == 202
     drain(world)
     pid, hv = world.a.rows["projects"], H(world.a.users["viewer"])
+    with psycopg.connect(world.dsn) as c:
+        run = str(c.execute("SELECT latest_analysis_run_id FROM public.dataset_versions WHERE id=%s", (ingested,))
+                  .fetchone()[0])  # fmt: skip
+    base = {"project_id": pid, "analytical_run_id": run}
 
-    page = api.get("/findings", params={"project_id": pid, "limit": 200}, headers=hv).json()
+    page = api.get("/findings", params={**base, "limit": 200}, headers=hv).json()
     seen, items = set(), []
     while True:
         items += page["items"]
         if not page["next_cursor"]:
             break
-        page = api.get("/findings", params={"project_id": pid, "limit": 200, "cursor": page["next_cursor"]},
+        page = api.get("/findings", params={**base, "limit": 200, "cursor": page["next_cursor"]},
                        headers=hv).json()  # fmt: skip
     seen = {i["id"] for i in items}
     assert len(items) == len(seen) == 140 + 79, "cursor pages cover every finding of the latest run exactly once"
     ranks = [{"very_high": 5, "high": 4, "medium": 3, "low": 2}[i["severity"]] for i in items]
     assert ranks == sorted(ranks, reverse=True)
 
-    vh = api.get("/findings", params={"project_id": pid, "category": "statistical_anomaly", "severity": "very_high",
+    vh = api.get("/findings", params={**base, "category": "statistical_anomaly", "severity": "very_high",
                                       "indicator": "turnout_rate"}, headers=hv).json()["items"]  # fmt: skip
     assert len(vh) == 15 and all(i["indicator"] == "turnout_rate" for i in vh)
     f = vh[0]
@@ -241,16 +245,16 @@ def test_list_filter_paginate_and_inspect(api, world, ingested):  # noqa: F811
     # review → status filter
     api.post(f"/findings/{f['id']}/reviews", json={"decision": "escalated", "reason": "Sheet needs a field check."},
              headers=H(world.a.users["analyst"]))  # fmt: skip
-    esc = api.get("/findings", params={"project_id": pid, "review_status": "escalated"}, headers=hv).json()["items"]
+    esc = api.get("/findings", params={**base, "review_status": "escalated"}, headers=hv).json()["items"]
     assert [i["id"] for i in esc] == [f["id"]]
 
-    dq = api.get("/findings", params={"project_id": pid, "category": "data_quality_issue", "limit": 200},
+    dq = api.get("/findings", params={**base, "category": "data_quality_issue", "limit": 200},
                  headers=hv).json()["items"]  # fmt: skip
     one = next(i for i in dq if i["rule_id"] == "V004")
     detail = api.get(f"/findings/{one['id']}", headers=hv).json()
     assert detail["evidence"][0]["flagged_columns"] and detail["statistics"] is None
 
-    geo = api.get("/findings", params={"project_id": pid, "lga": f["lga"].upper(), "ward": f["ward"]},
+    geo = api.get("/findings", params={**base, "lga": f["lga"].upper(), "ward": f["ward"]},
                   headers=hv).json()["items"]  # fmt: skip
     assert geo and all(i["lga"] == f["lga"] and i["ward"] == f["ward"] for i in geo)
 
