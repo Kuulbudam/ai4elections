@@ -26,6 +26,8 @@ class ErrorCode(Enum):
     CONFLICT = "CONFLICT"
     RATE_LIMITED = "RATE_LIMITED"
     INTERNAL = "INTERNAL"
+    UPSTREAM_FAILED = "UPSTREAM_FAILED"
+    UNAVAILABLE = "UNAVAILABLE"
 
 
 class Detail(BaseModel):
@@ -386,6 +388,76 @@ class AreaSummary(BaseModel):
     turnout: Turnout
     vote_share: VoteShare
     findings: Findings | None = None
+
+
+class AssistantStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool
+    model: str | None = None
+
+
+class Role1(Enum):
+    user = "user"
+    assistant = "assistant"
+
+
+class HistoryItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    role: Role1
+    content: str = Field(..., max_length=8000)
+
+
+class AssistantQuestion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    question: str = Field(..., max_length=2000, min_length=1)
+    history: list[HistoryItem] | None = Field(None, max_length=16)
+
+
+class Citation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    kind: str
+    label: str
+    href: str = Field(..., description="App path, e.g. /findings/{id}")
+
+
+class Lookup(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str
+    ok: bool
+
+
+class Note(Enum):
+    wording = "wording"
+    unmatched_figures = "unmatched_figures"
+    no_lookup = "no_lookup"
+    NoneType_None = None
+
+
+class AssistantAnswer(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    answer: str
+    citations: list[Citation]
+    lookups: list[Lookup]
+    grounded: bool = Field(
+        ...,
+        description="False when the answer used no lookup or has figures not found in the lookups",
+    )
+    note: Note | None = None
+    model: str
 
 
 class ReviewRequest(BaseModel):

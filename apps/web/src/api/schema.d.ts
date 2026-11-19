@@ -153,6 +153,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the data assistant is switched on (an LLM key is configured) */
+        get: operations["assistantStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the data assistant a question about one project
+         * @description The model may only call fixed, tested lookups bound to this project. Answers are checked for wording and for
+         *     figures that do not appear in the lookups' results. Every question and answer is stored (append-only).
+         *     503 when no LLM is configured; the rest of the platform does not depend on it.
+         */
+        post: operations["assistantAsk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{id}": {
         parameters: {
             query?: never;
@@ -269,7 +308,7 @@ export interface components {
             version: string;
         };
         /** @enum {string} */
-        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "CONFLICT" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "CONFLICT" | "RATE_LIMITED" | "INTERNAL" | "UPSTREAM_FAILED" | "UNAVAILABLE";
         Error: {
             code: components["schemas"]["ErrorCode"];
             /** @description Safe, human-readable message */
@@ -542,6 +581,40 @@ export interface components {
                 data_quality: number;
                 unreviewed: number;
             } | null;
+        };
+        AssistantStatus: {
+            enabled: boolean;
+            model?: string | null;
+        };
+        AssistantQuestion: {
+            /** Format: uuid */
+            project_id: string;
+            question: string;
+            history?: {
+                /** @enum {string} */
+                role: "user" | "assistant";
+                content: string;
+            }[];
+        };
+        AssistantAnswer: {
+            /** Format: uuid */
+            id: string;
+            answer: string;
+            citations: {
+                kind: string;
+                label: string;
+                /** @description App path, e.g. /findings/{id} */
+                href: string;
+            }[];
+            lookups: {
+                name: string;
+                ok: boolean;
+            }[];
+            /** @description False when the answer used no lookup or has figures not found in the lookups */
+            grounded: boolean;
+            /** @enum {string|null} */
+            note?: "wording" | "unmatched_figures" | "no_lookup" | null;
+            model: string;
         };
         ReviewRequest: {
             decision: components["schemas"]["ReviewDecision"];
@@ -960,6 +1033,80 @@ export interface operations {
             409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
+        };
+    };
+    assistantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantStatus"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    assistantAsk: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantQuestion"];
+            };
+        };
+        responses: {
+            /** @description The answer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantAnswer"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description The model service failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The assistant is not set up */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getFinding: {

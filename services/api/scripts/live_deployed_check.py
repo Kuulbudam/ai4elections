@@ -204,6 +204,17 @@ def main() -> int:
         ar.status_code == 200 and sum(i["units"] for i in its) == 12_023,
         f"HTTP {ar.status_code}",
     )
+    st = http.get(f"{API}/assistant/status", headers=bearer)
+    if not (st.status_code == 200 and st.json().get("enabled") is True):
+        print(f"NOTE data assistant not enabled on the deployed API ({st.text[:80]}); skipping its check", flush=True)
+    else:
+        q = http.post(f"{API}/assistant/ask", headers=bearer, timeout=90,
+                      json={"project_id": proj, "question": "How many polling units are in this project's data?"})  # fmt: skip
+        out = q.json() if q.status_code == 200 else {}
+        said = out.get("answer", "").replace("12023", "12,023")
+        check("deployed data assistant answers from the data",
+              q.status_code == 200 and any(x["ok"] for x in out.get("lookups", [])) and "12,023" in said,
+              f"HTTP {q.status_code}; grounded={out.get('grounded')}; {out.get('answer', q.text)[:120]!r}")  # fmt: skip
     return report()
 
 

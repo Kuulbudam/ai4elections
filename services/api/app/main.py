@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.contracts.models import Error, Health
-from app.routes import areas, findings, ingestion
+from app.routes import areas, assistant, findings, ingestion
 
 VERSION = "0.1.0"
 log = logging.getLogger("ai4e.api")
@@ -42,6 +42,8 @@ _STATUS_CODES = {
     409: "CONFLICT",
     422: "VALIDATION_FAILED",
     429: "RATE_LIMITED",
+    502: "UPSTREAM_FAILED",
+    503: "UNAVAILABLE",
 }
 
 
@@ -54,7 +56,7 @@ def _error(status: int, code: str, message: str, details: list | None = None) ->
 async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     code = _STATUS_CODES.get(exc.status_code, "INTERNAL")
     status = exc.status_code if code != "INTERNAL" else 500
-    message = exc.detail if isinstance(exc.detail, str) and status < 500 else "Request failed"
+    message = exc.detail if isinstance(exc.detail, str) and (status < 500 or status in (502, 503)) else "Request failed"
     return _error(status, code, message)
 
 
@@ -75,6 +77,7 @@ async def unexpected_error(_: Request, exc: Exception) -> JSONResponse:
 app.include_router(ingestion.router)
 app.include_router(findings.router)
 app.include_router(areas.router)
+app.include_router(assistant.router)
 
 
 @app.get("/health", response_model=Health)

@@ -89,6 +89,12 @@ export default function ProjectOverview() {
         <h1 id="project-heading">{project.election_name}</h1>
         <span>
           <Link to={`/projects/${project.id}/findings`}>Findings</Link> · <Link to={`/projects/${project.id}/claims`}>Claims register</Link>
+          {(role === 'admin' || role === 'analyst') && (
+            <>
+              {' '}
+              · <Link to={`/projects/${project.id}/assistant`}>Ask the data</Link>
+            </>
+          )}
         </span>
         {canUpload(role) && (
           <Link className="button primary" to={`/projects/${project.id}/upload`}>

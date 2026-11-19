@@ -65,3 +65,8 @@ jobs:
       - name: Live real-data check (CCIJ/VEZA Plateau 2023, downloaded at run time)
         if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
         run: python scripts/live_real_data_check.py
+      - name: Live data assistant check (real model; skipped without LLM_API_KEY)
+        if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: python scripts/live_assistant_check.py
