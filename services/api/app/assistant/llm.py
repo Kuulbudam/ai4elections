@@ -57,11 +57,21 @@ class OpenAICompatible:
         if r.status_code in (401, 403):
             raise LLMError("The assistant is not authorised with its provider. An administrator must check the key.")
         if r.status_code >= 400:
-            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}).")
+            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}{_reason(r)}).")
         try:
             return r.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError("The assistant service returned an unexpected response.") from e
+
+
+def _reason(r: httpx.Response) -> str:
+    """The provider's error code (never the prompt, never the key)."""
+    try:
+        e = r.json().get("error", {})
+        code = e.get("code") or e.get("type")
+        return f": {str(code)[:60]}" if code else ""
+    except ValueError:
+        return ""
 
 
 def list_models(api_key: str, base_url: str) -> list[str]:

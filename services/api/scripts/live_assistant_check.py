@@ -96,7 +96,7 @@ def main() -> int:
     code, out, took = ask("Which state has the most unusual turnout flags, and how many does it have?")
     ans = out.get("answer", "")
     check("factual question answered from lookups", code == 200 and any(x["ok"] for x in out.get("lookups", [])),
-          f"HTTP {code} in {took:.1f}s; lookups {[x['name'] for x in out.get('lookups', [])]}")  # fmt: skip
+          f"HTTP {code} in {took:.1f}s; lookups {[x['name'] for x in out.get('lookups', [])]}; {out.get('message', '')}")  # fmt: skip
     check("answer names the right state and count",
           top["state"].lower() in ans.lower() and str(top["findings"]["unusual_turnout"]) in ans,
           f"expected {top['state']} / {top['findings']['unusual_turnout']}; grounded={out.get('grounded')}: {ans[:160]!r}")  # fmt: skip
