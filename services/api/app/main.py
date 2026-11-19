@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.contracts.models import Error, Health
-from app.routes import ingestion
+from app.routes import findings, ingestion
 
 VERSION = "0.1.0"
 log = logging.getLogger("ai4e.api")
@@ -73,6 +73,7 @@ async def unexpected_error(_: Request, exc: Exception) -> JSONResponse:
 
 
 app.include_router(ingestion.router)
+app.include_router(findings.router)
 
 
 @app.get("/health", response_model=Health)

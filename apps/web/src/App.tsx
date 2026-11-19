@@ -15,6 +15,9 @@ import { TwoStepChallenge, TwoStepEnrol } from './pages/TwoStep'
 import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 import Analysis from './pages/Analysis'
+import Claims from './pages/Claims'
+import FindingDetail from './pages/FindingDetail'
+import Findings from './pages/Findings'
 
 type Health = components['schemas']['Health']
 
@@ -92,6 +95,9 @@ function Shell() {
             <Route path="/versions/:versionId/mapping" element={<Mapping />} />
             <Route path="/versions/:versionId/validation" element={<Validation />} />
             <Route path="/versions/:versionId/analysis" element={<Analysis />} />
+            <Route path="/projects/:projectId/findings" element={<Findings />} />
+            <Route path="/projects/:projectId/claims" element={<Claims />} />
+            <Route path="/findings/:findingId" element={<FindingDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<p className="empty">Page not found.</p>} />
           </Routes>

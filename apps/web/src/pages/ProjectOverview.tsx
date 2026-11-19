@@ -87,6 +87,9 @@ export default function ProjectOverview() {
       </p>
       <div className="row-between">
         <h1 id="project-heading">{project.election_name}</h1>
+        <span>
+          <Link to={`/projects/${project.id}/findings`}>Findings</Link> · <Link to={`/projects/${project.id}/claims`}>Claims register</Link>
+        </span>
         {canUpload(role) && (
           <Link className="button primary" to={`/projects/${project.id}/upload`}>
             Upload dataset

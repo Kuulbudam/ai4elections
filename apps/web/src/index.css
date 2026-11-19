@@ -169,3 +169,15 @@ label.check input { width: auto; margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Phase 5: findings, review, claims */
+tr.flagged th, tr.flagged td { background: var(--bad-bg); }
+tr.flagged th::after { content: " ●"; color: var(--bad); }
+.history { padding-left: 1.2em; }
+.history li { margin: 0 0 12px; }
+.claim { border-left: 4px solid var(--rule); }
+.claim-unverified { border-left-color: var(--warn-ink); }
+.claim-verified { border-left-color: var(--good); }
+.badge-unverified { background: var(--warn-bg); border-color: #ecd49a; color: var(--warn-ink); }
+.badge-verified { background: #e3f1e6; border-color: #b9dcc1; color: #1e5b2c; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

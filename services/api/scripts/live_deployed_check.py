@@ -180,6 +180,23 @@ def main() -> int:
         else:
             ok = j.get("status") == "succeeded"
         check(f"{job_type} job dispatched and succeeded", ok, detail)
+
+    # findings through the deployed API (Phase 5)
+    fl = http.get(f"{API}/findings", headers=bearer, params={"project_id": proj, "severity": "very_high", "limit": 50})
+    items = fl.json().get("items", []) if fl.status_code == 200 else []
+    check(
+        "deployed GET /findings",
+        fl.status_code == 200 and len(items) > 0,
+        f"HTTP {fl.status_code}; {len(items)} very high",
+    )
+    if items:
+        d = http.get(f"{API}/findings/{items[0]['id']}", headers=bearer)
+        cells = ((d.json().get("evidence") or [{}])[0]).get("cells", {}) if d.status_code == 200 else {}
+        check(
+            "deployed finding shows its source row",
+            cells.get("PU Code") == items[0]["pu_code"],
+            f"HTTP {d.status_code}",
+        )
     return report()
 
 

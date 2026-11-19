@@ -156,7 +156,8 @@ export default function Analysis() {
   return (
     <section className="page" aria-labelledby="analysis-heading">
       <p>
-        <Link to={`/projects/${version.project_id}`}>← Project</Link> · <Link to={`/versions/${versionId}/validation`}>Validation</Link>
+        <Link to={`/projects/${version.project_id}`}>← Project</Link> · <Link to={`/versions/${versionId}/validation`}>Validation</Link> ·{' '}
+        <Link to={`/projects/${version.project_id}/findings`}>All findings</Link>
       </p>
       <div className="row-between">
         <h1 id="analysis-heading">
@@ -284,7 +285,9 @@ export default function Analysis() {
                   {rows.map((f) => (
                     <tr key={f.id}>
                       <td>
-                        <code>{f.pu_code}</code>
+                        <Link to={`/findings/${f.id}`}>
+                          <code>{f.pu_code}</code>
+                        </Link>
                       </td>
                       <td className="small">
                         {f.lga} / {f.ward}
