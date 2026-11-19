@@ -4,10 +4,13 @@ import { useAuth } from '../auth/AuthProvider'
 import { friendlyError, getSupabase, type Role } from '../lib/supabase'
 
 type OrgRow = { org_id: string; role: Role; organisations: { name: string } | null }
+type ProjectRow = { id: string; org_id: string; election_name: string; election_year: number }
+type WorkRow = { project: ProjectRow; versions: number; analysed: number; toReview: number; unverified: number; reports: number }
 
 export default function Organisations() {
   const { session } = useAuth()
   const [orgs, setOrgs] = useState<OrgRow[] | null>(null)
+  const [work, setWork] = useState<WorkRow[] | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -22,6 +25,27 @@ export default function Organisations() {
       .order('created_at')
     if (error) setError(friendlyError(error))
     setOrgs((data as unknown as OrgRow[]) ?? [])
+    // Dashboard: what needs attention in each project (all reads under RLS).
+    const [p, v, f, c, r] = await Promise.all([
+      sb.from('projects').select('id, org_id, election_name, election_year').is('archived_at', null).order('created_at', { ascending: false }).limit(50),
+      sb.from('dataset_versions').select('project_id, latest_analysis_run_id').is('archived_at', null).limit(1000),
+      sb.from('finding_overview').select('project_id, analytical_run_id').eq('category', 'statistical_anomaly').in('severity', ['very_high', 'high']).eq('review_status', 'unreviewed').limit(5000),
+      sb.from('claims').select('project_id').eq('status', 'unverified_allegation').limit(5000),
+      sb.from('reports').select('project_id').limit(5000),
+    ])
+    const latest = new Set(((v.data ?? []) as { latest_analysis_run_id: string | null }[]).map((x) => x.latest_analysis_run_id).filter(Boolean))
+    const count = <T extends { project_id: string }>(rows: T[] | null, pid: string, keep: (x: T) => boolean = () => true) =>
+      (rows ?? []).filter((x) => x.project_id === pid && keep(x)).length
+    setWork(
+      ((p.data ?? []) as ProjectRow[]).map((pr) => ({
+        project: pr,
+        versions: count(v.data as { project_id: string }[], pr.id),
+        analysed: count(v.data as { project_id: string; latest_analysis_run_id: string | null }[], pr.id, (x) => !!x.latest_analysis_run_id),
+        toReview: count(f.data as { project_id: string; analytical_run_id: string }[], pr.id, (x) => latest.has(x.analytical_run_id)),
+        unverified: count(c.data as { project_id: string }[], pr.id),
+        reports: count(r.data as { project_id: string }[], pr.id),
+      })),
+    )
   }, [session])
 
   useEffect(() => {
@@ -47,7 +71,48 @@ export default function Organisations() {
 
   return (
     <section className="page" aria-labelledby="orgs-heading">
-      <h1 id="orgs-heading">Organisations</h1>
+      <h1 id="orgs-heading">Dashboard</h1>
+      <h2>Your projects</h2>
+      {work === null ? (
+        <p className="muted">Loading…</p>
+      ) : work.length === 0 ? (
+        <p className="empty">No projects yet. Open an organisation below to create one.</p>
+      ) : (
+        <table className="table compact" aria-label="Your projects">
+          <thead>
+            <tr>
+              <th scope="col">Project</th>
+              <th scope="col">Dataset versions</th>
+              <th scope="col">Unusual units to review</th>
+              <th scope="col">Unverified allegations</th>
+              <th scope="col">Reports</th>
+              <th scope="col">
+                <span className="visually-hidden">Go to</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {work.map((w) => (
+              <tr key={w.project.id}>
+                <th scope="row">
+                  <Link to={`/projects/${w.project.id}`}>{w.project.election_name}</Link>{' '}
+                  <span className="muted small">{w.project.election_year}</span>
+                </th>
+                <td>
+                  {w.versions} <span className="muted small">({w.analysed} analysed)</span>
+                </td>
+                <td>{w.toReview > 0 ? <Link to={`/projects/${w.project.id}/findings`}>{w.toReview} high or very high</Link> : '0'}</td>
+                <td>{w.unverified > 0 ? <Link to={`/projects/${w.project.id}/claims`}>{w.unverified}</Link> : '0'}</td>
+                <td>{w.reports > 0 ? <Link to={`/projects/${w.project.id}/reports`}>{w.reports}</Link> : '0'}</td>
+                <td className="small">
+                  <Link to={`/projects/${w.project.id}/findings`}>Findings</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <h2>Organisations</h2>
       <p className="page-intro">The organisations you belong to and your role in each.</p>
       {orgs === null ? (
         <p className="muted">Loading…</p>

@@ -84,7 +84,7 @@ function Shell() {
           </div>
           <nav className="mainnav" aria-label="Main">
             <NavLink to="/" end>
-              Organisations
+              Dashboard
             </NavLink>
             <NavLink to="/profile">Profile</NavLink>
           </nav>

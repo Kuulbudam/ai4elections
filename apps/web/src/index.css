@@ -222,3 +222,12 @@ code.hash { word-break: break-all; font-size: 0.85rem; }
   .notice { border: 1px solid #999; }
   .table th { background: none; }
 }
+
+/* Phase 8: phone-friendly tables, focus */
+@media (max-width: 820px) {
+  .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table th, .table td { white-space: nowrap; }
+  .row-between { flex-wrap: wrap; gap: 8px; }
+  .ask { grid-template-columns: 1fr; }
+}
+:focus-visible { outline: 3px solid #1f5a8a; outline-offset: 2px; }
