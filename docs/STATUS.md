@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 8 — Frontend integration (next). Phase 7 PASSED (report `docs/phase-reports/phase-7.md`).
+**Current phase:** 9 — Hardening (next). Phase 8 PASSED (report `docs/phase-reports/phase-8.md`).
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Working rule (founder, 19 Nov 2026) — read this first
@@ -48,6 +48,10 @@ Read this first in every session. Update it last.
 
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
+
+## Done (Phase 8)
+
+- Dashboard, phone-friendly tables, focus ring. Playwright e2e of the deployed site from a clean account (e2e.yml, manual): full workflow + axe (no serious/critical) — PASS run 44521123100.
 
 ## Done (Phase 7)
 
@@ -103,7 +107,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 8 on branch `phase-8-frontend`: page-by-page completeness (no dead buttons, loading/error/empty states), responsive tables, accessibility pass, and a Playwright end-to-end test of the full workflow from a clean account on the deployed site (GitHub Actions).
+Phase 9 on branch `phase-9-hardening`: RLS/security re-test, perf (12k validate < 30 s, analyse < 60 s incl. cold start), dependency + secret scanning, retry/recovery + job reconciliation tests, report integrity, scheduled pg_dump backup artifact + restore test, runbook incl. Supabase pause.
 
 ## Open questions / to verify
 
