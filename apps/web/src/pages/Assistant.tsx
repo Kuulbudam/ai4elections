@@ -32,7 +32,11 @@ export default function Assistant() {
       .catch(() => setEnabled(false))
   }, [projectId])
 
-  useEffect(() => end.current?.scrollIntoView?.({ block: 'end' }), [turns, busy])
+  // Block body on purpose: newer browsers return a Promise from scrollIntoView, and an effect must
+  // return nothing or a cleanup function. Returning the Promise crashed the page (blank screen).
+  useEffect(() => {
+    end.current?.scrollIntoView?.({ block: 'end' })
+  }, [turns, busy])
 
   async function send(e?: FormEvent, text?: string) {
     e?.preventDefault()

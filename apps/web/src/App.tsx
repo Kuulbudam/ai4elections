@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import { useEffect, useState, type ReactNode } from 'react'
+import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import type { components } from './api/schema'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import AuthLayout from './components/AuthLayout'
@@ -16,6 +16,7 @@ import Upload from './pages/Upload'
 import Validation from './pages/Validation'
 import Analysis from './pages/Analysis'
 import ProjectShell from './components/ProjectShell'
+import ErrorBoundary from './components/ErrorBoundary'
 import Areas from './pages/Areas'
 import Reports from './pages/Reports'
 import ReportView from './pages/ReportView'
@@ -91,27 +92,31 @@ function Shell() {
           </nav>
         </header>
         <main className="content">
-          <ProjectShell>
-            <Routes>
-              <Route path="/" element={<Organisations />} />
-              <Route path="/orgs/:orgId/members" element={<Members />} />
-              <Route path="/orgs/:orgId/projects" element={<Projects />} />
-              <Route path="/projects/:projectId" element={<ProjectOverview />} />
-              <Route path="/projects/:projectId/upload" element={<Upload />} />
-              <Route path="/versions/:versionId/mapping" element={<Mapping />} />
-              <Route path="/versions/:versionId/validation" element={<Validation />} />
-              <Route path="/versions/:versionId/analysis" element={<Analysis />} />
-              <Route path="/versions/:versionId/areas" element={<Areas />} />
-              <Route path="/projects/:projectId/findings" element={<Findings />} />
-              <Route path="/projects/:projectId/claims" element={<Claims />} />
-              <Route path="/projects/:projectId/assistant" element={<Assistant />} />
-              <Route path="/projects/:projectId/reports" element={<Reports />} />
-              <Route path="/reports/:reportId" element={<ReportView />} />
-              <Route path="/findings/:findingId" element={<FindingDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="*" element={<p className="empty">Page not found.</p>} />
-            </Routes>
-          </ProjectShell>
+          <PageGuard>
+            <ProjectShell>
+              <PageGuard>
+                <Routes>
+                  <Route path="/" element={<Organisations />} />
+                  <Route path="/orgs/:orgId/members" element={<Members />} />
+                  <Route path="/orgs/:orgId/projects" element={<Projects />} />
+                  <Route path="/projects/:projectId" element={<ProjectOverview />} />
+                  <Route path="/projects/:projectId/upload" element={<Upload />} />
+                  <Route path="/versions/:versionId/mapping" element={<Mapping />} />
+                  <Route path="/versions/:versionId/validation" element={<Validation />} />
+                  <Route path="/versions/:versionId/analysis" element={<Analysis />} />
+                  <Route path="/versions/:versionId/areas" element={<Areas />} />
+                  <Route path="/projects/:projectId/findings" element={<Findings />} />
+                  <Route path="/projects/:projectId/claims" element={<Claims />} />
+                  <Route path="/projects/:projectId/assistant" element={<Assistant />} />
+                  <Route path="/projects/:projectId/reports" element={<Reports />} />
+                  <Route path="/reports/:reportId" element={<ReportView />} />
+                  <Route path="/findings/:findingId" element={<FindingDetail />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="*" element={<p className="empty">Page not found.</p>} />
+                </Routes>
+              </PageGuard>
+            </ProjectShell>
+          </PageGuard>
         </main>
         <footer className="footer">
           <div className="footer-inner">
@@ -132,4 +137,10 @@ export default function App() {
       <Shell />
     </AuthProvider>
   )
+}
+
+/** Any page crash shows a message instead of a blank screen; moving to another page clears it. */
+function PageGuard({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
 }
