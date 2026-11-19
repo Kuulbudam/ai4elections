@@ -145,6 +145,22 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     await axe(page, 'report')
   })
 
+  await test.step('ask the data: a question gets an answer and the page never blanks', async () => {
+    const crashes: string[] = []
+    page.on('pageerror', (e) => crashes.push(`${e.name}: ${e.message}\n${e.stack ?? ''}`))
+    page.on('console', (m) => {
+      if (m.type() === 'error') crashes.push(`console: ${m.text()}`)
+    })
+    await page.goto(`${projectUrl}/assistant`)
+    await expect(page.getByRole('heading', { name: /Ask the data/ })).toBeVisible()
+    await page.getByRole('button', { name: 'Which LGAs have the most unusual turnout?' }).click()
+    await expect(page.getByRole('article', { name: 'Answer' }).or(page.getByRole('alert'))).toBeVisible({ timeout: 90_000 })
+    await page.waitForTimeout(1000)
+    if (crashes.length) console.log('ASSISTANT ERRORS:\n' + crashes.join('\n---\n'))
+    await expect(page.getByRole('heading', { name: /Ask the data/ })).toBeVisible()
+    expect(crashes.filter((c) => !c.startsWith('console: Failed to load resource'))).toEqual([])
+  })
+
   await test.step('phone width: pages stay usable', async () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(`${projectUrl}/findings`)
