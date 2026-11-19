@@ -7,7 +7,7 @@ type Result = { data: unknown; error: { message: string; code?: string } | null 
 
 function query(result: Result) {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'order', 'in', 'update', 'maybeSingle']) q[m] = () => q
+  for (const m of ['select', 'eq', 'order', 'in', 'update', 'maybeSingle', 'is', 'limit', 'not']) q[m] = () => q
   q.then = (resolve: (r: Result) => unknown) => Promise.resolve(result).then(resolve)
   return q
 }
