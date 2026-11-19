@@ -157,7 +157,8 @@ export default function Analysis() {
     <section className="page" aria-labelledby="analysis-heading">
       <p>
         <Link to={`/projects/${version.project_id}`}>← Project</Link> · <Link to={`/versions/${versionId}/validation`}>Validation</Link> ·{' '}
-        <Link to={`/projects/${version.project_id}/findings`}>All findings</Link> · <Link to={`/versions/${versionId}/areas`}>Areas</Link>
+        <Link to={`/projects/${version.project_id}/findings`}>All findings</Link> · <Link to={`/versions/${versionId}/areas`}>Areas</Link> ·{' '}
+        <Link to={`/projects/${version.project_id}/reports`}>Reports</Link>
       </p>
       <div className="row-between">
         <h1 id="analysis-heading">

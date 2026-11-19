@@ -282,6 +282,19 @@ def main() -> int:
           sum(i["units"] for i in its) == 12_023
           and sum(i["findings"]["unusual_turnout"] + i["findings"]["unusual_share"] for i in its) == 140,
           f"HTTP {ar.status_code}; {len(its)} states")  # fmt: skip
+
+    # 10. reports (Phase 7): same inputs → same hash; immutable; safe export
+    run_id = view.get("analytical_run_id")
+    r1 = api.post("/reports", headers=auth_a, json={"project_id": proj, "analytical_run_id": run_id})
+    r2 = api.post("/reports", headers=auth_a, json={"project_id": proj, "analytical_run_id": run_id})
+    h1, h2 = r1.json().get("content_hash"), r2.json().get("content_hash")
+    check("two reports from the same inputs have the same content hash",
+          r1.status_code == r2.status_code == 201 and h1 == h2 and r1.json()["id"] != r2.json()["id"], f"{str(h1)[:12]}")  # fmt: skip
+    ex = api.get(f"/reports/{r1.json().get('id')}/export", headers=auth_a, params={"format": "csv"})
+    check("CSV export carries the content hash", ex.status_code == 200 and ex.headers.get("x-report-content-hash") == h1,
+          f"HTTP {ex.status_code}, {len(ex.text)} bytes")  # fmt: skip
+    patch = rest(http, a, "PATCH", f"reports?id=eq.{r1.json().get('id')}", json={"title": "edited"})
+    check("reports cannot be edited via the Data API", patch.status_code >= 400, f"HTTP {patch.status_code}")
     return report()
 
 
