@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 7 — Reporting (in progress). Phase 6 and the data assistant PASSED (reports `phase-6.md`, `phase-6b-assistant.md`).
+**Current phase:** 8 — Frontend integration (next). Phase 7 PASSED (report `docs/phase-reports/phase-7.md`).
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Working rule (founder, 19 Nov 2026) — read this first
@@ -48,6 +48,10 @@ Read this first in every session. Update it last.
 
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
+
+## Done (Phase 7)
+
+- Immutable report snapshots, reproducible content hash (ADR-0011), CSV/Markdown export (formula-safe), print-to-PDF; no AI. Live 25/25; production 25/25.
 
 ## Done (data assistant)
 
@@ -99,7 +103,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 7 on branch `phase-7-reports`: immutable report snapshots with provenance and methodology, report hashes, CSV and Markdown export (formula-injection safe), print-to-PDF; no AI.
+Phase 8 on branch `phase-8-frontend`: page-by-page completeness (no dead buttons, loading/error/empty states), responsive tables, accessibility pass, and a Playwright end-to-end test of the full workflow from a clean account on the deployed site (GitHub Actions).
 
 ## Open questions / to verify
 
