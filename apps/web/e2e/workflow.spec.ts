@@ -154,9 +154,13 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     await page.goto(`${projectUrl}/assistant`)
     await expect(page.getByRole('heading', { name: /Ask the data/ })).toBeVisible()
     await page.getByRole('button', { name: 'Which LGAs have the most unusual turnout?' }).click()
-    await expect(page.getByRole('article', { name: 'Answer' }).or(page.getByRole('alert'))).toBeVisible({ timeout: 90_000 })
-    await page.waitForTimeout(1000)
-    if (crashes.length) console.log('ASSISTANT ERRORS:\n' + crashes.join('\n---\n'))
+    try {
+      await expect(page.getByRole('article', { name: 'Answer' }).or(page.getByRole('alert'))).toBeVisible({ timeout: 90_000 })
+      await page.waitForTimeout(1000)
+    } finally {
+      if (crashes.length) console.log('ASSISTANT ERRORS:\n' + crashes.join('\n---\n'))
+      console.log('ASSISTANT PAGE TEXT:\n' + (await page.locator('body').innerText()).slice(0, 1500))
+    }
     await expect(page.getByRole('heading', { name: /Ask the data/ })).toBeVisible()
     expect(crashes.filter((c) => !c.startsWith('console: Failed to load resource'))).toEqual([])
   })
