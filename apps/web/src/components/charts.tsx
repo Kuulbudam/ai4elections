@@ -134,7 +134,7 @@ export function Scatter({ points, onPick, xLabel, yLabel }: { points: Point[]; o
     <svg
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
-      role="img"
+      role="group"
       aria-label={`${yLabel} against ${xLabel} for ${points.length} unusual units`}
       onMouseLeave={() => setTip(null)}
     >
@@ -200,7 +200,7 @@ export function RankedBars({
   const H = rows.length * rowH + 6
   const max = Math.max(1, ...rows.map((r) => r.value))
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Ranked by ${unit}`} onMouseLeave={() => setHover(null)}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role={onPick ? 'group' : 'img'} aria-label={`Ranked by ${unit}`} onMouseLeave={() => setHover(null)}>
       {rows.map((r, i) => {
         const y = i * rowH + 4
         const w = (r.value / max) * (W - L - R)

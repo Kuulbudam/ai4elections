@@ -100,7 +100,7 @@ describe('analysis page', () => {
     setSupabaseForTests(client('viewer', 'run1') as never)
     render(<App />)
     expect(await screen.findByRole('img', { name: /Turnout: distribution across 3 polling units/ })).toBeTruthy()
-    expect(screen.getByRole('img', { name: /against Peer group median for 1 unusual units/ })).toBeTruthy()
+    expect(screen.getByRole('group', { name: /against Peer group median for 1 unusual units/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Synthia \/ Birch: 1 unusual units/ }))
     expect(await screen.findByRole('img', { name: /distribution across 1 polling units/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: 'Leading-party share' }))
