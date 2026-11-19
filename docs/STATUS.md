@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 4 — Analysis engine: **PASSED** (report `docs/phase-reports/phase-4.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 5.
+**Current phase:** 5 — Findings and review: **PASSED** (report `docs/phase-reports/phase-5.md`). Stopped at gate; waiting for founder "approved, continue" to start Phase 6.
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Decisions made (founder, 18 Nov 2026)
@@ -36,6 +36,11 @@ Read this first in every session. Update it last.
 
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
+
+## Done (Phase 5)
+
+- Findings API (list with filters + cursor, detail with original cells), reviews, claims, verification; finding_overview view; verification needs evidence (DB trigger). Web: findings dashboard, finding detail, claims register. ADR-0008.
+- Review history unalterable even by the table owner; permission table tested in API and DB. Live 18/18, 21/21, 11/11; production 22/22.
 
 ## Done (Phase 4)
 
@@ -74,9 +79,11 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Phase 5 on branch `phase-5-findings`: findings dashboard + details (evidence back to raw cells), investigation notes, append-only reviews, claims (verified only with independent evidence + second admin/analyst sign-off), audit history.
+Phase 6 on branch `phase-6-geography`: state/LGA/ward aggregation tables and charts, filters, comparisons (no map, ADR-0004).
 
 ## Open questions / to verify
+
+- File evidence stores only the SHA-256 fingerprint (ADR-0008); storing files deferred.
 
 - CCIJ reply on terms of use (founder).
 - Founder to confirm Google sign-in lands on two-step setup; inner pages of the redesign to be checked once signed in.
