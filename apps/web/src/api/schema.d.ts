@@ -192,6 +192,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dataset-versions/{id}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Data for the analysis dashboard charts of one validated dataset version
+         * @description Compact arrays so the browser can draw and cross-filter charts: one entry per polling unit with its LGA
+         *     index, turnout and leading-party share (null when the analysis could not use it), the flagged units from the
+         *     latest analysis run, and summary counts. Values use the analysis's own counting rules.
+         */
+        get: operations["versionDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{id}": {
         parameters: {
             query?: never;
@@ -615,6 +637,41 @@ export interface components {
             /** @enum {string|null} */
             note?: "wording" | "unmatched_figures" | "no_lookup" | null;
             model: string;
+        };
+        VersionDashboard: {
+            /** Format: uuid */
+            dataset_version_id: string;
+            /** Format: uuid */
+            analytical_run_id?: string | null;
+            /** @description Area labels, 'STATE / LGA'; units refer to them by index */
+            lgas: string[];
+            /** @description One [lga_index, turnout, leading_share] per polling unit; turnout/share are 0..1 or null */
+            units: (number | null)[][];
+            flagged: {
+                /** Format: uuid */
+                finding_id: string;
+                pu_code?: string | null;
+                ward?: string | null;
+                lga: number;
+                /** @enum {string} */
+                indicator: "turnout_rate" | "leading_party_share";
+                value: number;
+                median: number;
+                robust_z: number;
+                severity: string;
+                review_status?: string;
+            }[];
+            kpi: {
+                [key: string]: number;
+            };
+            severity: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            data_quality_by_rule: {
+                [key: string]: number;
+            };
         };
         ReviewRequest: {
             decision: components["schemas"]["ReviewDecision"];
@@ -1107,6 +1164,34 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    versionDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDashboard"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
         };
     };
     getFinding: {

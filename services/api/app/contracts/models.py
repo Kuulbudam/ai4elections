@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
 class Health(BaseModel):
@@ -458,6 +458,43 @@ class AssistantAnswer(BaseModel):
     )
     note: Note | None = None
     model: str
+
+
+class Unit(RootModel[list[float | None]]):
+    root: list[float | None] = Field(..., max_length=3, min_length=3)
+
+
+class FlaggedItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    finding_id: UUID
+    pu_code: str | None = None
+    ward: str | None = None
+    lga: int
+    indicator: Indicator
+    value: float
+    median: float
+    robust_z: float
+    severity: str
+    review_status: str | None = None
+
+
+class VersionDashboard(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dataset_version_id: UUID
+    analytical_run_id: UUID | None = None
+    lgas: list[str] = Field(..., description="Area labels, 'STATE / LGA'; units refer to them by index")
+    units: list[Unit] = Field(
+        ...,
+        description="One [lga_index, turnout, leading_share] per polling unit; turnout/share are 0..1 or null",
+    )
+    flagged: list[FlaggedItem]
+    kpi: dict[str, int]
+    severity: dict[str, dict[str, int]]
+    data_quality_by_rule: dict[str, int]
 
 
 class ReviewRequest(BaseModel):
