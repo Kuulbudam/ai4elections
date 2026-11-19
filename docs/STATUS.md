@@ -3,7 +3,7 @@
 Read this first in every session. Update it last.
 
 **Last updated:** 19 Nov 2026
-**Current phase:** 6 — Geography: **PASSED** (report `docs/phase-reports/phase-6.md`). Next: data assistant, then Phase 7.
+**Current phase:** 7 — Reporting (in progress). Phase 6 and the data assistant PASSED (reports `phase-6.md`, `phase-6b-assistant.md`).
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Working rule (founder, 19 Nov 2026) — read this first
@@ -48,6 +48,10 @@ Read this first in every session. Update it last.
 
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
+
+## Done (data assistant)
+
+- Ask the data (admins/analysts): fixed project-bound lookups, wording and figure checks, append-only log; Groq `openai/gpt-oss-120b` via `LLM_API_KEY` (set in Vercel and Actions, 19 Nov). Live 9/9 twice; production 24/24. Free tier ≈ 8k tokens/min.
 
 ## Done (Phase 6)
 
@@ -95,7 +99,7 @@ Frontend pages are built inside each phase (only what that phase needs), not sav
 
 ## Next step
 
-Data assistant on branch `phase-6b-assistant` (see Working rule above), then Phase 7 reports.
+Phase 7 on branch `phase-7-reports`: immutable report snapshots with provenance and methodology, report hashes, CSV and Markdown export (formula-injection safe), print-to-PDF; no AI.
 
 ## Open questions / to verify
 
