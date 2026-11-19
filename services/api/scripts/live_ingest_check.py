@@ -225,10 +225,17 @@ def main() -> int:
             )
         hashes.append(run.get("content_hash"))
     s = run.get("summary") or {}
+    with psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row) as db:
+        pairs = db.execute(
+            "SELECT count(DISTINCT (raw_row_id, rule_id)) AS n FROM public.validation_issues WHERE dataset_version_id=%s",
+            (up["dataset_version_id"],),
+        ).fetchone()["n"]
+    # this check maps no coordinates, so V012 is not evaluated: data quality findings = distinct (row, rule) issues
     check(
-        "analysis: 140 statistical + 79 data-quality findings; identical hash on rerun",
-        s.get("statistical_findings") == 140 and s.get("data_quality_findings") == 79 and hashes[0] == hashes[1],
-        f"{took[0]:.1f}s / {took[1]:.1f}s; hash {str(hashes[0])[:12]}",
+        "analysis: 140 statistical findings, one data-quality finding per (row, rule), identical hash on rerun",
+        s.get("statistical_findings") == 140 and s.get("data_quality_findings") == pairs and hashes[0] == hashes[1],
+        f"{took[0]:.1f}s / {took[1]:.1f}s; statistical {s.get('statistical_findings')}, data quality "
+        f"{s.get('data_quality_findings')}/{pairs}; hashes {str(hashes[0])[:12]} / {str(hashes[1])[:12]}",
     )
     return report()
 
