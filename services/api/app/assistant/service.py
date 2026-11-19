@@ -15,10 +15,13 @@ import json
 import re
 from typing import Any
 
-from app.assistant.llm import ChatModel
+from app.assistant.llm import ChatModel, LLMError
 from app.assistant.tools import BY_NAME, Ctx, ToolInputError, openai_tools
 
 MAX_ROUNDS = 6
+MAX_REJECTED_CALLS = 2  # provider rejected the model's tool call as malformed; retry with a correction
+NUDGE = ("Your previous reply was rejected because the tool call was malformed. Call one of the listed tools with "
+         "only its listed arguments, as a JSON object, or answer in plain text.")  # fmt: skip
 MAX_TOOL_CHARS = 24_000
 FORBIDDEN = re.compile(r"\b(fraud\w*|rigg\w*|stolen election|vote[- ]?buying)\b", re.I)
 
@@ -99,8 +102,16 @@ def ask(model: ChatModel, ctx: Ctx, question: str, history: list[dict[str, str]]
     calls: list[dict[str, Any]] = []
     outputs: list[Any] = []
     answer = None
+    rejected = 0
     for _ in range(MAX_ROUNDS):
-        msg = model.chat(messages, tools)
+        try:
+            msg = model.chat(messages, tools, temperature=0 if rejected == 0 else 0.3)
+        except LLMError as e:
+            if e.code != "tool_use_failed" or rejected >= MAX_REJECTED_CALLS:
+                raise
+            rejected += 1
+            messages.append({"role": "system", "content": NUDGE})
+            continue
         tcs = msg.get("tool_calls") or []
         if not tcs:
             answer = (msg.get("content") or "").strip()

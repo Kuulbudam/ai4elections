@@ -269,5 +269,15 @@ SPECS: list[dict[str, Any]] = [
 BY_NAME = {s["name"]: s for s in SPECS}
 
 
+def _loose(schema: dict[str, Any]) -> dict[str, Any]:
+    """Lookups validate their own inputs, so the schema sent to the provider is lenient: providers reject a whole
+    reply when a tool call breaks a strict schema (e.g. one extra argument)."""
+    out = {k: v for k, v in schema.items() if k != "additionalProperties"}
+    if "properties" in out:
+        out["properties"] = {k: _loose(v) for k, v in out["properties"].items()}
+    return out
+
+
 def openai_tools() -> list[dict[str, Any]]:
-    return [{"type": "function", "function": {k: s[k] for k in ("name", "description", "parameters")}} for s in SPECS]
+    return [{"type": "function", "function": {"name": s["name"], "description": s["description"],
+                                              "parameters": _loose(s["parameters"])}} for s in SPECS]  # fmt: skip

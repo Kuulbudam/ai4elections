@@ -27,11 +27,17 @@ _chosen: dict[str, str] = {}
 class LLMError(Exception):
     """The model service failed; the message is safe to show (no key, no prompt)."""
 
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
 
 class ChatModel(Protocol):
     name: str
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
+    ) -> dict[str, Any]:
         """Return the assistant message: {"content": str|None, "tool_calls": [...]}."""
         ...
 
@@ -43,8 +49,11 @@ class OpenAICompatible:
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         self._timeout = timeout
 
-    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
-        body = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto", "temperature": 0}
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
+    ) -> dict[str, Any]:
+        body = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto",
+                "temperature": temperature}  # fmt: skip
         try:
             r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
         except httpx.HTTPError as e:
@@ -57,7 +66,9 @@ class OpenAICompatible:
         if r.status_code in (401, 403):
             raise LLMError("The assistant is not authorised with its provider. An administrator must check the key.")
         if r.status_code >= 400:
-            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}{_reason(r)}).")
+            reason = _reason(r)
+            raise LLMError(f"The assistant service returned an error (HTTP {r.status_code}{reason}).",
+                           code=reason.lstrip(": ") or None)  # fmt: skip
         try:
             return r.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as e:

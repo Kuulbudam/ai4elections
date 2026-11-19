@@ -30,7 +30,7 @@ class Scripted:
         self.steps = list(steps)
         self.tool_results: list[dict] = []
 
-    def chat(self, messages, tool_specs):
+    def chat(self, messages, tool_specs, temperature=0):
         self.tool_results = [json.loads(m["content"]) for m in messages if m["role"] == "tool"]
         step = self.steps.pop(0)
         return step(self) if callable(step) else step

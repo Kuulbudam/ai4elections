@@ -15,7 +15,7 @@ class Scripted:
         self.steps = list(steps)
         self.seen = []
 
-    def chat(self, messages, tool_specs):
+    def chat(self, messages, tool_specs, temperature=0):
         self.seen.append(messages)
         step = self.steps.pop(0)
         return step(messages) if callable(step) else step
@@ -136,3 +136,30 @@ def test_model_choice_follows_what_the_provider_lists(monkeypatch):
     assert llm.configured_model().name == "my-model"
     monkeypatch.delenv("LLM_API_KEY")
     assert llm.configured_model() is None
+
+
+def test_rejected_tool_calls_are_retried_with_a_correction(monkeypatch):
+    from app.assistant.llm import LLMError
+
+    fake_tool(monkeypatch, "project_overview", {"rows": 4989})
+
+    def reject(msgs):
+        raise LLMError("bad", code="tool_use_failed")
+
+    m = Scripted([reject, call("project_overview", {}), say("There are 4,989 units.")])
+    out = service.ask(m, ctx(), "q", [])
+    assert out["grounded"] and service.NUDGE in [x["content"] for x in m.seen[1] if x["role"] == "system"]
+
+    import pytest
+
+    m = Scripted([reject, reject, reject])
+    with pytest.raises(LLMError):
+        service.ask(m, ctx(), "q", [])
+    m = Scripted([lambda msgs: (_ for _ in ()).throw(LLMError("busy", code="rate_limit"))])
+    with pytest.raises(LLMError):
+        service.ask(m, ctx(), "q", [])
+
+
+def test_schemas_sent_to_the_provider_are_lenient():
+    for t in tools.openai_tools():
+        assert "additionalProperties" not in json.dumps(t)
