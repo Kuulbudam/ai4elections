@@ -237,6 +237,43 @@ def main() -> int:
         f"{took[0]:.1f}s / {took[1]:.1f}s; statistical {s.get('statistical_findings')}, data quality "
         f"{s.get('data_quality_findings')}/{pairs}; hashes {str(hashes[0])[:12]} / {str(hashes[1])[:12]}",
     )
+
+    # 8. findings and review (Phase 5), with real tokens against the real database
+    items, cursor = [], None
+    while True:
+        params = {"project_id": proj, "limit": 200, **({"cursor": cursor} if cursor else {})}
+        page = api.get("/findings", headers=auth_a, params=params).json()
+        items += page.get("items", [])
+        cursor = page.get("next_cursor")
+        if not cursor:
+            break
+    check("GET /findings pages through the latest run", len(items) == 140 + pairs, f"{len(items)} findings")
+    top = items[0] if items else {}
+    detail = api.get(f"/findings/{top.get('id')}", headers=auth_a).json()
+    ev = (detail.get("evidence") or [{}])[0]
+    check("finding links to its source row's original cells",
+          ev.get("cells", {}).get("PU Code") == top.get("pu_code") and ev.get("source_row_number", 0) > 1,
+          f"row {ev.get('source_row_number')}, {top.get('severity')}")  # fmt: skip
+    other = api.get(f"/findings/{top.get('id')}", headers={"Authorization": f"Bearer {b['token']}"})
+    check("another organisation cannot read the finding", other.status_code == 404, f"HTTP {other.status_code}")
+    rv = api.post(f"/findings/{top.get('id')}/reviews", headers=auth_a,
+                  json={"decision": "needs_more_evidence", "reason": "CI check: compare with the result sheet."})  # fmt: skip
+    check("review decision recorded through the API", rv.status_code == 201, f"HTTP {rv.status_code}")
+    rid = rv.json().get("id") if rv.status_code == 201 else None
+    patch = rest(http, a, "PATCH", f"finding_reviews?id=eq.{rid}", extra_headers={"Prefer": "return=representation"},
+                 json={"reason": "Rewritten after the fact."})  # fmt: skip
+    gone = rest(http, a, "DELETE", f"finding_reviews?id=eq.{rid}", extra_headers={"Prefer": "return=representation"})
+    still = rest(http, a, "GET", f"finding_reviews?id=eq.{rid}&select=reason").json()
+    check("review history cannot be edited or deleted via the Data API",
+          patch.status_code >= 400 and (gone.status_code >= 400 or gone.json() == [])
+          and still == [{"reason": "CI check: compare with the result sheet."}],
+          f"PATCH {patch.status_code}, DELETE {gone.status_code}")  # fmt: skip
+    cl = api.post("/claims", headers=auth_a, json={"project_id": proj, "finding_id": top.get("id"),
+                  "statement": "CI check: an observer reported a late count."})  # fmt: skip
+    ver = api.post(f"/claims/{cl.json().get('id')}/verify", headers=auth_a, json={"reason": "Verifying my own claim."})
+    check("claim starts unverified; its author cannot verify it",
+          cl.status_code == 201 and cl.json().get("status") == "unverified_allegation" and ver.status_code == 409,
+          f"create {cl.status_code}, self-verify {ver.status_code}")  # fmt: skip
     return report()
 
 

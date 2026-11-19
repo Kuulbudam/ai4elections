@@ -192,6 +192,25 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /findings/{id}:
+    get:
+      operationId: getFinding
+      summary: One finding with its evidence (original cells of the source row)
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The finding
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
   /findings/{id}/reviews:
     post:
       operationId: createReview
@@ -625,6 +644,8 @@ components:
         mad: { type: [string, "null"] }
         robust_z: { type: [string, "null"] }
         threshold: { type: string }
+        direction: { type: [string, "null"], enum: [above, below, null] }
+        leading_party: { type: [string, "null"], description: "leading_party_share only" }
         not_scored_reason:
           type: [string, "null"]
           enum: [insufficient_peers, zero_mad, denominator_zero, quarantined, null]
@@ -640,6 +661,10 @@ components:
           type: object
           description: Source column header → original cell text.
           additionalProperties: { type: string }
+        flagged_columns:
+          type: array
+          description: Source columns named by the finding (data quality findings).
+          items: { type: string }
 
     Exclusion:
       type: object
@@ -647,7 +672,11 @@ components:
       required: [raw_row_id, reason]
       properties:
         raw_row_id: { type: string, format: uuid }
+        pu_code: { type: [string, "null"] }
         reason: { type: string }
+        rules:
+          type: array
+          items: { type: string }
 
     Finding:
       type: object
@@ -688,6 +717,8 @@ components:
           type: array
           items: { $ref: "#/components/schemas/EvidenceItem" }
         review_status: { $ref: "#/components/schemas/ReviewStatusFilter" }
+        note_count: { type: integer, minimum: 0 }
+        claim_count: { type: integer, minimum: 0 }
         provenance: { $ref: "#/components/schemas/Provenance" }
         created_at: { type: string, format: date-time }
 

@@ -129,6 +129,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/findings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One finding with its evidence (original cells of the source row) */
+        get: operations["getFinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings/{id}/reviews": {
         parameters: {
             query?: never;
@@ -390,6 +407,10 @@ export interface components {
             robust_z: string | null;
             threshold: string;
             /** @enum {string|null} */
+            direction?: "above" | "below" | null;
+            /** @description leading_party_share only */
+            leading_party?: string | null;
+            /** @enum {string|null} */
             not_scored_reason: "insufficient_peers" | "zero_mad" | "denominator_zero" | "quarantined" | null;
         };
         EvidenceItem: {
@@ -400,11 +421,15 @@ export interface components {
             cells: {
                 [key: string]: string;
             };
+            /** @description Source columns named by the finding (data quality findings). */
+            flagged_columns?: string[];
         };
         Exclusion: {
             /** Format: uuid */
             raw_row_id: string;
+            pu_code?: string | null;
             reason: string;
+            rules?: string[];
         };
         Finding: {
             /** Format: uuid */
@@ -433,6 +458,8 @@ export interface components {
             exclusions?: components["schemas"]["Exclusion"][];
             evidence: components["schemas"]["EvidenceItem"][];
             review_status: components["schemas"]["ReviewStatusFilter"];
+            note_count?: number;
+            claim_count?: number;
             provenance: components["schemas"]["Provenance"];
             /** Format: date-time */
             created_at: string;
@@ -831,6 +858,33 @@ export interface operations {
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The finding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };

@@ -275,6 +275,12 @@ class PeerGroup(BaseModel):
     fallback_used: bool
 
 
+class Direction(Enum):
+    above = "above"
+    below = "below"
+    NoneType_None = None
+
+
 class NotScoredReason(Enum):
     insufficient_peers = "insufficient_peers"
     zero_mad = "zero_mad"
@@ -292,6 +298,8 @@ class Statistics(BaseModel):
     mad: str | None = None
     robust_z: str | None = None
     threshold: str
+    direction: Direction | None = None
+    leading_party: str | None = Field(None, description="leading_party_share only")
     not_scored_reason: NotScoredReason | None
 
 
@@ -302,6 +310,9 @@ class EvidenceItem(BaseModel):
     raw_row_id: UUID
     source_row_number: int = Field(..., ge=1)
     cells: dict[str, str] = Field(..., description="Source column header → original cell text.")
+    flagged_columns: list[str] | None = Field(
+        None, description="Source columns named by the finding (data quality findings)."
+    )
 
 
 class Exclusion(BaseModel):
@@ -309,7 +320,9 @@ class Exclusion(BaseModel):
         extra="forbid",
     )
     raw_row_id: UUID
+    pu_code: str | None = None
     reason: str
+    rules: list[str] | None = None
 
 
 class Provenance(BaseModel):
@@ -483,6 +496,8 @@ class Finding(BaseModel):
     exclusions: list[Exclusion] | None = None
     evidence: list[EvidenceItem]
     review_status: ReviewStatusFilter
+    note_count: int | None = Field(None, ge=0)
+    claim_count: int | None = Field(None, ge=0)
     provenance: Provenance
     created_at: AwareDatetime
 
