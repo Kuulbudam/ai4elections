@@ -125,6 +125,11 @@ tr.archived td { color: var(--granite); }
 .role-admin { border-color: var(--crimson); color: var(--crimson-dark); background: #fff; }
 .sev-error { background: var(--bad-bg); border-color: #efc4c7; color: #7e1d24; }
 .sev-warning { background: var(--warn-bg); border-color: #ecd49a; color: var(--warn-ink); }
+.sev-medium { background: var(--warn-bg); border-color: #ecd49a; color: var(--warn-ink); }
+.sev-high { background: #fbe9e0; border-color: #eec2ad; color: #8a3410; }
+.sev-very_high { background: var(--bad-bg); border-color: #efc4c7; color: #7e1d24; }
+.filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; }
+details.card > summary { cursor: pointer; font-weight: 600; }
 .status { font-weight: 600; }
 .status-ingested { color: var(--good); }
 .status-ingest_failed { color: var(--bad); }

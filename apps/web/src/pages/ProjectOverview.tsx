@@ -164,6 +164,12 @@ export default function ProjectOverview() {
                               <>
                                 <span aria-hidden="true">&ensp;</span>
                                 <Link to={`/versions/${v.id}/validation`}>{v.validated_at ? 'Validation' : 'Validate'}</Link>
+                                {v.validated_at && (
+                                  <>
+                                    <span aria-hidden="true">&ensp;</span>
+                                    <Link to={`/versions/${v.id}/analysis`}>Analysis</Link>
+                                  </>
+                                )}
                               </>
                             )}
                           </>

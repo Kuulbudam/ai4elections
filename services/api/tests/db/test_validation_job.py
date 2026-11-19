@@ -120,7 +120,7 @@ def test_other_org_and_bad_requests(api, world, ingested):
     body = {"job_type": "validate", "dataset_version_id": ingested}
     assert api.post("/jobs", json=body, headers=H(world.b.users["admin"])).status_code == 404
     assert (
-        api.post("/jobs", json={**body, "job_type": "analyse"}, headers=H(world.a.users["analyst"])).status_code == 400
+        api.post("/jobs", json={**body, "job_type": "analyse"}, headers=H(world.a.users["analyst"])).status_code == 409
     )
     assert (
         api.post("/jobs", json={**body, "job_type": "ingest"}, headers=H(world.a.users["analyst"])).status_code == 400
