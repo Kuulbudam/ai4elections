@@ -225,3 +225,18 @@ def test_vision_client_long_rate_limit_falls_back_to_typing(monkeypatch):
     monkeypatch.setattr(rd.httpx, "post", lambda *a, **k: httpx.Response(429, headers={"retry-after": "60"}))
     out = read_sheet(rd.OpenAICompatibleVision("k", "https://llm.test/v1", "qwen/qwen3.8-27b"), b"\xff\xd8x")
     assert out["status"] == "failed" and "busy" in out["notes"]
+
+
+def test_rate_limit_message_says_which_limit_without_secrets(monkeypatch):
+    import httpx
+
+    from app.sheets import read as rd
+
+    msg = (
+        "Rate limit reached for model `qwen/qwen3.8-27b` in organization `org_secret123` service tier `on_demand` "
+        "on tokens per day (TPD): Limit 200000, Used 199500, Requested 3400. Please try again in 2m10.5s."
+    )
+    monkeypatch.setattr(rd.httpx, "post", lambda *a, **k: httpx.Response(429, json={"error": {"message": msg}}))
+    out = read_sheet(rd.OpenAICompatibleVision("k", "https://llm.test/v1", "qwen/qwen3.8-27b"), b"\xff\xd8x")
+    assert "TPD" in out["notes"] and "Limit 200000, Used 199500, Requested 3400" in out["notes"]
+    assert "retry in 2m10.5s" in out["notes"] and "org_secret123" not in out["notes"]

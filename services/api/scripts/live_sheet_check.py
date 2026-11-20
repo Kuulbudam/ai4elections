@@ -96,7 +96,8 @@ def main() -> int:
                                                     "image_base64": base64.b64encode(img).decode()})  # fmt: skip
         return r.status_code, r.json(), time.monotonic() - t0
 
-    # 1. A sheet that matches the data.
+    # 1. A sheet that matches the data. (Free tier: about 8,000 tokens a minute, one photo is ~3,000-4,500.)
+    time.sleep(60)
     truth = figures_from_csv(1)
     code, s, took = send(truth)
     check("sheet uploaded and read by the AI", code == 201 and s.get("reading", {}).get("status") == "read",
@@ -122,7 +123,7 @@ def main() -> int:
           str([(c["id"], c["ok"]) for c in done.get("checks", [])]))  # fmt: skip
 
     # 2. A sheet with 15 extra votes for the first party (party scores no longer add up, and differ from data).
-    time.sleep(10)
+    time.sleep(40)
     changed = figures_from_csv(2)
     changed["party_votes"][0]["votes"] += 15
     code, s2, took = send(changed)
@@ -138,7 +139,7 @@ def main() -> int:
           and f.get("source_sheet_id") == s2["id"], f"{f.get('category')} {f.get('rule_id')}")  # fmt: skip
 
     # 3. A rough "phone photo" (tilted, blurred, uneven light, heavy JPEG): report how well the AI copes.
-    time.sleep(10)
+    time.sleep(40)
     rough = figures_from_csv(3)
     code, s3, took = send(rough, photo=True)
     ok3, total3, wrong3 = accuracy(s3.get("reading", {}).get("figures", {}), rough) if code == 201 else (0, 1, [])

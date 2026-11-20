@@ -16,6 +16,7 @@ from typing import Any, Protocol
 import httpx
 
 from app.assistant.llm import DEFAULT_BASE_URL, LLMError, list_models
+from app.assistant.llm import _limit_detail as _llm_limit_detail
 
 # Vision-capable models, in order of preference, used when LLM_VISION_MODEL is not set.
 PREFERRED_VISION_MODELS = [
@@ -82,7 +83,7 @@ class OpenAICompatibleVision:
     def read_image(self, prompt: str, jpeg: bytes) -> str:
         url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
         plain = {
-            "model": self.name, "temperature": 0, "max_completion_tokens": 1500,
+            "model": self.name, "temperature": 0, "max_completion_tokens": 900,
             "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                       {"type": "image_url", "image_url": {"url": url}}]}],
         }  # fmt: skip
@@ -104,14 +105,31 @@ class OpenAICompatibleVision:
             _chosen.pop(self.base_url, None)
             raise LLMError(f"The sheet reader's model ({self.name}) is not available from the provider.")
         if r.status_code == 429:
-            raise LLMError("The sheet reader is busy (free-tier limit reached). Try again in a minute or type the "
-                           "figures in.", code="rate_limit")  # fmt: skip
+            raise LLMError(f"The sheet reader is busy (free-tier limit reached{_limit_detail(r)}). Try again in a "
+                           "minute or type the figures in.", code="rate_limit")  # fmt: skip
         if r.status_code >= 400:
             raise LLMError(f"The sheet reader's AI service returned an error (HTTP {r.status_code}).")
         try:
             return str(r.json()["choices"][0]["message"]["content"] or "")
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError("The sheet reader's AI service returned an unexpected response.") from e
+
+
+def _limit_detail(r: httpx.Response) -> str:
+    """Which limit was hit and by how much (from the provider's message; never the prompt or the key)."""
+    try:
+        msg = str(r.json().get("error", {}).get("message", ""))
+    except (ValueError, AttributeError):
+        msg = ""
+    kind = re.search(r"on (tokens|requests) per (minute|day) \(([A-Z]+)\)", msg)
+    again = re.search(r"try again in ([0-9hms.]+)", msg)
+    parts = [
+        kind.group(3) if kind else "",
+        _llm_limit_detail(r).lstrip(": "),
+        f"retry in {again.group(1)}" if again else "",
+    ]
+    text = ", ".join(p for p in parts if p)
+    return f": {text}" if text else ""
 
 
 def _retry_after(r: httpx.Response) -> float | None:
