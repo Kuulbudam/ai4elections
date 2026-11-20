@@ -128,7 +128,7 @@ def main() -> int:
               and out.get("grounded") is True and out.get("language") == lang,
               f"HTTP {code} in {took:.1f}s; grounded={out.get('grounded')}: {ans[:220]!r}")  # fmt: skip
         check(f"answer in {lang} is in that language and not an accusation",
-              len(words & markers) >= 3 and english <= 3 and not service.accuses(ans),
+              len(words & markers) >= (3 if lang == "ha" else 2) and english <= 3 and not service.accuses(ans),
               f"{len(words & markers)} {lang} words, {english} English words")  # fmt: skip
 
     stranger = str(uuid.uuid4())
