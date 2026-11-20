@@ -126,8 +126,6 @@ def main() -> int:
             print("Dry run: nothing deleted.")
             return 0
         t0 = time.monotonic()
-        files = delete_files(ids)
-        print(f"Removed {files} stored files")
         for i in range(0, len(ids), a.batch):
             print(f"Organisations {i + 1}-{min(i + a.batch, len(ids))} of {len(ids)}", flush=True)
             purge(conn, ids[i : i + a.batch], tables)
@@ -140,6 +138,10 @@ def main() -> int:
                 print(f"  compacted {t} in {time.monotonic() - t1:.0f}s", flush=True)
             conn.execute("VACUUM ANALYZE")
         print("Database size now:", size())
+    try:  # after the database is writable again (Storage keeps its records in the same database)
+        print(f"Removed {delete_files(ids)} stored files")
+    except (httpx.HTTPError, psycopg.Error) as e:
+        print("Stored files were not removed (database rows are gone; files can be removed later):", str(e)[:200])
     return 0
 
 
