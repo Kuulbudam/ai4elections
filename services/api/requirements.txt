@@ -2,7 +2,7 @@
 fastapi==0.165.0
 starlette==1.10.0
 pydantic==2.12.4
-psycopg[binary]==3.2.12
+psycopg[binary]==3.3.9
 uvicorn==0.38.0
 httpx==0.28.1
 PyJWT[crypto]==2.15.1
