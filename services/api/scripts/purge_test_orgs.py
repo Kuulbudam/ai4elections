@@ -1,4 +1,4 @@
-"""Remove organisations created by automated checks, to keep the free database under its 500 MB limit.
+"""Remove organisations created by automated checks, to keep the free database under its 500 MB limit (Supabase Free).
 
 Only organisations whose name matches TEST_NAME ("ZZ CI ..." from the live checks, "E2E <run id>" from the
 browser test) can ever be selected; anything else is refused. Real organisations are never touched.
