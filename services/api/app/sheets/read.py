@@ -58,7 +58,9 @@ Rules:
 - Read each figure from the digits. If the amount in words is visible and disagrees with the digits, give the
   digits, set confidence to "low" and say so in notes.
 - "confidence": "high" only when the digits are clear; "medium" if slightly unclear; "low" if hard to read.
-- List every party row that has a score written, in the order printed. Skip rows with no score.
+- List EVERY party row in the order printed, all the way to the last row. A score written as 0, a dash, "nil" or
+  "zero" is 0. Use null only for a box that is empty or unreadable.
+- Return compact JSON on one line (no spaces or line breaks between items) so the whole sheet fits.
 - Do not copy names of people, signatures or phone numbers."""
 
 
@@ -83,7 +85,7 @@ class OpenAICompatibleVision:
     def read_image(self, prompt: str, jpeg: bytes) -> str:
         url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
         plain = {
-            "model": self.name, "temperature": 0, "max_completion_tokens": 900,
+            "model": self.name, "temperature": 0, "max_completion_tokens": 2000,
             "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                       {"type": "image_url", "image_url": {"url": url}}]}],
         }  # fmt: skip

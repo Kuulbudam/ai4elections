@@ -56,7 +56,9 @@ def load(http: httpx.Client) -> list[dict]:
         if not v:
             continue
         truth = {k: num(v[k]) for k in PARTIES} | {"valid_votes": num(v["total_use"])}
-        if any(x is None for x in truth.values()):
+        if p["status"] == "exist and not blur" and any(x is None for x in truth.values()):
+            continue
+        if p["status"] != "blurred" and p["status"] != "exist and not blur":
             continue
         rows.append({"code": p["polling_unit_code"], "status": p["status"], "doc": str(int(float(p["id"]))),
                      "truth": truth, "registered": num(v["registered_use"]),
@@ -89,7 +91,7 @@ def main() -> int:
     rows = load(http)
     rnd = random.Random(2026)  # noqa: S311 - a fixed, repeatable sample, not security
     pool_clear = [r for r in rows if r["status"] == "exist and not blur"]
-    pool_blur = [r for r in rows if r["status"] != "exist and not blur"]  # blurred, crowd-sourced readings, ...
+    pool_blur = [r for r in rows if r["status"] == "blurred"]  # no transcription: measure caution, not accuracy
     clear = rnd.sample(pool_clear, min(a.clear, len(pool_clear)))
     blurred = rnd.sample(pool_blur, min(a.blurred, len(pool_blur)))
     print(f"Model {model.name}; {len(rows)} Plateau sheets with a full transcription; sample {a.clear} clear + "
@@ -107,7 +109,16 @@ def main() -> int:
             print(f"{r['code']}: ERROR {str(e)[:120]}", flush=True)
             continue
         fig = reading["figures"]
-        got = {p["party"].upper(): p["votes"] for p in fig.get("party_votes", [])}
+        if r["status"] == "blurred":
+            conf = reading.get("confidence", {})
+            sure = sum(1 for v in conf.values() if v == "high")
+            results.append({**r, "blur": {"status": reading["status"], "figures": len(conf), "sure": sure,
+                                          "legible": reading.get("legible")}})  # fmt: skip
+            print(f"{r['code']} [blurred] reading={reading['status']} legible={reading.get('legible')}: "
+                  f"{len(conf)} figures given, {sure} marked sure | note: {(reading.get('notes') or '')[:140]}",
+                  flush=True)  # fmt: skip
+            continue
+        got = {"".join(ch for ch in p["party"].upper() if ch.isalnum()): p["votes"] for p in fig.get("party_votes", [])}
         read = {k: got.get(k) for k in PARTIES} | {"valid_votes": fig.get("valid_votes")}
         conf = reading.get("confidence", {})
         cells = []
@@ -119,8 +130,9 @@ def main() -> int:
                         "code_read": fig.get("pu_code"), "reg_read": fig.get("registered_voters"),
                         "acc_read": fig.get("accredited_voters")})  # fmt: skip
         bad = [f"{c['field']} read {c['read']} vs {c['truth']} ({c['confidence']})" for c in cells if not c["ok"]]
-        print(f"{r['code']} [{r['status']}]: {sum(c['ok'] for c in cells)}/{len(cells)} "
-              f"{'; '.join(bad)}", flush=True)  # fmt: skip
+        print(f"{r['code']} [{r['status']}] reading={reading['status']} parties={len(got)}: "
+              f"{sum(c['ok'] for c in cells)}/{len(cells)} {'; '.join(bad)}"
+              f"{' | note: ' + (reading.get('notes') or '')[:120] if bad else ''}", flush=True)  # fmt: skip
 
     report(results)
     return 0
@@ -128,8 +140,8 @@ def main() -> int:
 
 def report(results: list[dict]) -> None:
     lines = ["## Real result-sheet benchmark (IReV EC8A, 2023 presidential, Plateau)", ""]
-    for label in ("exist and not blur", "other"):
-        rs = [r for r in results if "cells" in r and (r["status"] == label) == (label != "other")]
+    for label in ("exist and not blur",):
+        rs = [r for r in results if "cells" in r]
         cells = [c for r in rs for c in r["cells"]]
         if not cells:
             continue
@@ -143,6 +155,12 @@ def report(results: list[dict]) -> None:
             f"{len(wrong)} disagreements, {flagged} were marked unsure or left blank by the AI.",
             "",
         ]
+    blur = [r["blur"] for r in results if "blur" in r]
+    if blur:
+        careful = sum(1 for b in blur if b["status"] != "read" or b["sure"] < b["figures"] / 2)
+        lines += [f"**Blurred sheets ({len(blur)})** (no transcription exists): on {careful} the AI said it could not read "
+                  f"the sheet or marked most figures as unsure; figures given {sum(b['figures'] for b in blur)}, of which "
+                  f"{sum(b['sure'] for b in blur)} marked sure.", ""]  # fmt: skip
     errors = [r for r in results if "error" in r]
     if errors:
         lines.append(f"Errors: {len(errors)} ({', '.join(r['code'] for r in errors)})")
