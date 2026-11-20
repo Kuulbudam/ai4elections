@@ -25,7 +25,7 @@ concurrency:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 50
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -53,8 +53,8 @@ jobs:
           cache: pip
           cache-dependency-path: services/api/requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
-      - name: Test-data cleanup DRY RUN (temporary; counts only, deletes nothing)
-        run: python scripts/purge_test_orgs.py --dry-run && exit 1
+      - name: Test-data cleanup (founder approved 20 Nov; ZZ CI / E2E test organisations only)
+        run: python scripts/purge_test_orgs.py --yes && exit 1
       - name: Apply pending migrations
         if: steps.cfg.outputs.db == 'true'
         run: python scripts/migrate.py
