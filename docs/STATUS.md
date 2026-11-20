@@ -2,8 +2,9 @@
 
 Read this first in every session. Update it last.
 
-**Last updated:** 19 Nov 2026
-**Current phase:** 9 — Hardening (next). Phase 8 PASSED (report `docs/phase-reports/phase-8.md`).
+**Last updated:** 20 Nov 2026
+**Current phase:** 13 — Release candidate (in progress). Phases 9–12 PASSED (reports `docs/phase-reports/phase-9.md` … `phase-12.md`).
+**Supabase project (since 20 Nov):** `enusesjccqsvuqkxkjsz` (new free project; the old one filled up, see phase-12 report and `docs/runbook.md`).
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
 
 ## Working rule (founder, 19 Nov 2026) — read this first
@@ -17,6 +18,22 @@ Read this first in every session. Update it last.
   yet** (pick a free tier without a card, check data-use terms, ask founder to create the key); **admins and analysts
   only**. Design: fixed, tested lookup tools through the API with the user's own permissions (no free-form SQL);
   every number cited and linked; never says fraud; questions and answers audited; platform works if it is off.
+
+
+## Plan to win (founder, 20 Nov): phases 9–13
+
+| Phase | What | Status |
+|---|---|---|
+| 9 | Result-sheet reader: EC8A photo → AI reads → person confirms → arithmetic + data comparison → findings | PASS (#43) |
+| 10 | Collation check: declared ward/LGA/state totals vs sum of polling units | PASS (#44) |
+| 11 | Answers in Hausa, Yoruba, Igbo, Pidgin | PASS (#45, #47) |
+| 12 | Hardening: headers, dependency audit, backups + restore test, runbook, cleanup of test data | PASS (#46, #48, #49) |
+| 13 | Release candidate: briefs (`docs/briefs/`), user guide, final checks | in progress |
+
+Hackathon facts (news reports, Oct 2026): finale and showcase in Lagos on **16 Dec 2026**; prizes ₦4m / ₦2.5m / ₦1.5m
+plus four ₦500k special prizes (research and policy, inclusion, responsible AI and safety, cybersecurity and
+resilience). Judging: technical functionality, innovation, relevance, usefulness, cybersecurity, privacy, responsible
+AI, scalability, feasibility. Founder to confirm whether 8 Dec is a separate submission/demo date.
 
 ## Decisions made (founder, 18 Nov 2026)
 
