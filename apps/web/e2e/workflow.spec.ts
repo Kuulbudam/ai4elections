@@ -8,6 +8,7 @@ import { totp } from './totp'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const DEMO = path.resolve(here, '../../../data/synthetic/SYNTHETIC_results_seed2026.csv')
 const SHEET = path.resolve(here, '../../../data/synthetic/SYNTHETIC_sheet_mismatch_row2.png')
+const DECLARED = path.resolve(here, '../../../data/synthetic/SYNTHETIC_declared_totals.csv')
 const SUPABASE_URL = process.env.SUPABASE_URL ?? ''
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const RUN = process.env.GITHUB_RUN_ID ?? randomBytes(3).toString('hex')
@@ -162,6 +163,19 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     await expect(page.getByText('✗ Needs a look').first()).toBeVisible()
     await expect(page.getByRole('link', { name: 'finding 1' })).toBeVisible()
     await axe(page, 'sheet results')
+  })
+
+  await test.step('collation check: declared totals vs the sum of their polling units', async () => {
+    await page.goto(`${projectUrl}/collation`)
+    await expect(page.getByRole('heading', { name: /Collation check/ })).toBeVisible()
+    await page.getByLabel(/Choose the declared totals/).setInputFiles(DECLARED)
+    await expect(page.getByRole('list', { name: 'Collation summary' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('Differs')).toHaveCount(3)
+    await expect(page.getByText(/PA votes: declared .*\(\+120\)/)).toBeVisible()
+    await axe(page, 'collation')
+    await page.getByRole('link', { name: 'Open the finding' }).first().click()
+    await expect(page.getByRole('heading', { name: /Declared .* total differs from the sum of its polling units/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'See the collation check' })).toBeVisible()
   })
 
   await test.step('ask the data: a question gets an answer and the page never blanks', async () => {

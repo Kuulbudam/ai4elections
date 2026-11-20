@@ -764,6 +764,98 @@ class SheetList(BaseModel):
     items: list[ResultSheet]
 
 
+class CollationUpload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    dataset_version_id: UUID
+    filename: str = Field(..., max_length=255, min_length=1)
+    csv_text: str = Field(..., max_length=2000000, min_length=10)
+
+
+class CollationFigure(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: str = Field(..., description="registered_voters, ..., or party:<code>")
+    label: str
+    declared: int
+    data: int | None = Field(..., description="Sum over the area's polling units")
+    diff: int | None = Field(..., description="declared minus data, when compared")
+    match: bool | None = Field(..., description="null when some polling units lack the figure")
+    missing_units: int = Field(..., ge=0)
+
+
+class Status2(Enum):
+    match = "match"
+    mismatch = "mismatch"
+    incomplete = "incomplete"
+    unmatched = "unmatched"
+
+
+class CollationArea(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    level: Level1
+    state: str
+    lga: str | None = None
+    ward: str | None = None
+    row: int = Field(..., description="Row of the declared-totals file")
+    status: Status2
+    units: int = Field(..., ge=0)
+    duplicate_units: int = Field(..., ge=0)
+    figures: list[CollationFigure]
+    finding_id: UUID | None = None
+
+
+class CollationSkipped(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    row: int
+    reason: str
+
+
+class Summary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    areas: int
+    match: int
+    mismatch: int
+    incomplete: int
+    unmatched: int
+    rows_skipped: int
+    parties: list[str]
+    ignored_columns: list[str]
+
+
+class CollationCheck(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    dataset_version_id: UUID
+    filename: str
+    sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    summary: Summary
+    skipped: list[CollationSkipped]
+    areas: list[CollationArea]
+    finding_ids: list[UUID]
+    created_at: AwareDatetime
+    created_by: UUID
+
+
+class CollationList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[CollationCheck]
+
+
 class FinalizeResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

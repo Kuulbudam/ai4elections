@@ -50,7 +50,7 @@ export default function Findings() {
     const f = { ...filters, [k]: v }
     if (k === 'state') f.lga = f.ward = ''
     if (k === 'lga') f.ward = ''
-    if (k === 'category' && v === 'data_quality_issue') f.indicator = ''
+    if (k === 'category' && (v === 'data_quality_issue' || v === 'cross_check')) f.indicator = ''
     setFilters(f)
     setCursors([null])
   }
@@ -72,7 +72,7 @@ export default function Findings() {
 
       <form className="filters card" aria-label="Filter findings" onSubmit={(e) => e.preventDefault()}>
         <Select label="Category" value={filters.category} onChange={(v) => set('category', v)} options={CATEGORY} />
-        <Select label="Indicator" value={filters.indicator} onChange={(v) => set('indicator', v)} options={INDICATOR} disabled={filters.category === 'data_quality_issue'} />
+        <Select label="Indicator" value={filters.indicator} onChange={(v) => set('indicator', v)} options={INDICATOR} disabled={filters.category === 'data_quality_issue' || filters.category === 'cross_check'} />
         <Select label="How unusual" value={filters.severity} onChange={(v) => set('severity', v)} options={SEVERITY} />
         <Select label="Confidence" value={filters.confidence} onChange={(v) => set('confidence', v)} options={{ high: 'High', medium: 'Medium', low: 'Low' }} />
         <Select label="Review status" value={filters.review_status} onChange={(v) => set('review_status', v)} options={DECISION} />

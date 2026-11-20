@@ -7,6 +7,7 @@ export type Claim = Schemas['Claim']
 export const CATEGORY: Record<string, string> = {
   statistical_anomaly: 'Statistical outlier',
   data_quality_issue: 'Data quality issue',
+  cross_check: 'Cross-check (result sheet or collation)',
   observation: 'Observation',
 }
 export const INDICATOR: Record<string, string> = { turnout_rate: 'Turnout', leading_party_share: 'Leading-party share' }

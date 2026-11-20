@@ -8,6 +8,7 @@ Every file in this folder is **synthetic and fictional**. The states (Synthia, N
 | `SYNTHETIC_ground_truth_seed2026.csv` | For each row: planted scenario, expected validation rule IDs, expected statistical flags, expected "not scored" reason |
 | `SYNTHETIC_admin_units_seed2026.csv` | Reference list of valid state / LGA / ward labels (used by rule V011) |
 | `SYNTHETIC_sheet_matches_row1.png` | A SYNTHETIC result-sheet photo (Form EC8A layout) whose figures match row 1 of the results file |
+| `SYNTHETIC_declared_totals.csv` | SYNTHETIC declared totals for the 10 wards of Amber North, the LGA and Synthia state, with 3 planted differences (Ward 2 PA +120, Ward 3 valid votes −40, LGA total votes cast +35). Made by `python -m app.collation.synthetic` |
 | `SYNTHETIC_sheet_mismatch_row2.png` | A SYNTHETIC result sheet for row 2 with 15 extra votes for PA (party scores no longer add up; differs from the data) |
 
 Regenerate (deterministic): `python tools/synthetic/generate.py --seed 2026 --out data/synthetic`. The sheet images come from `python -m app.sheets.synthetic` (in `services/api`); every one is stamped SYNTHETIC. CI fails if these files drift from the generator.

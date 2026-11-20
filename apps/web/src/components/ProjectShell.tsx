@@ -258,6 +258,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       end: false,
     },
     {
+      to: `/projects/${pid}/collation`,
+      label: 'Collation check',
+      icon: 'sum',
+      end: false,
+    },
+    {
       to: `/projects/${pid}/claims`,
       label: `Claims${counts?.unverified ? ` (${counts.unverified} unverified)` : ''}`,
       icon: 'quote',

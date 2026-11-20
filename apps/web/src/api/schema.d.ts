@@ -383,6 +383,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collation-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Collation checks of a project, newest first */
+        get: operations["listCollationChecks"];
+        put?: never;
+        /**
+         * Compare declared ward / LGA / state totals with the sum of their polling units
+         * @description Upload the declared totals from collation forms (EC8B ward, EC8C LGA, EC8D state) as CSV text. Columns: State,
+         *     LGA, Ward (blank for higher levels), any of Registered / Accredited / Valid / Rejected / Total votes cast, and
+         *     one column per party. Each figure is compared with the sum over the area's polling units in the dataset
+         *     version; a figure is compared only when every polling unit has it. Every area with a difference becomes a
+         *     cross_check finding for review. No AI is used.
+         */
+        post: operations["createCollationCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collation-checks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One collation check with every area compared */
+        get: operations["getCollationCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -927,6 +969,77 @@ export interface components {
         };
         SheetList: {
             items: components["schemas"]["ResultSheet"][];
+        };
+        CollationUpload: {
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            dataset_version_id: string;
+            filename: string;
+            csv_text: string;
+        };
+        CollationFigure: {
+            /** @description registered_voters, ..., or party:<code> */
+            field: string;
+            label: string;
+            declared: number;
+            /** @description Sum over the area's polling units */
+            data: number | null;
+            /** @description declared minus data, when compared */
+            diff: number | null;
+            /** @description null when some polling units lack the figure */
+            match: boolean | null;
+            missing_units: number;
+        };
+        CollationArea: {
+            /** @enum {string} */
+            level: "state" | "lga" | "ward";
+            state: string;
+            lga?: string | null;
+            ward?: string | null;
+            /** @description Row of the declared-totals file */
+            row: number;
+            /** @enum {string} */
+            status: "match" | "mismatch" | "incomplete" | "unmatched";
+            units: number;
+            duplicate_units: number;
+            figures: components["schemas"]["CollationFigure"][];
+            /** Format: uuid */
+            finding_id?: string | null;
+        };
+        CollationSkipped: {
+            row: number;
+            reason: string;
+        };
+        CollationCheck: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            dataset_version_id: string;
+            filename: string;
+            sha256: string;
+            summary: {
+                areas: number;
+                match: number;
+                mismatch: number;
+                incomplete: number;
+                unmatched: number;
+                rows_skipped: number;
+                parties: string[];
+                ignored_columns: string[];
+            };
+            skipped: components["schemas"]["CollationSkipped"][];
+            areas: components["schemas"]["CollationArea"][];
+            finding_ids: string[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+        };
+        CollationList: {
+            items: components["schemas"]["CollationCheck"][];
         };
     };
     responses: {
@@ -1678,6 +1791,94 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listCollationChecks: {
+        parameters: {
+            query: {
+                project_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollationList"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createCollationCheck: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollationUpload"];
+            };
+        };
+        responses: {
+            /** @description The check and its results */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollationCheck"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getCollationCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollationCheck"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };

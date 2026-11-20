@@ -241,6 +241,9 @@ code.hash { word-break: break-all; font-size: 0.85rem; }
 .outcome-flag { color: var(--bad); }
 .outcome-muted { color: var(--granite); }
 .sheet-results h2 { font-size: 1.2rem; margin: 6px 0 10px; }
+
+.diff-list { margin: 0; padding-left: 18px; font-size: 0.92rem; }
+.collation-results { display: grid; gap: 14px; }
 @media (max-width: 900px) {
   .sheet-layout { grid-template-columns: 1fr; }
   .sheet-photo { position: static; }
