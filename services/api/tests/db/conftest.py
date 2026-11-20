@@ -32,7 +32,7 @@ TENANT_TABLES = [
     "memberships", "projects", "data_sources", "datasets", "dataset_versions", "raw_rows", "result_records",
     "mapping_templates", "admin_units", "processing_jobs", "analytical_runs", "validation_issues", "findings",
     "finding_reviews", "investigation_notes", "claims", "claim_evidence", "reports", "audit_events",
-    "result_sheets",
+    "result_sheets", "collation_checks",
 ]  # fmt: skip
 
 
@@ -197,6 +197,29 @@ def _seed_org(conn, org: Org) -> None:
             '\'{"status": "no_model", "figures": {"party_votes": []}, "confidence": {}, "legible": false}\',%s) '
             "RETURNING id",
             (sheet_id, org.id, pid, vid, f"{org.id}/{pid}/{sheet_id}.jpg", "d" * 64, "e" * 64, admin),
+        )
+        r["collation_checks"] = ins(
+            "INSERT INTO public.collation_checks (org_id, project_id, dataset_version_id, filename, sha256, "
+            "engine_version, summary, areas, created_by) VALUES (%s,%s,%s,'d.csv',%s,'1.0.0',%s,'[]',%s) RETURNING id",
+            (
+                org.id,
+                pid,
+                vid,
+                "f" * 64,
+                json.dumps(
+                    {
+                        "areas": 0,
+                        "match": 0,
+                        "mismatch": 0,
+                        "incomplete": 0,
+                        "unmatched": 0,
+                        "rows_skipped": 0,
+                        "parties": [],
+                        "ignored_columns": [],
+                    }
+                ),
+                admin,
+            ),
         )
         c.execute(
             "INSERT INTO storage.objects (bucket_id, name) VALUES ('datasets', %s)",

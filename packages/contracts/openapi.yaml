@@ -557,6 +557,77 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+
+  /collation-checks:
+    post:
+      operationId: createCollationCheck
+      summary: Compare declared ward / LGA / state totals with the sum of their polling units
+      description: |
+        Upload the declared totals from collation forms (EC8B ward, EC8C LGA, EC8D state) as CSV text. Columns: State,
+        LGA, Ward (blank for higher levels), any of Registered / Accredited / Valid / Rejected / Total votes cast, and
+        one column per party. Each figure is compared with the sum over the area's polling units in the dataset
+        version; a figure is compared only when every polling unit has it. Every area with a difference becomes a
+        cross_check finding for review. No AI is used.
+      x-required-roles: [admin, analyst]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollationUpload" }
+      responses:
+        "201":
+          description: The check and its results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollationCheck" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+    get:
+      operationId: listCollationChecks
+      summary: Collation checks of a project, newest first
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The checks
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollationList" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /collation-checks/{id}:
+    get:
+      operationId: getCollationCheck
+      summary: One collation check with every area compared
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The check
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollationCheck" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1358,3 +1429,96 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/ResultSheet" }
+
+    CollationUpload:
+      type: object
+      additionalProperties: false
+      required: [project_id, dataset_version_id, filename, csv_text]
+      properties:
+        project_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        filename: { type: string, minLength: 1, maxLength: 255 }
+        csv_text: { type: string, minLength: 10, maxLength: 2000000 }
+
+    CollationFigure:
+      type: object
+      additionalProperties: false
+      required: [field, label, declared, data, diff, match, missing_units]
+      properties:
+        field: { type: string, description: "registered_voters, ..., or party:<code>" }
+        label: { type: string }
+        declared: { type: integer }
+        data: { type: [integer, "null"], description: "Sum over the area's polling units" }
+        diff: { type: [integer, "null"], description: "declared minus data, when compared" }
+        match: { type: [boolean, "null"], description: "null when some polling units lack the figure" }
+        missing_units: { type: integer, minimum: 0 }
+
+    CollationArea:
+      type: object
+      additionalProperties: false
+      required: [level, state, status, units, duplicate_units, figures, row]
+      properties:
+        level: { type: string, enum: [state, lga, ward] }
+        state: { type: string }
+        lga: { type: [string, "null"] }
+        ward: { type: [string, "null"] }
+        row: { type: integer, description: "Row of the declared-totals file" }
+        status: { type: string, enum: [match, mismatch, incomplete, unmatched] }
+        units: { type: integer, minimum: 0 }
+        duplicate_units: { type: integer, minimum: 0 }
+        figures:
+          type: array
+          items: { $ref: "#/components/schemas/CollationFigure" }
+        finding_id: { type: [string, "null"], format: uuid }
+
+    CollationSkipped:
+      type: object
+      additionalProperties: false
+      required: [row, reason]
+      properties:
+        row: { type: integer }
+        reason: { type: string }
+
+    CollationCheck:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, dataset_version_id, filename, sha256, summary, skipped, areas, finding_ids, created_at, created_by]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        filename: { type: string }
+        sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        summary:
+          type: object
+          additionalProperties: false
+          required: [areas, match, mismatch, incomplete, unmatched, rows_skipped, parties, ignored_columns]
+          properties:
+            areas: { type: integer }
+            match: { type: integer }
+            mismatch: { type: integer }
+            incomplete: { type: integer }
+            unmatched: { type: integer }
+            rows_skipped: { type: integer }
+            parties: { type: array, items: { type: string } }
+            ignored_columns: { type: array, items: { type: string } }
+        skipped:
+          type: array
+          items: { $ref: "#/components/schemas/CollationSkipped" }
+        areas:
+          type: array
+          items: { $ref: "#/components/schemas/CollationArea" }
+        finding_ids:
+          type: array
+          items: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, format: uuid }
+
+    CollationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CollationCheck" }

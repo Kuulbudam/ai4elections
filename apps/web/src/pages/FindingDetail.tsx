@@ -107,6 +107,16 @@ export default function FindingDetail() {
         <span className="badge">Confidence: {f.confidence}</span> <span className="badge">Review: {DECISION[f.review_status]}</span>
       </p>
       <p className="page-intro">{f.explanation}</p>
+      {f.source_sheet_id && (
+        <p className="notice">
+          From a result-sheet photo checked by a person. <Link to={`/projects/${f.project_id}/sheets/${f.source_sheet_id}`}>See the photo and the confirmed figures</Link>
+        </p>
+      )}
+      {f.rule_id?.startsWith('collation_') && (
+        <p className="notice">
+          From a collation check of declared totals. <Link to={`/projects/${f.project_id}/collation`}>See the collation check</Link>
+        </p>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}

@@ -23,6 +23,7 @@ import ReportView from './pages/ReportView'
 import Assistant from './pages/Assistant'
 import Sheets from './pages/Sheets'
 import SheetDetail from './pages/SheetDetail'
+import Collation from './pages/Collation'
 import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
@@ -112,6 +113,8 @@ function Shell() {
                   <Route path="/projects/:projectId/assistant" element={<Assistant />} />
                   <Route path="/projects/:projectId/sheets" element={<Sheets />} />
                   <Route path="/projects/:projectId/sheets/:sheetId" element={<SheetDetail />} />
+                  <Route path="/projects/:projectId/collation" element={<Collation />} />
+                  <Route path="/projects/:projectId/collation/:checkId" element={<Collation />} />
                   <Route path="/projects/:projectId/reports" element={<Reports />} />
                   <Route path="/reports/:reportId" element={<ReportView />} />
                   <Route path="/findings/:findingId" element={<FindingDetail />} />
