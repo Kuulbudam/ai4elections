@@ -88,8 +88,10 @@ def main() -> int:
     http = httpx.Client(timeout=60, follow_redirects=True, headers={"User-Agent": "AI4Elections research benchmark"})
     rows = load(http)
     rnd = random.Random(2026)  # noqa: S311 - a fixed, repeatable sample, not security
-    clear = rnd.sample([r for r in rows if r["status"] == "exist and not blur"], a.clear)
-    blurred = rnd.sample([r for r in rows if r["status"] == "blurred"], a.blurred)
+    pool_clear = [r for r in rows if r["status"] == "exist and not blur"]
+    pool_blur = [r for r in rows if r["status"] != "exist and not blur"]  # blurred, crowd-sourced readings, ...
+    clear = rnd.sample(pool_clear, min(a.clear, len(pool_clear)))
+    blurred = rnd.sample(pool_blur, min(a.blurred, len(pool_blur)))
     print(f"Model {model.name}; {len(rows)} Plateau sheets with a full transcription; sample {a.clear} clear + "
           f"{a.blurred} blurred", flush=True)  # fmt: skip
 
@@ -126,8 +128,8 @@ def main() -> int:
 
 def report(results: list[dict]) -> None:
     lines = ["## Real result-sheet benchmark (IReV EC8A, 2023 presidential, Plateau)", ""]
-    for label in ("exist and not blur", "blurred"):
-        rs = [r for r in results if r["status"] == label and "cells" in r]
+    for label in ("exist and not blur", "other"):
+        rs = [r for r in results if "cells" in r and (r["status"] == label) == (label != "other")]
         cells = [c for r in rs for c in r["cells"]]
         if not cells:
             continue
@@ -136,7 +138,7 @@ def report(results: list[dict]) -> None:
         flagged = sum(c["confidence"] in ("low", "medium", "missing") for c in wrong)
         sheets_all = sum(all(c["ok"] for c in r["cells"]) for r in rs)
         lines += [
-            f"**{'Clear' if label != 'blurred' else 'Blurred'} sheets ({len(rs)})**: {ok}/{len(cells)} figures match the "
+            f"**{'Clear' if label != 'other' else 'Harder (blurred or crowd-read)'} sheets ({len(rs)})**: {ok}/{len(cells)} figures match the "
             f"transcription ({100 * ok / len(cells):.0f}%); {sheets_all}/{len(rs)} sheets fully right; of the "
             f"{len(wrong)} disagreements, {flagged} were marked unsure or left blank by the AI.",
             "",
