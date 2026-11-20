@@ -34,6 +34,26 @@ app.add_middleware(
     expose_headers=["X-Report-Content-Hash", "Content-Disposition"],
 )
 
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):  # noqa: ANN001, ANN201
+    """Every API response: no sniffing, no framing, nothing to run; private data is never cached."""
+    response = await call_next(request)
+    for k, v in SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    if request.url.path != "/health":
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
 _STATUS_CODES = {
     400: "VALIDATION_FAILED",
     401: "UNAUTHENTICATED",

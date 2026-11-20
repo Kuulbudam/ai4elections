@@ -1,0 +1,75 @@
+name: Backup and restore check
+
+# Weekly (and on demand): dumps the production database, restores it into a scratch Postgres built from the
+# migrations, and proves the copy is complete and consistent (tables, row counts, foreign keys, audit chains).
+# The repository is public, so a backup is kept (30 days) only when BACKUP_PASSPHRASE is set, and only encrypted.
+on:
+  schedule:
+    - cron: "41 2 * * 0"  # Sundays 02:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESTORE_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/postgres
+      BACKUP_DIR: ${{ github.workspace }}/backup
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/api/requirements*.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Postgres client tools matching production
+        run: |
+          major=$(python -c "import os, psycopg; print(psycopg.connect(os.environ['DATABASE_URL']).info.server_version // 10000)")
+          echo "Production Postgres major version: $major"
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -q "postgresql-client-$major" > /dev/null
+          echo "/usr/lib/postgresql/$major/bin" >> "$GITHUB_PATH"
+      - name: Back up, restore and verify
+        run: python scripts/backup_restore_check.py
+      - name: Encrypt the backup (only with BACKUP_PASSPHRASE; nothing unencrypted is ever uploaded)
+        if: env.BACKUP_PASSPHRASE != ''
+        working-directory: backup
+        run: |
+          tar -czf ai4e-backup.tgz *.pgc users.csv
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o ai4e-backup.tgz.gpg ai4e-backup.tgz
+          rm -f ai4e-backup.tgz *.pgc users.csv
+          ls -la
+      - name: Keep the encrypted backup for 30 days
+        if: env.BACKUP_PASSPHRASE != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai4e-backup-${{ github.run_id }}
+          path: backup/ai4e-backup.tgz.gpg
+          retention-days: 30
+          if-no-files-found: error
+      - name: No passphrase set
+        if: env.BACKUP_PASSPHRASE == ''
+        run: echo "BACKUP_PASSPHRASE is not set, so the restore was verified but no copy was kept." | tee -a "$GITHUB_STEP_SUMMARY"
