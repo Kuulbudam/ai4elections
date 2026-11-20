@@ -8,7 +8,8 @@ No image is written to disk or uploaded anywhere: each is fetched, read and drop
 vote figures (already public) are printed. The transcription is itself machine-read, so a disagreement is not
 always the reader's mistake; disagreements are listed for a person to look at.
 
-Needs LLM_API_KEY. Usage: python scripts/real_sheet_benchmark.py --clear 20 --blurred 5
+Needs LLM_API_KEY (Groq) or GEMINI_API_KEY (Gemini).
+Usage: python scripts/real_sheet_benchmark.py --provider groq --clear 20 --blurred 5
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.assistant.llm import DEFAULT_BASE_URL  # noqa: E402
+from app.assistant.llm import DEFAULT_BASE_URL, GEMINI_BASE_URL  # noqa: E402
 from app.sheets.image import clean  # noqa: E402
 from app.sheets.read import OpenAICompatibleVision, choose_vision_model, read_sheet  # noqa: E402
 
@@ -83,10 +84,17 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--clear", type=int, default=20)
     ap.add_argument("--blurred", type=int, default=5)
-    ap.add_argument("--pace", type=float, default=40.0, help="seconds between AI calls (free tier ~8k tokens/min)")
+    ap.add_argument("--provider", choices=["groq", "gemini"], default="groq")
+    ap.add_argument("--pace", type=float, default=None, help="seconds between AI calls (default: groq 40, gemini 8)")
     a = ap.parse_args()
-    key = os.environ["LLM_API_KEY"].strip()
-    model = OpenAICompatibleVision(key, DEFAULT_BASE_URL, choose_vision_model(key, DEFAULT_BASE_URL) or "")
+    env, base = ("GEMINI_API_KEY", GEMINI_BASE_URL) if a.provider == "gemini" else ("LLM_API_KEY", DEFAULT_BASE_URL)
+    key = os.environ.get(env, "").strip()
+    if not key:
+        print(f"{env} is not set, so the {a.provider} reader cannot be measured.")
+        return 1
+    if a.pace is None:
+        a.pace = 8.0 if a.provider == "gemini" else 40.0  # Groq free tier ~8k tokens/min; Gemini counts requests
+    model = OpenAICompatibleVision(key, base, choose_vision_model(key, base) or "")
     http = httpx.Client(timeout=60, follow_redirects=True, headers={"User-Agent": "AI4Elections research benchmark"})
     rows = load(http)
     rnd = random.Random(2026)  # noqa: S311 - a fixed, repeatable sample, not security

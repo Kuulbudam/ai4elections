@@ -20,8 +20,15 @@ It never decides what happened: a finding is a reason to look again at a sheet, 
 | **Collation check** | Not AI | — | Planted differences found exactly |
 
 Every AI answer is labelled as AI-drafted and "not a finding". Every question and answer is kept in an append-only
-log, with the language and the lookups used. The platform works fully without AI: with no key, or when the free tier
-is busy, people type sheet figures and everything else still runs.
+log, with the language and the lookups used, and the name of the model that answered. The platform works fully without
+AI: with no key, or when the free tier is busy, people type sheet figures and everything else still runs.
+
+**Two AI providers, both free.** Groq answers first; when it is busy, out of its daily quota or down, Google Gemini
+answers instead, with the same checks on its output. The order can be swapped with one setting. **Data note:**
+on Gemini's free tier, Google may use what is sent to improve its products, and its reviewers may read it. The
+platform sends only what the task needs: project figures for Ask the data, and the sheet photo for the reader. Result
+sheets are public documents (INEC publishes them on IReV), but they carry agents' names and signatures. An
+organisation that cannot accept this should remove `GEMINI_API_KEY` (Groq only) or move to a paid tier.
 
 ## Wording and fairness
 

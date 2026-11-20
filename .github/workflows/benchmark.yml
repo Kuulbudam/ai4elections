@@ -5,6 +5,11 @@ name: Real sheet benchmark
 on:
   workflow_dispatch:
     inputs:
+      provider:
+        description: "Which AI provider reads the sheets"
+        type: choice
+        options: [groq, gemini]
+        default: groq
       clear:
         description: "How many clear sheets"
         default: "20"
@@ -33,4 +38,5 @@ jobs:
       - name: Benchmark
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: python scripts/real_sheet_benchmark.py --clear "${{ inputs.clear }}" --blurred "${{ inputs.blurred }}"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/real_sheet_benchmark.py --provider "${{ inputs.provider }}" --clear "${{ inputs.clear }}" --blurred "${{ inputs.blurred }}"
