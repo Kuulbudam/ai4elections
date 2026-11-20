@@ -1,4 +1,4 @@
-"""Light read-only health check: connection, read-only state, size (after restart)."""
+"""Light read-only health check: connection, read-only state, size (after restart, recheck)."""
 
 import os
 import time
