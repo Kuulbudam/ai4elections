@@ -67,7 +67,8 @@ def language_rule(language: str) -> str:
         return ""
     name = LANGUAGES[language]
     return (
-        f"\nLANGUAGE: Write the whole answer in {name}, in plain everyday words. "
+        f"\nLANGUAGE: Write the whole answer in {name}, in plain everyday words: every sentence, heading and "
+        "bullet, not only some words. "
         "Keep every figure as digits exactly as the tools give it. "
         "Keep polling-unit codes, place names and party names exactly as in the data. "
         "When you mention an unverified allegation, add the English words 'unverified allegation' in brackets. "
