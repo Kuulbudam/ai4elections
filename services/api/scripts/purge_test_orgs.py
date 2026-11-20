@@ -30,9 +30,11 @@ TEST_NAME = re.compile(r"^(ZZ CI .+|E2E \d+)$")
 BIG = ["raw_rows", "result_records", "findings", "validation_issues", "audit_events", "processing_jobs"]
 
 
-def test_orgs(conn: psycopg.Connection, name: str | None) -> list[dict]:
+def test_orgs(conn: psycopg.Connection, name: str | None, kind: str = "all") -> list[dict]:
     rows = conn.execute("SELECT id::text AS id, name FROM public.organisations ORDER BY created_at").fetchall()
-    chosen = [r for r in rows if TEST_NAME.match(r["name"]) and (name is None or r["name"] == name)]
+    prefix = {"ci": "ZZ CI ", "e2e": "E2E ", "all": ""}[kind]
+    chosen = [r for r in rows if TEST_NAME.match(r["name"]) and r["name"].startswith(prefix)
+              and (name is None or r["name"] == name)]  # fmt: skip
     if name is not None and not chosen:
         print(f"No test organisation named {name!r}.")
     return chosen
@@ -100,6 +102,9 @@ def main() -> int:
     ap.add_argument("--yes", action="store_true", help="really delete (otherwise only count)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--name", help="only this test organisation (exact name)")
+    ap.add_argument("--kind", choices=["ci", "e2e", "all"], default="all",
+                    help="ci = live checks' 'ZZ CI' organisations only (so a browser test running at the same time "
+                         "keeps its own)")  # fmt: skip
     ap.add_argument("--no-vacuum", action="store_true", help="skip compacting (for one small org)")
     ap.add_argument("--batch", type=int, default=25, help="organisations per transaction")
     a = ap.parse_args()
@@ -107,7 +112,7 @@ def main() -> int:
     with psycopg.connect(url, row_factory=dict_row, autocommit=True) as conn:
         size = lambda: conn.execute("SELECT pg_size_pretty(pg_database_size(current_database())) s").fetchone()["s"]  # noqa: E731
         print("Database size:", size())
-        orgs = test_orgs(conn, a.name)
+        orgs = test_orgs(conn, a.name, a.kind)
         tables = org_tables(conn)
         ids = [o["id"] for o in orgs]
         keep = conn.execute("SELECT name FROM public.organisations WHERE NOT (id = ANY(%s::uuid[]))", (ids,)).fetchall()
