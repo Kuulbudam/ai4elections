@@ -320,6 +320,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sheets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Result sheets uploaded to a project, newest first */
+        get: operations["listSheets"];
+        put?: never;
+        /**
+         * Upload a photo of a polling-unit result sheet (Form EC8A) and have the AI read it
+         * @description The photo is re-encoded as JPEG on the server (dropping location and camera metadata) and stored privately.
+         *     A vision model reads the figures and says how sure it is of each. Nothing is checked or flagged until a person
+         *     confirms the figures (POST /sheets/{id}/confirm). When no AI provider is configured the sheet is still stored
+         *     and the person types the figures in.
+         */
+        post: operations["createSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sheets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One result sheet with a short-lived link to its photo */
+        get: operations["getSheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sheets/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm (or correct) the sheet's figures, then check its arithmetic and compare it with the data
+         * @description Once only. Checks the sheet's own sums, compares each figure with the matching polling unit in the dataset
+         *     version, and records every mismatch as a cross_check finding for human review. Findings are reasons to look
+         *     again at the sheet and the data, not conclusions.
+         */
+        post: operations["confirmSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -465,7 +528,7 @@ export interface components {
             analytical_run_id?: string | null;
         };
         /** @enum {string} */
-        FindingCategory: "observation" | "data_quality_issue" | "statistical_anomaly";
+        FindingCategory: "observation" | "data_quality_issue" | "statistical_anomaly" | "cross_check";
         /** @enum {string} */
         Indicator: "turnout_rate" | "leading_party_share";
         /** @enum {string} */
@@ -546,6 +609,11 @@ export interface components {
             note_count?: number;
             claim_count?: number;
             provenance: components["schemas"]["Provenance"];
+            /**
+             * Format: uuid
+             * @description For cross-checks from a result sheet: the sheet (photo) the finding came from
+             */
+            source_sheet_id?: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -757,6 +825,108 @@ export interface components {
             generated_at: string;
             /** Format: uuid */
             generated_by: string;
+        };
+        SheetCount: number | null;
+        PartyVotes: {
+            party: string;
+            votes: number;
+        };
+        /** @description Figures written on a polling-unit result sheet. Null means not written or not readable. */
+        SheetFigures: {
+            pu_code?: string | null;
+            state?: string | null;
+            lga?: string | null;
+            ward?: string | null;
+            polling_unit_name?: string | null;
+            registered_voters?: components["schemas"]["SheetCount"];
+            accredited_voters?: components["schemas"]["SheetCount"];
+            rejected_votes?: components["schemas"]["SheetCount"];
+            valid_votes?: components["schemas"]["SheetCount"];
+            total_cast?: components["schemas"]["SheetCount"];
+            party_votes: components["schemas"]["PartyVotes"][];
+        };
+        /** @description What the AI read from the photo, exactly as produced. Never used until a person confirms it. */
+        SheetReading: {
+            /**
+             * @description no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)
+             * @enum {string}
+             */
+            status: "read" | "unreadable" | "no_model" | "failed";
+            figures: components["schemas"]["SheetFigures"];
+            /** @description How sure the AI is of each figure: field name, or party:<name> for party scores */
+            confidence: {
+                [key: string]: "high" | "medium" | "low";
+            };
+            legible: boolean;
+            notes?: string | null;
+        };
+        SheetCheck: {
+            id: string;
+            /** @description null when the check could not be made (a figure is missing) */
+            ok: boolean | null;
+            title: string;
+            detail: string;
+            severity?: components["schemas"]["Severity"] | null;
+        };
+        SheetComparisonRow: {
+            field: string;
+            label: string;
+            sheet: number | null;
+            data: number | null;
+            match: boolean | null;
+        };
+        SheetComparison: {
+            /** @description False when no polling unit in the data has the sheet's code */
+            matched: boolean;
+            pu_code?: string | null;
+            /** Format: uuid */
+            raw_row_id?: string | null;
+            source_row_number?: number | null;
+            rows: components["schemas"]["SheetComparisonRow"][];
+        };
+        ResultSheet: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            dataset_version_id: string;
+            /** @enum {string} */
+            status: "read" | "confirmed";
+            model?: string | null;
+            reading: components["schemas"]["SheetReading"];
+            confirmed?: components["schemas"]["SheetFigures"] | null;
+            checks?: components["schemas"]["SheetCheck"][] | null;
+            comparison?: components["schemas"]["SheetComparison"] | null;
+            finding_ids: string[];
+            image_sha256: string;
+            /** @description Short-lived link to the stored photo (GET /sheets/{id} only) */
+            image_url?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            confirmed_at?: string | null;
+            /** Format: uuid */
+            confirmed_by?: string | null;
+        };
+        SheetUpload: {
+            /** Format: uuid */
+            project_id: string;
+            /**
+             * Format: uuid
+             * @description The results the sheet will be compared with
+             */
+            dataset_version_id: string;
+            /** @description JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first) */
+            image_base64: string;
+        };
+        SheetConfirm: {
+            figures: components["schemas"]["SheetFigures"];
+        };
+        SheetList: {
+            items: components["schemas"]["ResultSheet"][];
         };
     };
     responses: {
@@ -1385,6 +1555,129 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listSheets: {
+        parameters: {
+            query: {
+                project_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SheetList"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createSheet: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetUpload"];
+            };
+        };
+        responses: {
+            /** @description The stored sheet with the AI reading */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultSheet"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultSheet"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    confirmSheet: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetConfirm"];
+            };
+        };
+        responses: {
+            /** @description The confirmed sheet with its checks and comparison */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultSheet"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };

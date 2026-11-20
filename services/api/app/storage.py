@@ -33,6 +33,8 @@ class Storage(Protocol):
     def create_signed_upload(self, path: str) -> SignedUpload: ...
     def inspect(self, path: str) -> StoredObject | None: ...
     def download(self, path: str) -> bytes | None: ...
+    def put(self, path: str, data: bytes, content_type: str, bucket: str = BUCKET) -> None: ...
+    def signed_read_url(self, path: str, bucket: str = BUCKET, ttl_seconds: int = 600) -> str | None: ...
 
 
 class SupabaseStorage:
@@ -43,8 +45,8 @@ class SupabaseStorage:
         if key.startswith("eyJ"):
             self.headers["Authorization"] = f"Bearer {key}"
 
-    def _obj(self, path: str) -> str:
-        return f"{BUCKET}/{quote(path)}"
+    def _obj(self, path: str, bucket: str = BUCKET) -> str:
+        return f"{bucket}/{quote(path)}"
 
     def create_signed_upload(self, path: str) -> SignedUpload:
         r = httpx.post(f"{self.base}/object/upload/sign/{self._obj(path)}", headers=self.headers, timeout=15)
@@ -75,6 +77,27 @@ class SupabaseStorage:
         r.raise_for_status()
         return r.content
 
+    def put(self, path: str, data: bytes, content_type: str, bucket: str = BUCKET) -> None:
+        """Write a new object (never overwrites: Supabase refuses an existing path without x-upsert)."""
+        r = httpx.post(
+            f"{self.base}/object/{self._obj(path, bucket)}",
+            content=data,
+            headers=self.headers | {"Content-Type": content_type, "x-upsert": "false"},
+            timeout=60,
+        )
+        if r.status_code in (400, 409) and "exists" in r.text.lower():
+            raise FileExistsError(path)
+        r.raise_for_status()
+
+    def signed_read_url(self, path: str, bucket: str = BUCKET, ttl_seconds: int = 600) -> str | None:
+        r = httpx.post(f"{self.base}/object/sign/{self._obj(path, bucket)}", json={"expiresIn": ttl_seconds},
+                       headers=self.headers, timeout=15)  # fmt: skip
+        if r.status_code in (400, 404):
+            return None
+        r.raise_for_status()
+        rel = r.json().get("signedURL") or r.json().get("signedUrl")
+        return f"{self.base}{rel}" if rel else None
+
 
 class MemoryStorage:
     """In-memory stand-in used by tests."""
@@ -91,10 +114,15 @@ class MemoryStorage:
             expires_at=datetime.now(UTC) + SIGNED_UPLOAD_TTL,
         )
 
-    def put(self, path: str, data: bytes) -> None:
-        if path in self.objects:
+    def put(self, path: str, data: bytes, content_type: str = "text/csv", bucket: str = BUCKET) -> None:
+        key = path if bucket == BUCKET else f"{bucket}:{path}"
+        if key in self.objects:
             raise FileExistsError(path)  # mirrors Supabase: no overwrite without upsert
-        self.objects[path] = data
+        self.objects[key] = data
+
+    def signed_read_url(self, path: str, bucket: str = BUCKET, ttl_seconds: int = 600) -> str | None:
+        key = path if bucket == BUCKET else f"{bucket}:{path}"
+        return f"https://storage.test/read/{bucket}/{path}?ttl={ttl_seconds}" if key in self.objects else None
 
     def inspect(self, path: str) -> StoredObject | None:
         data = self.objects.get(path)

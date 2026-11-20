@@ -7,6 +7,7 @@ import { totp } from './totp'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const DEMO = path.resolve(here, '../../../data/synthetic/SYNTHETIC_results_seed2026.csv')
+const SHEET = path.resolve(here, '../../../data/synthetic/SYNTHETIC_sheet_mismatch_row2.png')
 const SUPABASE_URL = process.env.SUPABASE_URL ?? ''
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const RUN = process.env.GITHUB_RUN_ID ?? randomBytes(3).toString('hex')
@@ -143,6 +144,24 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
     const file = await dl
     expect(file.suggestedFilename()).toMatch(/\.csv$/)
     await axe(page, 'report')
+  })
+
+  await test.step('result sheet: AI reads a photo, a person confirms, mismatches are flagged', async () => {
+    await page.goto(`${projectUrl}/sheets`)
+    await expect(page.getByRole('heading', { name: /Result sheets/ })).toBeVisible()
+    await page.getByLabel(/Take a photo or choose one/).setInputFiles(SHEET)
+    const form = page.getByRole('form', { name: "Confirm the sheet's figures" })
+    await expect(form).toBeVisible({ timeout: 90_000 })
+    await expect(page.getByRole('img', { name: /Photo of the polling-unit result sheet/ })).toBeVisible()
+    await axe(page, 'sheet confirm')
+    // The sheet's code must be there for the comparison; type it if the AI could not read it.
+    const code = form.getByLabel('Polling unit code')
+    if (!(await code.inputValue())) await code.fill('SY-01-01-01-00002')
+    await form.getByRole('button', { name: 'Confirm figures and check' }).click()
+    await expect(page.getByRole('list', { name: 'Checks on this sheet' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('✗ Needs a look').first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'finding 1' })).toBeVisible()
+    await axe(page, 'sheet results')
   })
 
   await test.step('ask the data: a question gets an answer and the page never blanks', async () => {

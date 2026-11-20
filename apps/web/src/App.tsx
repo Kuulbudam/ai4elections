@@ -21,6 +21,8 @@ import Areas from './pages/Areas'
 import Reports from './pages/Reports'
 import ReportView from './pages/ReportView'
 import Assistant from './pages/Assistant'
+import Sheets from './pages/Sheets'
+import SheetDetail from './pages/SheetDetail'
 import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
@@ -108,6 +110,8 @@ function Shell() {
                   <Route path="/projects/:projectId/findings" element={<Findings />} />
                   <Route path="/projects/:projectId/claims" element={<Claims />} />
                   <Route path="/projects/:projectId/assistant" element={<Assistant />} />
+                  <Route path="/projects/:projectId/sheets" element={<Sheets />} />
+                  <Route path="/projects/:projectId/sheets/:sheetId" element={<SheetDetail />} />
                   <Route path="/projects/:projectId/reports" element={<Reports />} />
                   <Route path="/reports/:reportId" element={<ReportView />} />
                   <Route path="/findings/:findingId" element={<FindingDetail />} />

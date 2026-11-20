@@ -70,3 +70,8 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: python scripts/live_assistant_check.py
+      - name: Live result-sheet reader check (real vision model, Storage; skipped without LLM_API_KEY)
+        if: steps.cfg.outputs.db == 'true' && steps.cfg.outputs.api == 'true' && (github.event_name == 'push' || inputs.live_check)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: python scripts/live_sheet_check.py

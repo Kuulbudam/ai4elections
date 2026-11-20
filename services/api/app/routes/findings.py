@@ -98,7 +98,7 @@ def _finding_view(r: dict[str, Any]) -> dict[str, Any]:
                     "schema_version": prov.get("schema_version") or "1.0.0",
                     "engine_version": prov.get("engine_version") or "unknown",
                     "method_version": prov.get("method_version"), "rule_version": prov.get("ruleset_version")},
-        created_at=r["created_at"],
+        source_sheet_id=prov.get("sheet_id"), created_at=r["created_at"],
     ).model_dump(mode="json")  # fmt: skip
 
 
@@ -137,15 +137,22 @@ def find_rows(
 ) -> tuple[list[dict[str, Any]], str | None]:
     """Filtered, ordered page of findings for one project. Caller must have authorised the project."""
     where, args = ["project_id = %s"], [project_id]
+    # Cross-checks (result sheets, collation) belong to a dataset version, not to an analysis run: they are listed
+    # with the run of the version they were checked against.
     if analytical_run_id:
-        where.append("analytical_run_id = %s")
-        args.append(str(analytical_run_id))
-    else:  # latest run of every version that is not archived
         where.append(
-            "analytical_run_id IN (SELECT latest_analysis_run_id FROM public.dataset_versions "
-            "WHERE project_id = %s AND archived_at IS NULL AND latest_analysis_run_id IS NOT NULL)"
+            "(analytical_run_id = %s OR (analytical_run_id IS NULL AND category = 'cross_check' AND dataset_version_id"
+            " = (SELECT dataset_version_id FROM public.analytical_runs WHERE id = %s)))"
         )
-        args.append(project_id)
+        args += [str(analytical_run_id), str(analytical_run_id)]
+    else:  # latest run of every version that is not archived, and cross-checks on any version not archived
+        where.append(
+            "(analytical_run_id IN (SELECT latest_analysis_run_id FROM public.dataset_versions "
+            "WHERE project_id = %s AND archived_at IS NULL AND latest_analysis_run_id IS NOT NULL)"
+            " OR (analytical_run_id IS NULL AND category = 'cross_check' AND dataset_version_id IN "
+            "(SELECT id FROM public.dataset_versions WHERE project_id = %s AND archived_at IS NULL)))"
+        )
+        args += [project_id, project_id]
     for col in ("category", "indicator", "severity", "confidence", "review_status"):
         val = filters.get(col)
         if val is not None:

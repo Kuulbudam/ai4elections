@@ -252,6 +252,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       end: false,
     },
     {
+      to: `/projects/${pid}/sheets`,
+      label: 'Result sheets',
+      icon: 'camera',
+      end: false,
+    },
+    {
       to: `/projects/${pid}/claims`,
       label: `Claims${counts?.unverified ? ` (${counts.unverified} unverified)` : ''}`,
       icon: 'quote',

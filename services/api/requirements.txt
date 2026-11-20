@@ -5,3 +5,4 @@ psycopg[binary]==3.2.12
 uvicorn==0.38.0
 httpx==0.28.1
 PyJWT[crypto]==2.15.1
+pillow==13.0.0

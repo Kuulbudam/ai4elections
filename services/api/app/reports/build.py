@@ -71,16 +71,16 @@ def build_body(db: psycopg.Connection, run_id: str) -> dict[str, Any]:
                   f.severity, f.confidence, f.title, f.explanation, f.statistics, f.peer_group, f.evidence,
                   w.source_row_number
            FROM public.findings f LEFT JOIN public.raw_rows w ON w.id = f.raw_row_id
-           WHERE f.analytical_run_id = %s ORDER BY f.id""",
-        (run_id,),
+           WHERE (f.analytical_run_id = %s OR (f.analytical_run_id IS NULL AND f.category = 'cross_check' AND f.dataset_version_id = (SELECT dataset_version_id FROM public.analytical_runs WHERE id = %s))) ORDER BY f.id""",  # noqa: E501
+        (run_id, run_id),
     ).fetchall()
     reviews = db.execute(
         """SELECT fr.finding_id::text AS finding_id, fr.decision, fr.reason, fr.created_at,
                   coalesce(nullif(pr.display_name, ''), pr.email) AS reviewer
            FROM public.finding_reviews fr JOIN public.findings f ON f.id = fr.finding_id
            LEFT JOIN public.profiles pr ON pr.id = fr.reviewer_id
-           WHERE f.analytical_run_id = %s ORDER BY fr.finding_id, fr.created_at, fr.id""",
-        (run_id,),
+           WHERE (f.analytical_run_id = %s OR (f.analytical_run_id IS NULL AND f.category = 'cross_check' AND f.dataset_version_id = (SELECT dataset_version_id FROM public.analytical_runs WHERE id = %s))) ORDER BY fr.finding_id, fr.created_at, fr.id""",  # noqa: E501
+        (run_id, run_id),
     ).fetchall()
     claims = db.execute(
         """SELECT c.id::text AS id, c.finding_id::text AS finding_id, c.statement, c.status, c.created_at,
@@ -90,9 +90,9 @@ def build_body(db: psycopg.Connection, run_id: str) -> dict[str, Any]:
            FROM public.claims c
            LEFT JOIN public.profiles pc ON pc.id = c.created_by LEFT JOIN public.profiles pv ON pv.id = c.verified_by
            WHERE c.project_id = %s
-             AND (c.finding_id IS NULL OR c.finding_id IN (SELECT id FROM public.findings WHERE analytical_run_id = %s))
-           ORDER BY c.id""",
-        (str(run["project_id"]), run_id),
+             AND (c.finding_id IS NULL OR c.finding_id IN (SELECT f.id FROM public.findings f WHERE (f.analytical_run_id = %s OR (f.analytical_run_id IS NULL AND f.category = 'cross_check' AND f.dataset_version_id = (SELECT dataset_version_id FROM public.analytical_runs WHERE id = %s)))))
+           ORDER BY c.id""",  # noqa: E501
+        (str(run["project_id"]), run_id, run_id),
     ).fetchall()
     evidence = db.execute(
         """SELECT e.claim_id::text AS claim_id, e.kind, e.description, e.url, e.file_sha256
@@ -236,6 +236,7 @@ def to_markdown(meta: dict[str, Any], body: dict[str, Any]) -> str:
     p, d, a, v = body["project"], body["dataset"], body["analysis"], body["validation"]
     stat = [f for f in body["findings"] if f["category"] == "statistical_anomaly"]
     dq = [f for f in body["findings"] if f["category"] == "data_quality_issue"]
+    xc = [f for f in body["findings"] if f["category"] == "cross_check"]
     sev = {"very_high": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     stat.sort(
         key=lambda f: (sev[f["severity"]], -abs(float((f["statistics"] or {}).get("robust_z") or 0)), f["finding_id"])
@@ -272,6 +273,14 @@ def to_markdown(meta: dict[str, Any], body: dict[str, Any]) -> str:
         L.append(f"| {_md(f['pu_code'])} | {_md(f['lga'])} / {_md(f['ward'])} | {_md(f['indicator'])} | {pct(st.get('value'))} "
                  f"| {pct(st.get('median'))} | {_md(st.get('robust_z'))} | {pg.get('n', '')}{' (LGA)' if pg.get('fallback_used') else ''} "
                  f"| {_md(f['severity'])} | {_md(f['confidence'])} | {_md(f['review_status'])} | {f['evidence']['source_row_number']} |")  # fmt: skip
+    L += ["", f"## Cross-checks: result sheets and collation ({len(xc)})", ""]
+    if not xc:
+        L.append("No cross-check findings.")
+    else:
+        L += ["| Polling unit / area | Check | Severity | Review | Detail |", "|---|---|---|---|---|"]
+        for f in sorted(xc, key=lambda f: (sev[f["severity"]], f["finding_id"])):
+            L.append(f"| {_md(f['pu_code'] or f['ward'] or f['lga'])} | {_md(f['title'])} | {_md(f['severity'])} "
+                     f"| {_md(f['review_status'])} | {_md(f['explanation'])} |")  # fmt: skip
     L += ["", f"## Data quality findings ({len(dq)})", "",
           "Listed in full in the CSV export. Count by rule: "
           + ", ".join(f"{_md(r)} {n}" for r, n in sorted(_count(f["rule_id"] for f in dq).items())) + ".", "",

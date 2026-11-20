@@ -8,6 +8,7 @@ export function Icon({ name }: { name: string }) {
     doc: 'M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h8',
     people: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21c0-4 3-6 7-6s7 2 7 6 M17 11a3 3 0 1 0 0-6 M22 20c0-3-2-5-5-5',
     chat: 'M4 4h16v12H8l-4 4z M8 9h8 M8 12h5',
+    camera: 'M3 7h4l2-3h6l2 3h4v13H3z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   }
   return (
     <svg

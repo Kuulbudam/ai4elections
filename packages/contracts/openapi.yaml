@@ -455,6 +455,108 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+
+  /sheets:
+    post:
+      operationId: createSheet
+      summary: Upload a photo of a polling-unit result sheet (Form EC8A) and have the AI read it
+      description: |
+        The photo is re-encoded as JPEG on the server (dropping location and camera metadata) and stored privately.
+        A vision model reads the figures and says how sure it is of each. Nothing is checked or flagged until a person
+        confirms the figures (POST /sheets/{id}/confirm). When no AI provider is configured the sheet is still stored
+        and the person types the figures in.
+      x-required-roles: [admin, analyst, researcher]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SheetUpload" }
+      responses:
+        "201":
+          description: The stored sheet with the AI reading
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultSheet" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+    get:
+      operationId: listSheets
+      summary: Result sheets uploaded to a project, newest first
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The sheets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SheetList" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /sheets/{id}:
+    get:
+      operationId: getSheet
+      summary: One result sheet with a short-lived link to its photo
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The sheet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultSheet" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /sheets/{id}/confirm:
+    post:
+      operationId: confirmSheet
+      summary: Confirm (or correct) the sheet's figures, then check its arithmetic and compare it with the data
+      description: |
+        Once only. Checks the sheet's own sums, compares each figure with the matching polling unit in the dataset
+        version, and records every mismatch as a cross_check finding for human review. Findings are reasons to look
+        again at the sheet and the data, not conclusions.
+      x-required-roles: [admin, analyst, researcher]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SheetConfirm" }
+      responses:
+        "200":
+          description: The confirmed sheet with its checks and comparison
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultSheet" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -704,7 +806,7 @@ components:
 
     FindingCategory:
       type: string
-      enum: [observation, data_quality_issue, statistical_anomaly]
+      enum: [observation, data_quality_issue, statistical_anomaly, cross_check]
 
     Indicator:
       type: string
@@ -822,6 +924,7 @@ components:
         note_count: { type: integer, minimum: 0 }
         claim_count: { type: integer, minimum: 0 }
         provenance: { $ref: "#/components/schemas/Provenance" }
+        source_sheet_id: { type: [string, "null"], format: uuid, description: "For cross-checks from a result sheet: the sheet (photo) the finding came from" }
         created_at: { type: string, format: date-time }
 
     Provenance:
@@ -1102,3 +1205,156 @@ components:
             event_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
         generated_at: { type: string, format: date-time }
         generated_by: { type: string, format: uuid }
+
+    SheetCount:
+      type: [integer, "null"]
+      minimum: 0
+      maximum: 10000000
+
+    PartyVotes:
+      type: object
+      additionalProperties: false
+      required: [party, votes]
+      properties:
+        party: { type: string, minLength: 1, maxLength: 20 }
+        votes: { type: integer, minimum: 0, maximum: 10000000 }
+
+    SheetFigures:
+      type: object
+      additionalProperties: false
+      required: [party_votes]
+      description: Figures written on a polling-unit result sheet. Null means not written or not readable.
+      properties:
+        pu_code: { type: [string, "null"], maxLength: 64 }
+        state: { type: [string, "null"], maxLength: 120 }
+        lga: { type: [string, "null"], maxLength: 120 }
+        ward: { type: [string, "null"], maxLength: 120 }
+        polling_unit_name: { type: [string, "null"], maxLength: 200 }
+        registered_voters: { $ref: "#/components/schemas/SheetCount" }
+        accredited_voters: { $ref: "#/components/schemas/SheetCount" }
+        rejected_votes: { $ref: "#/components/schemas/SheetCount" }
+        valid_votes: { $ref: "#/components/schemas/SheetCount" }
+        total_cast: { $ref: "#/components/schemas/SheetCount" }
+        party_votes:
+          type: array
+          maxItems: 40
+          items: { $ref: "#/components/schemas/PartyVotes" }
+
+    SheetReading:
+      type: object
+      additionalProperties: false
+      required: [status, figures, confidence, legible]
+      description: What the AI read from the photo, exactly as produced. Never used until a person confirms it.
+      properties:
+        status:
+          type: string
+          enum: [read, unreadable, no_model, failed]
+          description: "no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)"
+        figures: { $ref: "#/components/schemas/SheetFigures" }
+        confidence:
+          type: object
+          description: "How sure the AI is of each figure: field name, or party:<name> for party scores"
+          additionalProperties: { type: string, enum: [high, medium, low] }
+        legible: { type: boolean }
+        notes: { type: [string, "null"], maxLength: 1000 }
+
+    SheetCheck:
+      type: object
+      additionalProperties: false
+      required: [id, ok, title, detail]
+      properties:
+        id: { type: string }
+        ok:
+          type: [boolean, "null"]
+          description: null when the check could not be made (a figure is missing)
+        title: { type: string }
+        detail: { type: string }
+        severity:
+          oneOf:
+            - $ref: "#/components/schemas/Severity"
+            - type: "null"
+
+    SheetComparisonRow:
+      type: object
+      additionalProperties: false
+      required: [field, label, sheet, data, match]
+      properties:
+        field: { type: string }
+        label: { type: string }
+        sheet: { type: [integer, "null"] }
+        data: { type: [integer, "null"] }
+        match: { type: [boolean, "null"] }
+
+    SheetComparison:
+      type: object
+      additionalProperties: false
+      required: [matched, rows]
+      properties:
+        matched: { type: boolean, description: "False when no polling unit in the data has the sheet's code" }
+        pu_code: { type: [string, "null"] }
+        raw_row_id: { type: [string, "null"], format: uuid }
+        source_row_number: { type: [integer, "null"] }
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/SheetComparisonRow" }
+
+    ResultSheet:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, dataset_version_id, status, reading, image_sha256, finding_ids, created_at, created_by]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid }
+        status: { type: string, enum: [read, confirmed] }
+        model: { type: [string, "null"] }
+        reading: { $ref: "#/components/schemas/SheetReading" }
+        confirmed:
+          oneOf:
+            - $ref: "#/components/schemas/SheetFigures"
+            - type: "null"
+        checks:
+          type: [array, "null"]
+          items: { $ref: "#/components/schemas/SheetCheck" }
+        comparison:
+          oneOf:
+            - $ref: "#/components/schemas/SheetComparison"
+            - type: "null"
+        finding_ids:
+          type: array
+          items: { type: string, format: uuid }
+        image_sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        image_url: { type: [string, "null"], description: "Short-lived link to the stored photo (GET /sheets/{id} only)" }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, format: uuid }
+        confirmed_at: { type: [string, "null"], format: date-time }
+        confirmed_by: { type: [string, "null"], format: uuid }
+
+    SheetUpload:
+      type: object
+      additionalProperties: false
+      required: [project_id, dataset_version_id, image_base64]
+      properties:
+        project_id: { type: string, format: uuid }
+        dataset_version_id: { type: string, format: uuid, description: "The results the sheet will be compared with" }
+        image_base64:
+          type: string
+          minLength: 100
+          maxLength: 6000000
+          description: "JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first)"
+
+    SheetConfirm:
+      type: object
+      additionalProperties: false
+      required: [figures]
+      properties:
+        figures: { $ref: "#/components/schemas/SheetFigures" }
+
+    SheetList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ResultSheet" }
