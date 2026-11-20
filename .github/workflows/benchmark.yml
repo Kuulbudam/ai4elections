@@ -1,0 +1,36 @@
+name: Real sheet benchmark
+
+# Measures the result-sheet reader on REAL EC8A photos (IReV, 2023 presidential, Plateau), as archived on
+# DocumentCloud by CCIJ/VEZA, against their transcription. Images are read in memory and never stored.
+on:
+  workflow_dispatch:
+    inputs:
+      clear:
+        description: "How many clear sheets"
+        default: "20"
+      blurred:
+        description: "How many blurred sheets"
+        default: "5"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/api/requirements*.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Benchmark
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: python scripts/real_sheet_benchmark.py --clear "${{ inputs.clear }}" --blurred "${{ inputs.blurred }}"
