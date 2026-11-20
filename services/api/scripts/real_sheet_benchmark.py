@@ -87,7 +87,7 @@ def main() -> int:
     model = OpenAICompatibleVision(key, DEFAULT_BASE_URL, choose_vision_model(key, DEFAULT_BASE_URL) or "")
     http = httpx.Client(timeout=60, follow_redirects=True, headers={"User-Agent": "AI4Elections research benchmark"})
     rows = load(http)
-    rnd = random.Random(2026)
+    rnd = random.Random(2026)  # noqa: S311 - a fixed, repeatable sample, not security
     clear = rnd.sample([r for r in rows if r["status"] == "exist and not blur"], a.clear)
     blurred = rnd.sample([r for r in rows if r["status"] == "blurred"], a.blurred)
     print(f"Model {model.name}; {len(rows)} Plateau sheets with a full transcription; sample {a.clear} clear + "
