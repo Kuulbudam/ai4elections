@@ -189,3 +189,39 @@ def test_compare_with_data_row():
 @pytest.mark.parametrize("code", ["31/04/01/003", "31-04-01-003", " 31 04 01 003 ", "31.04.01.003"])
 def test_norm_code(code):
     assert chk.norm_code(code) == "31/04/01/003"
+
+
+def test_vision_client_waits_once_on_rate_limit_and_retries_plain_on_400(monkeypatch):
+    import httpx
+
+    from app.sheets import read as rd
+
+    replies = [
+        httpx.Response(429, headers={"retry-after": "0.01"}, json={"error": {"code": "rate_limit_exceeded"}}),
+        httpx.Response(400, json={"error": {"code": "unsupported_parameter"}}),
+        httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(GOOD)}}]}),
+    ]
+    sent = []
+
+    def fake_post(url, headers, json, timeout):
+        sent.append(json)
+        return replies.pop(0)
+
+    monkeypatch.setattr(rd.httpx, "post", fake_post)
+    monkeypatch.setattr(rd.time, "sleep", lambda s: None)
+    m = rd.OpenAICompatibleVision("k", "https://llm.test/v1", "qwen/qwen3.8-27b")
+    out = parse_reading(m.read_image("p", b"\xff\xd8x"))
+    assert out["figures"]["valid_votes"] == 319
+    assert sent[0]["reasoning_effort"] == "none" and "response_format" in sent[0]
+    assert sent[1] == sent[0] and "reasoning_effort" not in sent[2] and "response_format" not in sent[2]
+    assert sent[2]["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+def test_vision_client_long_rate_limit_falls_back_to_typing(monkeypatch):
+    import httpx
+
+    from app.sheets import read as rd
+
+    monkeypatch.setattr(rd.httpx, "post", lambda *a, **k: httpx.Response(429, headers={"retry-after": "60"}))
+    out = read_sheet(rd.OpenAICompatibleVision("k", "https://llm.test/v1", "qwen/qwen3.8-27b"), b"\xff\xd8x")
+    assert out["status"] == "failed" and "busy" in out["notes"]

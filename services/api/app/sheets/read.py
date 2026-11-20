@@ -10,6 +10,7 @@ import base64
 import json
 import os
 import re
+import time
 from typing import Any, Protocol
 
 import httpx
@@ -28,6 +29,7 @@ COUNT_FIELDS = ["registered_voters", "accredited_voters", "rejected_votes", "val
 TEXT_FIELDS = {"pu_code": 64, "state": 120, "lga": 120, "ward": 120, "polling_unit_name": 200}
 LEVELS = {"high", "medium", "low"}
 MAX_COUNT = 10_000_000
+MAX_WAIT_SECONDS = 20  # within the API's time limit, and short enough for a person to wait
 
 PROMPT = """You are reading a photo of a Nigerian polling-unit election result sheet (INEC Form EC8A).
 Copy what is WRITTEN on the sheet into JSON. Do not calculate, correct or guess any figure.
@@ -74,6 +76,9 @@ class OpenAICompatibleVision:
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         self._timeout = timeout
 
+    def _post(self, body: dict[str, Any]) -> httpx.Response:
+        return httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
+
     def read_image(self, prompt: str, jpeg: bytes) -> str:
         url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
         plain = {
@@ -85,12 +90,14 @@ class OpenAICompatibleVision:
         if "qwen" in self.name:
             tuned["reasoning_effort"] = "none"  # copying figures needs no hidden "thinking" tokens
         try:
-            r = httpx.post(
-                f"{self.base_url}/chat/completions", headers=self._headers, json=tuned, timeout=self._timeout
-            )
+            r = self._post(tuned)
+            if r.status_code == 429:  # free-tier per-minute limit: wait once if the provider says it is short
+                wait = _retry_after(r)
+                if wait is not None and wait <= MAX_WAIT_SECONDS:
+                    time.sleep(wait + 0.5)
+                    r = self._post(tuned)
             if r.status_code == 400:  # an option this model does not take: once more with the plain request
-                r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=plain,
-                               timeout=self._timeout)  # fmt: skip
+                r = self._post(plain)
         except httpx.HTTPError as e:
             raise LLMError("The sheet reader could not reach the AI service. Type the figures in instead.") from e
         if r.status_code == 404:
@@ -105,6 +112,13 @@ class OpenAICompatibleVision:
             return str(r.json()["choices"][0]["message"]["content"] or "")
         except (KeyError, IndexError, ValueError) as e:
             raise LLMError("The sheet reader's AI service returned an unexpected response.") from e
+
+
+def _retry_after(r: httpx.Response) -> float | None:
+    try:
+        return float(r.headers.get("retry-after", ""))
+    except ValueError:
+        return None
 
 
 def choose_vision_model(api_key: str, base_url: str) -> str | None:
