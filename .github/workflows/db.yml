@@ -54,7 +54,7 @@ jobs:
           cache-dependency-path: services/api/requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
       - name: Test-data cleanup (founder approved 20 Nov; ZZ CI / E2E test organisations only)
-        run: python scripts/purge_test_orgs.py --yes && exit 1
+        run: python scripts/purge_test_orgs.py --yes --batch 10 && exit 1
       - name: Apply pending migrations
         if: steps.cfg.outputs.db == 'true'
         run: python scripts/migrate.py
