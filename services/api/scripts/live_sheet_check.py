@@ -144,7 +144,8 @@ def main() -> int:
     ok3, total3, wrong3 = accuracy(s3.get("reading", {}).get("figures", {}), rough) if code == 201 else (0, 1, [])
     unsure = [k for k, v in s3.get("reading", {}).get("confidence", {}).items() if v != "high"]
     check("rough phone-style photo: AI still reads at least 80% exactly", ok3 / total3 >= 0.8,
-          f"HTTP {code} in {took:.1f}s; {ok3}/{total3} exact; wrong {wrong3}; marked unsure {unsure}")  # fmt: skip
+          f"HTTP {code} in {took:.1f}s; {ok3}/{total3} exact; status {s3.get('reading', {}).get('status')}; "
+          f"note {s3.get('reading', {}).get('notes')!r}; wrong {wrong3}; marked unsure {unsure}")  # fmt: skip
 
     b = L.make_user(http, "sheets-outsider")
     outsider = api.get(f"/sheets/{s2['id']}", headers={"Authorization": f"Bearer {b['token']}"})
