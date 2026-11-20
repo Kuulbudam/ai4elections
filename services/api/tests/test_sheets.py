@@ -115,6 +115,11 @@ def test_parse_reading_handles_fences_and_rejects_nonsense_numbers():
     assert f["registered_voters"] is None and f["total_cast"] == 325
 
 
+def test_parse_reading_ignores_reasoning_text():
+    r = parse_reading("<think>The digits {look like} 319...</think>\n" + json.dumps(GOOD))
+    assert r["status"] == "read" and r["figures"]["valid_votes"] == 319
+
+
 def test_parse_reading_unreadable_cases():
     assert parse_reading("I cannot see a sheet")["status"] == "unreadable"
     r = parse_reading(json.dumps({"legible": False, "notes": "This is a photo of a car."}))

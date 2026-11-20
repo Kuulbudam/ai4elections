@@ -18,6 +18,8 @@ from app.assistant.llm import DEFAULT_BASE_URL, LLMError, list_models
 
 # Vision-capable models, in order of preference, used when LLM_VISION_MODEL is not set.
 PREFERRED_VISION_MODELS = [
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.6-27b",
     "meta-llama/llama-4-maverick-17b-128e-instruct",
     "meta-llama/llama-4-scout-17b-16e-instruct",
 ]
@@ -74,14 +76,21 @@ class OpenAICompatibleVision:
 
     def read_image(self, prompt: str, jpeg: bytes) -> str:
         url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
-        body = {
+        plain = {
             "model": self.name, "temperature": 0, "max_completion_tokens": 1500,
-            "response_format": {"type": "json_object"},
             "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                       {"type": "image_url", "image_url": {"url": url}}]}],
         }  # fmt: skip
+        tuned = plain | {"response_format": {"type": "json_object"}}
+        if "qwen" in self.name:
+            tuned["reasoning_effort"] = "none"  # copying figures needs no hidden "thinking" tokens
         try:
-            r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
+            r = httpx.post(
+                f"{self.base_url}/chat/completions", headers=self._headers, json=tuned, timeout=self._timeout
+            )
+            if r.status_code == 400:  # an option this model does not take: once more with the plain request
+                r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=plain,
+                               timeout=self._timeout)  # fmt: skip
         except httpx.HTTPError as e:
             raise LLMError("The sheet reader could not reach the AI service. Type the figures in instead.") from e
         if r.status_code == 404:
@@ -104,7 +113,7 @@ def choose_vision_model(api_key: str, base_url: str) -> str | None:
     listed = list_models(api_key, base_url)
     model = next((m for m in PREFERRED_VISION_MODELS if m in listed), None)
     if model is None:  # any other listed model that says it can see images
-        model = next((m for m in listed if re.search(r"vision|llama-4|-vl\b|-vl-", m)), None)
+        model = next((m for m in listed if re.search(r"vision|llama-4|-vl\b|-vl-|qwen3\.[6-9]", m)), None)
     if model is None and not listed:
         model = PREFERRED_VISION_MODELS[0]  # listing failed; try the first choice anyway
     if model and listed:
@@ -153,7 +162,7 @@ def _text(v: Any, limit: int) -> str | None:
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
-    text = text.strip()
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()  # reasoning models may show their working
     if text.startswith("```"):
         text = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", text)
     try:

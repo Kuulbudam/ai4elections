@@ -61,7 +61,11 @@ def main() -> int:
     key = os.environ["LLM_API_KEY"].strip()
     listed = list_models(key, DEFAULT_BASE_URL)
     vision = choose_vision_model(key, DEFAULT_BASE_URL)
-    print("Vision-capable candidates:", [m for m in listed if "llama-4" in m or "vision" in m] or "(none)", flush=True)
+    print(
+        "Vision-capable candidates:",
+        [m for m in listed if "llama-4" in m or "vision" in m or "qwen" in m] or "(none)",
+        flush=True,
+    )
     if not check("a vision model is available", bool(vision) and vision in listed, f"using {vision}"):
         return L.report()
 
