@@ -33,3 +33,16 @@ def test_unexpected_error_hides_internals():
 def test_cors_rejects_unknown_origin():
     r = client.options("/health", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert r.headers.get("access-control-allow-origin") is None
+
+
+def test_security_headers_on_every_response():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    c = TestClient(app)
+    for r in (c.get("/health"), c.get("/findings/not-a-uuid"), c.get("/nope")):
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert r.headers["X-Frame-Options"] == "DENY"
+        assert "default-src 'none'" in r.headers["Content-Security-Policy"]
+    assert c.get("/findings/not-a-uuid").headers["Cache-Control"] == "no-store"

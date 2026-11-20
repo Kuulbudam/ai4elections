@@ -192,6 +192,20 @@ def main() -> int:
                         (org, pid, vid, run),
                     ).fetchone()[0]
                 )
+                sheet = uuid.uuid4()
+                db.execute(
+                    "INSERT INTO public.result_sheets (id, org_id, project_id, dataset_version_id, image_path, "
+                    "image_sha256, original_sha256, image_bytes, extracted, created_by) VALUES "
+                    "(%s,%s,%s,%s,%s,repeat('a',64),repeat('b',64),10,"
+                    '\'{"status":"no_model","figures":{"party_votes":[]},"confidence":{},"legible":false}\',%s)',
+                    (sheet, org, pid, vid, f"{org}/{pid}/{sheet}.jpg", admin_id),
+                )
+                db.execute(
+                    "INSERT INTO public.collation_checks (org_id, project_id, dataset_version_id, filename, sha256, "
+                    "engine_version, summary, areas, created_by) VALUES (%s,%s,%s,'ci.csv',repeat('c',64),'ci','{}',"
+                    "'[]',%s)",
+                    (org, pid, vid, admin_id),
+                )
             up = http.post(
                 f"{URL}/storage/v1/object/datasets/{paths[tag]}",
                 headers={**key_headers(SERVICE), "Content-Type": "text/csv"},
@@ -215,6 +229,8 @@ def main() -> int:
         "dataset_versions",
         "findings",
         "audit_events",
+        "result_sheets",
+        "collation_checks",
     ]
     leaks = []
     for (tag, role), u in users.items():
@@ -228,7 +244,7 @@ def main() -> int:
             seen = {row[col] for row in r.json()}
             if orgs[other] in seen or (orgs[tag] not in seen):
                 leaks.append(f"{role}-{tag} {table} saw={len(seen)}")
-    check("8 users × 7 tables: own org visible, other org never", not leaks, "; ".join(leaks[:5]))
+    check(f"8 users × {len(tables)} tables: own org visible, other org never", not leaks, "; ".join(leaks[:5]))
 
     r = http.get(
         f"{URL}/rest/v1/findings?id=eq.{findings['a']}&select=id",

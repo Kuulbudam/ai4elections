@@ -238,6 +238,9 @@ def main() -> int:
         f"{s.get('data_quality_findings')}/{pairs}; hashes {str(hashes[0])[:12]} / {str(hashes[1])[:12]}",
     )
 
+    check("12,023 rows analysed in under 60 s, first run included (target)", max(took) < 60,
+          f"{took[0]:.1f}s first run, {took[1]:.1f}s second")  # fmt: skip
+
     # 8. findings and review (Phase 5), with real tokens against the real database
     items, cursor = [], None
     while True:
