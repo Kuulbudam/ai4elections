@@ -33,7 +33,7 @@ from live_assistant_check import MAPPING, drain  # noqa: E402
 from app.assistant.llm import DEFAULT_BASE_URL, list_models  # noqa: E402
 from app.main import app  # noqa: E402
 from app.sheets.read import choose_vision_model  # noqa: E402
-from app.sheets.synthetic import figures_from_csv, render  # noqa: E402
+from app.sheets.synthetic import figures_from_csv, photo_like, render  # noqa: E402
 
 COUNTS = ["registered_voters", "accredited_voters", "rejected_votes", "valid_votes", "total_cast"]
 
@@ -89,10 +89,11 @@ def main() -> int:
     api.post("/jobs", headers=auth, json={"job_type": "validate", "dataset_version_id": vid})
     drain("sv")
 
-    def send(fig: dict) -> tuple[int, dict, float]:
+    def send(fig: dict, photo: bool = False) -> tuple[int, dict, float]:
         t0 = time.monotonic()
+        img = photo_like(render(fig)) if photo else render(fig)
         r = api.post("/sheets", headers=auth, json={"project_id": proj, "dataset_version_id": vid,
-                                                    "image_base64": base64.b64encode(render(fig)).decode()})  # fmt: skip
+                                                    "image_base64": base64.b64encode(img).decode()})  # fmt: skip
         return r.status_code, r.json(), time.monotonic() - t0
 
     # 1. A sheet that matches the data.
@@ -135,6 +136,15 @@ def main() -> int:
     f = api.get(f"/findings/{done2['finding_ids'][0]}", headers=auth).json() if done2.get("finding_ids") else {}
     check("finding is a cross-check linked to the sheet", f.get("category") == "cross_check"
           and f.get("source_sheet_id") == s2["id"], f"{f.get('category')} {f.get('rule_id')}")  # fmt: skip
+
+    # 3. A rough "phone photo" (tilted, blurred, uneven light, heavy JPEG): report how well the AI copes.
+    time.sleep(10)
+    rough = figures_from_csv(3)
+    code, s3, took = send(rough, photo=True)
+    ok3, total3, wrong3 = accuracy(s3.get("reading", {}).get("figures", {}), rough) if code == 201 else (0, 1, [])
+    unsure = [k for k, v in s3.get("reading", {}).get("confidence", {}).items() if v != "high"]
+    check("rough phone-style photo: AI still reads at least 80% exactly", ok3 / total3 >= 0.8,
+          f"HTTP {code} in {took:.1f}s; {ok3}/{total3} exact; wrong {wrong3}; marked unsure {unsure}")  # fmt: skip
 
     b = L.make_user(http, "sheets-outsider")
     outsider = api.get(f"/sheets/{s2['id']}", headers={"Authorization": f"Bearer {b['token']}"})

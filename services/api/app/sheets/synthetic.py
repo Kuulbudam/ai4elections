@@ -10,10 +10,11 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import random
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 SYNTHETIC_CSV = Path(__file__).resolve().parents[4] / "data" / "synthetic" / "SYNTHETIC_results_seed2026.csv"
 
@@ -72,6 +73,21 @@ def render(fig: dict[str, Any], width: int = 1240) -> bytes:
     return out.getvalue()
 
 
+def photo_like(png: bytes, seed: int = 7) -> bytes:
+    """Make a clean synthetic sheet look like a phone photo: tilted, soft, unevenly lit, heavily compressed."""
+    rnd = random.Random(seed)  # noqa: S311 - test images, not security
+    with Image.open(io.BytesIO(png)) as src:
+        im = src.convert("RGB")
+    im = im.rotate(rnd.uniform(-4, 4), resample=Image.Resampling.BICUBIC, expand=True, fillcolor=(90, 80, 70))
+    im = im.filter(ImageFilter.GaussianBlur(1.2))
+    shade = Image.linear_gradient("L").resize(im.size).rotate(rnd.choice([0, 90, 180, 270]))
+    im = Image.composite(im, ImageEnhance.Brightness(im).enhance(0.6), shade)
+    im = im.resize((int(im.width * 0.8), int(im.height * 0.8)))
+    out = io.BytesIO()
+    im.save(out, format="JPEG", quality=45)
+    return out.getvalue()
+
+
 def figures_from_csv(row_number: int, path: Path = SYNTHETIC_CSV) -> dict[str, Any]:
     """Figures for the n-th data row (1-based) of the synthetic results file."""
     with path.open(newline="", encoding="utf-8") as f:
@@ -92,12 +108,14 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--row", type=int, default=1)
     ap.add_argument("--add", type=int, default=0, help="add this many votes to the first party (makes a mismatch)")
+    ap.add_argument("--photo", action="store_true", help="make it look like a phone photo (JPEG)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     fig = figures_from_csv(a.row)
     if a.add and fig["party_votes"]:
         fig["party_votes"][0]["votes"] += a.add
-    Path(a.out).write_bytes(render(fig))
+    png = render(fig)
+    Path(a.out).write_bytes(photo_like(png) if a.photo else png)
 
 
 if __name__ == "__main__":
