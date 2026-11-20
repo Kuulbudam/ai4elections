@@ -82,6 +82,35 @@ def delete_files(ids: list[str]) -> int:
     return removed
 
 
+def wait_for_jobs(conn: psycopg.Connection, ids: list[str], limit_s: int = 180) -> None:
+    """A worker may still be writing for these organisations; deleting under it leaves orphan rows."""
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < limit_s:
+        busy = conn.execute(
+            "SELECT count(*) AS n FROM public.processing_jobs WHERE org_id = ANY(%s::uuid[]) AND status IN ('queued', 'running')",
+            (ids,),
+        ).fetchone()["n"]
+        if not busy:
+            return
+        print(f"  waiting for {busy} job(s) of these organisations to finish", flush=True)
+        time.sleep(10)
+    print("  jobs still busy after the wait; deleting anyway (a second pass and the orphan sweep follow)")
+
+
+def sweep_orphans(conn: psycopg.Connection, tables: list[str]) -> None:
+    """Rows whose organisation no longer exists (a write that landed just after a deletion)."""
+    with conn.transaction():
+        conn.execute("SET LOCAL transaction_read_only = off")
+        conn.execute("SET LOCAL session_replication_role = replica")
+        for t in tables:
+            n = conn.execute(
+                sql.SQL("DELETE FROM public.{} x WHERE NOT EXISTS (SELECT 1 FROM public.organisations o WHERE o.id = x.org_id)")
+                .format(sql.Identifier(t))
+            ).rowcount  # fmt: skip
+            if n:
+                print(f"  removed {n} orphan row(s) from {t}", flush=True)
+
+
 def purge(conn: psycopg.Connection, ids: list[str], tables: list[str]) -> None:
     with conn.transaction():
         conn.execute("SET LOCAL transaction_read_only = off")
@@ -118,6 +147,8 @@ def main() -> int:
         keep = conn.execute("SELECT name FROM public.organisations WHERE NOT (id = ANY(%s::uuid[]))", (ids,)).fetchall()
         print(f"Test organisations selected: {len(orgs)}; kept: {', '.join(k['name'] for k in keep) or 'none'}")
         if not ids:
+            if a.yes and not a.dry_run:
+                sweep_orphans(conn, tables)
             return 0
         totals = count(conn, tables, ids)
         print("Rows that would be removed:", {k: v for k, v in totals.items() if v})
@@ -131,9 +162,12 @@ def main() -> int:
             print("Dry run: nothing deleted.")
             return 0
         t0 = time.monotonic()
+        wait_for_jobs(conn, ids)
         for i in range(0, len(ids), a.batch):
             print(f"Organisations {i + 1}-{min(i + a.batch, len(ids))} of {len(ids)}", flush=True)
             purge(conn, ids[i : i + a.batch], tables)
+        time.sleep(5)
+        sweep_orphans(conn, tables)
         print(f"Deleted in {time.monotonic() - t0:.0f}s")
         if not a.no_vacuum:
             conn.execute("SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE")
