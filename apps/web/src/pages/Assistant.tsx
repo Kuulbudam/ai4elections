@@ -7,6 +7,24 @@ import { useRole } from '../lib/useRole'
 type Answer = Schemas['AssistantAnswer']
 type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string; answer: Answer }
 
+type Lang = Schemas['AnswerLanguage']
+const LANGUAGES: { code: Lang; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'ha', label: 'Hausa' },
+  { code: 'yo', label: 'Yoruba' },
+  { code: 'ig', label: 'Igbo' },
+  { code: 'pcm', label: 'Nigerian Pidgin' },
+]
+const LANG_KEY = 'ai4e.answerLanguage'
+function savedLanguage(): Lang {
+  try {
+    const v = localStorage.getItem(LANG_KEY)
+    return LANGUAGES.some((l) => l.code === v) ? (v as Lang) : 'en'
+  } catch {
+    return 'en'
+  }
+}
+
 const EXAMPLES = [
   'Which LGAs have the most unusual turnout?',
   'Show the five most unusual polling units and why they were flagged.',
@@ -22,6 +40,7 @@ export default function Assistant() {
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [language, setLanguage] = useState<Lang>(savedLanguage)
   const role = useRole(project?.org_id)
   const end = useRef<HTMLDivElement>(null)
 
@@ -48,7 +67,7 @@ export default function Assistant() {
     setTurns((t) => [...t, { role: 'user', content: q }])
     setQuestion('')
     try {
-      const answer = await api<Answer>('POST', '/assistant/ask', { project_id: projectId, question: q, history }, { 'Idempotency-Key': crypto.randomUUID() })
+      const answer = await api<Answer>('POST', '/assistant/ask', { project_id: projectId, question: q, history, language }, { 'Idempotency-Key': crypto.randomUUID() })
       setTurns((t) => [...t, { role: 'assistant', content: answer.answer, answer }])
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'The assistant could not answer. Try again.')
@@ -107,7 +126,7 @@ export default function Assistant() {
                   )}
                   <p className="small muted">
                     {t.answer.grounded ? 'Figures matched to the data looked up.' : t.answer.note === 'no_lookup' ? 'This reply did not look anything up in the data.' : 'Some figures could not be matched — check before using.'}{' '}
-                    AI-drafted ({t.answer.model}); not a finding.
+                    AI-drafted ({t.answer.model}){t.answer.language && t.answer.language !== 'en' ? `, in ${LANGUAGES.find((l) => l.code === t.answer.language)?.label}: check the wording before sharing` : ''}; not a finding.
                   </p>
                 </article>
               ),
@@ -135,6 +154,27 @@ export default function Assistant() {
                 if (e.key === 'Enter' && !e.shiftKey) void send(e as unknown as FormEvent)
               }}
             />
+            <label className="lang-pick">
+              Answer in
+              <select
+                value={language}
+                onChange={(e) => {
+                  const v = e.target.value as Lang
+                  setLanguage(v)
+                  try {
+                    localStorage.setItem(LANG_KEY, v)
+                  } catch {
+                    /* private browsing: the choice lasts for this page only */
+                  }
+                }}
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button type="submit" className="primary" disabled={busy || !question.trim()}>
               Ask
             </button>

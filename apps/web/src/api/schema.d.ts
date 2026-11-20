@@ -718,10 +718,17 @@ export interface components {
             enabled: boolean;
             model?: string | null;
         };
+        /**
+         * @description Answer language: English, Hausa, Yoruba, Igbo or Nigerian Pidgin. Figures, codes and names stay as in the data.
+         * @default en
+         * @enum {string}
+         */
+        AnswerLanguage: "en" | "ha" | "yo" | "ig" | "pcm";
         AssistantQuestion: {
             /** Format: uuid */
             project_id: string;
             question: string;
+            language?: components["schemas"]["AnswerLanguage"];
             history?: {
                 /** @enum {string} */
                 role: "user" | "assistant";
@@ -747,6 +754,7 @@ export interface components {
             /** @enum {string|null} */
             note?: "wording" | "unmatched_figures" | "no_lookup" | null;
             model: string;
+            language?: components["schemas"]["AnswerLanguage"];
         };
         VersionDashboard: {
             /** Format: uuid */

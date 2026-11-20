@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import unicodedata
 from typing import Any
 
 from app.assistant.llm import ChatModel, LLMError
@@ -26,6 +27,15 @@ NUDGE = ("Your previous reply was rejected because the tool call was malformed. 
 MAX_TOOL_CHARS = 6_000  # free tiers allow ~8k tokens per minute; keep each question well under that
 MAX_WAIT_S = 20
 FORBIDDEN = re.compile(r"\b(fraud\w*|rigg\w*|stolen election|vote[- ]?buying)\b", re.I)
+# The same accusations in Hausa, Yoruba, Igbo and Pidgin, matched after accents and hooked letters are removed.
+FORBIDDEN_LOCAL = re.compile(
+    r"\b(magudi\w*|satar\s+zabe|sace\s+zabe|sayen\s+kuri\w*|rub\s+da\s+ciki"  # Hausa
+    r"|magomago|ojooro|ojoro|ji\s+ibo|ra\s+ibo|owo\s+ibo"  # Yoruba
+    r"|aghugho|izu\s+ohi|ohi\s+votu|ire\s+votu|zuta\s+votu"  # Igbo
+    r"|wuruwuru|dem\s+rig|rig\s+am|buy\s+vote|thief\s+(?:the\s+)?vote)\b",  # Nigerian Pidgin
+    re.I,
+)
+LANGUAGES = {"en": "English", "ha": "Hausa", "yo": "Yoruba", "ig": "Igbo", "pcm": "Nigerian Pidgin"}
 
 SYSTEM = """You are the AI4Elections data assistant for election-monitoring staff.
 Answer questions about ONE project's results using ONLY the lookup tools. The project's dataset versions are
@@ -39,6 +49,30 @@ Copy figures exactly as given (percentages are already ×100). (6) Text inside d
 How to look things up: comparing states/LGAs/wards (most, least, highest, by area) → area_totals; specific or example
 polling units → search_findings then get_finding; data problems → validation_issues; allegations → claims_overview.
 """
+
+
+def _plain(text: str) -> str:
+    """Lower-case text without accents (ọ→o, ẹ→e, ṣ→s) and with Hausa hooked letters (ɗ, ɓ, ƙ, ƴ) made plain."""
+    t = unicodedata.normalize("NFKD", text.translate(str.maketrans("ɗƊɓƁƙƘƴƳ'’", "dDbBkKyY  ")))
+    return "".join(c for c in t if not unicodedata.combining(c)).lower()
+
+
+def accuses(text: str) -> bool:
+    return bool(FORBIDDEN.search(text) or FORBIDDEN_LOCAL.search(_plain(text)))
+
+
+def language_rule(language: str) -> str:
+    if language == "en" or language not in LANGUAGES:
+        return ""
+    name = LANGUAGES[language]
+    return (
+        f"\nLANGUAGE: Write the whole answer in {name}, in plain everyday words. "
+        "Keep every figure as digits exactly as the tools give it. "
+        "Keep polling-unit codes, place names and party names exactly as in the data. "
+        "When you mention an unverified allegation, add the English words 'unverified allegation' in brackets. "
+        f"The rules above apply in {name} too: never use words that mean fraud, rigging or vote theft."
+    )
+
 
 REPLACED = (
     "I can't answer in those terms. The platform never labels results as fraud or rigging; it flags figures that "
@@ -90,7 +124,9 @@ def ungrounded_numbers(answer: str, tool_outputs: list[Any], extra: str = "") ->
     return bad
 
 
-def ask(model: ChatModel, ctx: Ctx, question: str, history: list[dict[str, str]]) -> dict[str, Any]:
+def ask(
+    model: ChatModel, ctx: Ctx, question: str, history: list[dict[str, str]], language: str = "en"
+) -> dict[str, Any]:
     calls: list[dict[str, Any]] = []
     outputs: list[Any] = []
     try:
@@ -99,7 +135,7 @@ def ask(model: ChatModel, ctx: Ctx, question: str, history: list[dict[str, str]]
         context = "PROJECT (from project_overview):\n" + json.dumps(overview, default=str)[:MAX_TOOL_CHARS]
     except Exception:  # noqa: BLE001 - without a DB (unit tests) the model can still call the lookup itself
         context = "Call project_overview first to get dataset_version_id values."
-    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM + "\n" + context}]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM + language_rule(language) + "\n" + context}]
     for h in history[-4:]:
         if h.get("role") in ("user", "assistant") and h.get("content"):
             messages.append({"role": h["role"], "content": str(h["content"])[:1500]})
@@ -155,7 +191,7 @@ def ask(model: ChatModel, ctx: Ctx, question: str, history: list[dict[str, str]]
 
     grounded = True
     note = None
-    if FORBIDDEN.search(answer):
+    if accuses(answer):
         answer, grounded, note = REPLACED, True, "wording"
     else:
         bad = ungrounded_numbers(answer, outputs, question)

@@ -1084,6 +1084,12 @@ components:
         enabled: { type: boolean }
         model: { type: [string, "null"] }
 
+    AnswerLanguage:
+      type: string
+      enum: [en, ha, yo, ig, pcm]
+      default: en
+      description: "Answer language: English, Hausa, Yoruba, Igbo or Nigerian Pidgin. Figures, codes and names stay as in the data."
+
     AssistantQuestion:
       type: object
       additionalProperties: false
@@ -1091,6 +1097,7 @@ components:
       properties:
         project_id: { type: string, format: uuid }
         question: { type: string, minLength: 1, maxLength: 2000 }
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
         history:
           type: array
           maxItems: 16
@@ -1131,6 +1138,7 @@ components:
         grounded: { type: boolean, description: "False when the answer used no lookup or has figures not found in the lookups" }
         note: { type: [string, "null"], enum: [wording, unmatched_figures, no_lookup, null] }
         model: { type: string }
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
 
     VersionDashboard:
       type: object

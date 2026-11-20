@@ -399,6 +399,18 @@ class AssistantStatus(BaseModel):
     model: str | None = None
 
 
+class AnswerLanguage(Enum):
+    """
+    Answer language: English, Hausa, Yoruba, Igbo or Nigerian Pidgin. Figures, codes and names stay as in the data.
+    """
+
+    en = "en"
+    ha = "ha"
+    yo = "yo"
+    ig = "ig"
+    pcm = "pcm"
+
+
 class Role1(Enum):
     user = "user"
     assistant = "assistant"
@@ -418,6 +430,7 @@ class AssistantQuestion(BaseModel):
     )
     project_id: UUID
     question: str = Field(..., max_length=2000, min_length=1)
+    language: AnswerLanguage | None = "en"
     history: list[HistoryItem] | None = Field(None, max_length=16)
 
 
@@ -459,6 +472,7 @@ class AssistantAnswer(BaseModel):
     )
     note: Note | None = None
     model: str
+    language: AnswerLanguage | None = "en"
 
 
 class Unit(RootModel[list[float | None]]):
