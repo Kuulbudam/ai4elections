@@ -205,7 +205,8 @@ h1 { overflow-wrap: anywhere; }
 .examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .chip { border: 1px solid var(--rule); background: #fff; padding: 6px 10px; border-radius: 2px; cursor: pointer; font: inherit; font-size: 0.92rem; }
 .chip:hover { border-color: var(--link); }
-.ask { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; max-width: 860px; }
+.ask { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: end; max-width: 980px; }
+.lang-pick { font-weight: 600; font-size: 0.9rem; }
 
 /* Reports */
 .actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }

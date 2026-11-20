@@ -80,7 +80,11 @@ def main() -> int:
                 "token": t.json().get("access_token") if ok else None,
             }
             if not ok:
-                check(f"sign in {role}-{tag}", False, f"HTTP {t.status_code}")
+                try:
+                    why = {k: t.json().get(k) for k in ("error_code", "code", "msg", "error_description")}
+                except ValueError:
+                    why = {}
+                check(f"sign in {role}-{tag}", False, f"HTTP {t.status_code} {why}")
                 return report()
     check("register + password sign-in for 8 users", True)
 

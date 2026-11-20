@@ -50,18 +50,19 @@ def ask(
     if model is None:
         raise HTTPException(status_code=503, detail="The data assistant is not set up yet (no AI provider key).")
     ctx = Ctx(db=db, project_id=str(p["id"]), org_id=str(p["org_id"]))
+    language = getattr(body.language, "value", body.language) or "en"
     history = [h.model_dump() for h in (body.history or [])]
     try:
-        out = service.ask(model, ctx, question, history)
+        out = service.ask(model, ctx, question, history, language)
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     with db.transaction():
         act_as(db, user)
         qid = db.execute(
             """INSERT INTO public.assistant_queries (org_id, project_id, user_id, question, answer, tools, citations,
-                   grounded, model) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id::text""",
+                   grounded, model, language) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id::text""",
             (str(p["org_id"]), str(p["id"]), user.id, question[:2000], out["answer"], Jsonb(out["tool_calls"]),
-             Jsonb(out["citations"]), out["grounded"], model.name),
+             Jsonb(out["citations"]), out["grounded"], model.name, language),
         ).fetchone()["id"]  # fmt: skip
         db.execute(
             "SELECT app.log_event(%s, 'assistant.ask', 'assistant_queries', %s, %s)",
@@ -71,7 +72,7 @@ def ask(
     view = AssistantAnswer(
         id=qid, answer=out["answer"], citations=out["citations"],
         lookups=[{"name": c["name"], "ok": c["ok"]} for c in out["tool_calls"]],
-        grounded=out["grounded"], note=out["note"], model=model.name,
+        grounded=out["grounded"], note=out["note"], model=model.name, language=language,
     ).model_dump(mode="json")  # fmt: skip
     idempotency.remember(db, user.id, idempotency_key, "POST /assistant/ask", body, 200, view)
     return JSONResponse(status_code=200, content=view)

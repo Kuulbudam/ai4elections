@@ -184,3 +184,30 @@ def test_rate_limit_waits_once_then_gives_up(monkeypatch):
     with pytest.raises(LLMError):  # too long to wait inside one request
         service.ask(Scripted([lambda m: (_ for _ in ()).throw(LLMError("busy", code="rate_limit", retry_after=60))]),
                     ctx(), "q", [])  # fmt: skip
+
+
+def test_language_instruction_and_local_accusation_words(monkeypatch):
+    fake_tool(monkeypatch, "project_overview", {"rows": 4989, "flagged": 162})
+    m = Scripted([call("project_overview", {}), say("Akwai rumfunan zaɓe 4,989; an yi wa 162 alama.")])
+    out = service.ask(m, ctx(), "Rumfuna nawa?", [], language="ha")
+    sys_prompt = m.seen[0][0]["content"]
+    assert "Write the whole answer in Hausa" in sys_prompt and "'unverified allegation'" in sys_prompt
+    assert out["grounded"] and out["answer"].startswith("Akwai")
+    assert "LANGUAGE:" not in service.ask(Scripted([say("ok")]), ctx(), "q", [])["answer"]
+    for text in (
+        "An yi maguɗi a Jos North.",  # Hausa, hooked d
+        "An yi magudi a wannan rumfa.",
+        "Wọn ṣe màgòmágó ní ibẹ̀.",  # Yoruba with tone marks
+        "Dem do wuruwuru for dat ward.",  # Pidgin
+        "E nwere aghụghọ n'ebe a.",  # Igbo
+        "Na fraud be dis.",
+    ):
+        assert service.accuses(text), text
+    for text in (
+        "Rumfuna 162 suna bukatar a duba su.",
+        "Ọgọrọ mmadụ tozuru oke ịtụ vootu.",
+        "Make una check di result sheet.",
+    ):
+        assert not service.accuses(text), text
+    m2 = Scripted([call("project_overview", {}), say("An yi maguɗi a nan.")])
+    assert service.ask(m2, ctx(), "q", [], language="ha")["answer"] == service.REPLACED

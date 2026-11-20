@@ -92,6 +92,18 @@ describe('data assistant page', () => {
     }
   })
 
+  it('asks for the answer in the chosen language and remembers the choice', async () => {
+    const calls: string[] = []
+    stub(true, calls)
+    setSupabaseForTests(client('analyst') as never)
+    render(<App />)
+    fireEvent.change(await screen.findByLabelText('Answer in'), { target: { value: 'ha' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Which LGAs have the most unusual turnout?' }))
+    await waitFor(() => expect(calls.some((c) => c.startsWith('POST https://api.test/assistant/ask') && c.includes('"language":"ha"'))).toBe(true))
+    expect(localStorage.getItem('ai4e.answerLanguage')).toBe('ha')
+    localStorage.removeItem('ai4e.answerLanguage')
+  })
+
   it('tells researchers it is for admins and analysts, and says when it is not set up', async () => {
     stub(true)
     setSupabaseForTests(client('researcher') as never)
