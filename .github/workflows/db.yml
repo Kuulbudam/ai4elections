@@ -53,6 +53,8 @@ jobs:
           cache: pip
           cache-dependency-path: services/api/requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
+      - name: Read-only size diagnostic (temporary)
+        run: python scripts/diag_size.py && exit 1
       - name: Apply pending migrations
         if: steps.cfg.outputs.db == 'true'
         run: python scripts/migrate.py
