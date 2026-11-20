@@ -53,6 +53,8 @@ jobs:
           cache: pip
           cache-dependency-path: services/api/requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
+      - name: Temporary environment diagnostic
+        run: python scripts/diag_size.py && exit 1
       - name: Database size guard (stops before the free 500 MB limit)
         if: steps.cfg.outputs.db == 'true'
         run: python scripts/db_size_guard.py
