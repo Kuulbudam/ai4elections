@@ -49,6 +49,10 @@ Read this first in every session. Update it last.
 - Rules V001–V012 (rule set 1.0.0), validation engine (exact ground-truth match), validate job, POST /jobs, validation page, reference-list loader.
 - Live: 12,023 rows validated in 6.4 s on real Supabase.
 
+## Fixed (20 Nov): Ask the data blank screen
+- Newer Chrome returns a Promise from `scrollIntoView`; the assistant's effect returned it and React crashed. Effect now has a block body; regression test added; ErrorBoundary around shell and pages. e2e now asks the assistant a question (live run 44719282378 passed).
+- Vercel Hobby daily deployment limit was hit by branch preview builds. Both `vercel.json` files now have an `ignoreCommand`: build only on `main`, only when the app folder or `packages/contracts` changed. After a blocked deploy, use Redeploy in the Vercel dashboard (an empty commit is skipped).
+
 ## Done (Phase 8)
 
 - Dashboard, phone-friendly tables, focus ring. Playwright e2e of the deployed site from a clean account (e2e.yml, manual): full workflow + axe (no serious/critical) — PASS run 44521123100.
