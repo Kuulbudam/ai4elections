@@ -80,4 +80,4 @@ jobs:
         run: python scripts/live_sheet_check.py
       - name: Remove the test organisations these checks created (always, even after a failure)
         if: always() && steps.cfg.outputs.db == 'true'
-        run: python scripts/purge_test_orgs.py --yes --no-vacuum && python scripts/db_size_guard.py
+        run: python scripts/purge_test_orgs.py --yes --no-vacuum --kind ci && python scripts/db_size_guard.py
