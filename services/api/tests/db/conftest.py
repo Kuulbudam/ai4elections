@@ -32,6 +32,7 @@ TENANT_TABLES = [
     "memberships", "projects", "data_sources", "datasets", "dataset_versions", "raw_rows", "result_records",
     "mapping_templates", "admin_units", "processing_jobs", "analytical_runs", "validation_issues", "findings",
     "finding_reviews", "investigation_notes", "claims", "claim_evidence", "reports", "audit_events",
+    "result_sheets",
 ]  # fmt: skip
 
 
@@ -188,6 +189,14 @@ def _seed_org(conn, org: Org) -> None:
             "INSERT INTO public.reports (org_id, project_id, analytical_run_id, dataset_version_id, body, "
             "content_hash, generated_by) VALUES (%s,%s,%s,%s,'{}',%s,%s) RETURNING id",
             (org.id, pid, r["analytical_runs"], vid, "c" * 64, admin),
+        )
+        sheet_id = str(uuid.uuid4())
+        r["result_sheets"] = ins(
+            "INSERT INTO public.result_sheets (id, org_id, project_id, dataset_version_id, image_path, image_sha256, "
+            "original_sha256, image_bytes, extracted, created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,10,"
+            '\'{"status": "no_model", "figures": {"party_votes": []}, "confidence": {}, "legible": false}\',%s) '
+            "RETURNING id",
+            (sheet_id, org.id, pid, vid, f"{org.id}/{pid}/{sheet_id}.jpg", "d" * 64, "e" * 64, admin),
         )
         c.execute(
             "INSERT INTO storage.objects (bucket_id, name) VALUES ('datasets', %s)",

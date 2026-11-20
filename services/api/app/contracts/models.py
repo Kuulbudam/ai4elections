@@ -224,6 +224,7 @@ class FindingCategory(Enum):
     observation = "observation"
     data_quality_issue = "data_quality_issue"
     statistical_anomaly = "statistical_anomaly"
+    cross_check = "cross_check"
 
 
 class Indicator(Enum):
@@ -604,6 +605,165 @@ class Report(BaseModel):
     generated_by: UUID
 
 
+class SheetCount(RootModel[int | None]):
+    root: int | None = Field(..., ge=0, le=10000000)
+
+
+class PartyVotes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    party: str = Field(..., max_length=20, min_length=1)
+    votes: int = Field(..., ge=0, le=10000000)
+
+
+class SheetFigures(BaseModel):
+    """
+    Figures written on a polling-unit result sheet. Null means not written or not readable.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pu_code: str | None = Field(None, max_length=64)
+    state: str | None = Field(None, max_length=120)
+    lga: str | None = Field(None, max_length=120)
+    ward: str | None = Field(None, max_length=120)
+    polling_unit_name: str | None = Field(None, max_length=200)
+    registered_voters: SheetCount | None = None
+    accredited_voters: SheetCount | None = None
+    rejected_votes: SheetCount | None = None
+    valid_votes: SheetCount | None = None
+    total_cast: SheetCount | None = None
+    party_votes: list[PartyVotes] = Field(..., max_length=40)
+
+
+class Status(Enum):
+    """
+    no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)
+    """
+
+    read = "read"
+    unreadable = "unreadable"
+    no_model = "no_model"
+    failed = "failed"
+
+
+class Confidence1(Enum):
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+
+class SheetReading(BaseModel):
+    """
+    What the AI read from the photo, exactly as produced. Never used until a person confirms it.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    status: Status = Field(
+        ...,
+        description="no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)",
+    )
+    figures: SheetFigures
+    confidence: dict[str, Confidence1] = Field(
+        ...,
+        description="How sure the AI is of each figure: field name, or party:<name> for party scores",
+    )
+    legible: bool
+    notes: str | None = Field(None, max_length=1000)
+
+
+class SheetCheck(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    ok: bool | None = Field(..., description="null when the check could not be made (a figure is missing)")
+    title: str
+    detail: str
+    severity: Severity | None = None
+
+
+class SheetComparisonRow(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: str
+    label: str
+    sheet: int | None = None
+    data: int | None = None
+    match: bool | None = None
+
+
+class SheetComparison(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    matched: bool = Field(..., description="False when no polling unit in the data has the sheet's code")
+    pu_code: str | None = None
+    raw_row_id: UUID | None = None
+    source_row_number: int | None = None
+    rows: list[SheetComparisonRow]
+
+
+class Status1(Enum):
+    read = "read"
+    confirmed = "confirmed"
+
+
+class ResultSheet(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    dataset_version_id: UUID
+    status: Status1
+    model: str | None = None
+    reading: SheetReading
+    confirmed: SheetFigures | None = None
+    checks: list[SheetCheck] | None = None
+    comparison: SheetComparison | None = None
+    finding_ids: list[UUID]
+    image_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    image_url: str | None = Field(None, description="Short-lived link to the stored photo (GET /sheets/{id} only)")
+    created_at: AwareDatetime
+    created_by: UUID
+    confirmed_at: AwareDatetime | None = None
+    confirmed_by: UUID | None = None
+
+
+class SheetUpload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    dataset_version_id: UUID = Field(..., description="The results the sheet will be compared with")
+    image_base64: str = Field(
+        ...,
+        description="JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first)",
+        max_length=6000000,
+        min_length=100,
+    )
+
+
+class SheetConfirm(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    figures: SheetFigures
+
+
+class SheetList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[ResultSheet]
+
+
 class FinalizeResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -660,6 +820,10 @@ class Finding(BaseModel):
     note_count: int | None = Field(None, ge=0)
     claim_count: int | None = Field(None, ge=0)
     provenance: Provenance
+    source_sheet_id: UUID | None = Field(
+        None,
+        description="For cross-checks from a result sheet: the sheet (photo) the finding came from",
+    )
     created_at: AwareDatetime
 
 
