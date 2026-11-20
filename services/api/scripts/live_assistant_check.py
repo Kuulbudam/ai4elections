@@ -113,7 +113,7 @@ def main() -> int:
 
     # Answers in Hausa and Nigerian Pidgin: same figures, same safety rules, really in that language.
     for lang, q, markers in (
-        ("ha", "Wace jiha ce ta fi yawan alamomin fitowar masu zaɓe da ba a saba gani ba, kuma guda nawa?",
+        ("ha", "Wace jiha ce ta fi yawan alamomin fitowar masu zaɓe (turnout) da ba a saba gani ba, kuma guda nawa?",
          {"jihar", "jiha", "da", "ne", "ce", "mafi", "yawan", "akwai", "rumfuna", "rumfunan", "alamomi", "masu", "zaɓe",
           "zabe", "wanda", "wadda", "kuma", "na", "ta", "a"}),
         ("pcm", "Which state get the most unusual turnout flags, and how many e get?",
