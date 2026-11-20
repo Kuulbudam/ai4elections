@@ -162,12 +162,7 @@ def test_log_visible_to_admins_and_analysts_only(api, world, analysed, model, co
 
 
 def test_answer_language_is_passed_on_returned_and_logged(api, world, analysed, model):
-    seen = {}
-
-    def answer(m):
-        return {"content": "Ìpínlẹ̀ tí ó ní àmì púpọ̀ jùlọ: wo àwọn ojú-ewé tí a so mọ́."}
-
-    m = model([lambda m: (seen.setdefault("ok", True), call("project_overview", {}))[1], answer])
+    m = model([{"content": "Ìpínlẹ̀ tí ó ní àmì púpọ̀ jùlọ: wo àwọn ojú-ewé tí a so mọ́."}])
     body = {"project_id": world.a.rows["projects"], "question": "Ewo ni ipinle?", "language": "yo"}
     r = api.post("/assistant/ask", json=body, headers=H(world.a.users["analyst"], str(uuid.uuid4())))
     assert r.status_code == 200, r.text
