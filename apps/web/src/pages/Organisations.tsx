@@ -111,37 +111,50 @@ export default function Organisations() {
     setBusy(false)
   }
 
+  const fieldOrgs = new Set((orgs ?? []).filter((o) => o.role === 'field_agent').map((o) => o.org_id))
+  const fieldWork = (work ?? []).filter((w) => fieldOrgs.has(w.project.org_id))
+  const work_ = work === null ? null : work.filter((w) => !fieldOrgs.has(w.project.org_id))
   return (
     <section className="page" aria-labelledby="orgs-heading">
       <h1 id="orgs-heading">Dashboard</h1>
-      {work && work.length > 0 && (
+      {fieldWork.length > 0 && (
+        <div className="card field-entry">
+          <h2>Report from your polling unit</h2>
+          {fieldWork.map((w) => (
+            <Link key={w.project.id} className="button primary" to={`/projects/${w.project.id}/field`}>
+              {w.project.election_name}
+            </Link>
+          ))}
+        </div>
+      )}
+      {work_ && work_.length > 0 && (
         <div className="kpis" role="list" aria-label="Across your projects">
           <div className="kpi" role="listitem">
-            <div className="kpi-value">{work.length}</div>
+            <div className="kpi-value">{work_.length}</div>
             <div className="kpi-label">Projects</div>
           </div>
-          <div className={`kpi ${work.some((w) => w.toReview) ? 'alert' : 'ok'}`} role="listitem">
-            <div className="kpi-value">{work.reduce((a, w) => a + w.toReview, 0)}</div>
+          <div className={`kpi ${work_.some((w) => w.toReview) ? 'alert' : 'ok'}`} role="listitem">
+            <div className="kpi-value">{work_.reduce((a, w) => a + w.toReview, 0)}</div>
             <div className="kpi-label">Findings to review</div>
           </div>
           <div className="kpi" role="listitem">
-            <div className="kpi-value">{work.reduce((a, w) => a + w.unverified, 0)}</div>
+            <div className="kpi-value">{work_.reduce((a, w) => a + w.unverified, 0)}</div>
             <div className="kpi-label">Unverified allegations</div>
           </div>
           <div className="kpi" role="listitem">
-            <div className="kpi-value">{work.reduce((a, w) => a + w.reports, 0)}</div>
+            <div className="kpi-value">{work_.reduce((a, w) => a + w.reports, 0)}</div>
             <div className="kpi-label">Reports</div>
           </div>
         </div>
       )}
-      <h2>What to do next</h2>
-      {work === null ? (
+      {(fieldOrgs.size === 0 || (work_ ?? []).length > 0) && <h2>What to do next</h2>}
+      {work_ === null ? (
         <p className="muted">Loading…</p>
-      ) : work.length === 0 ? (
+      ) : work_.length === 0 ? (
         <p className="empty">No projects yet. Create an organisation below, then add your first project to it.</p>
       ) : (
         <ul className="todo" aria-label="What to do next">
-          {work.map((w) => (
+          {work_.map((w) => (
             <li key={w.project.id} className={w.next ? '' : 'todo-done'}>
               <div className="todo-step" aria-hidden="true">
                 {w.next ? String(w.next.step).padStart(2, '0') : '✓'}

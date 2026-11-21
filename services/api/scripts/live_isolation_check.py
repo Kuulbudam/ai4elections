@@ -20,6 +20,7 @@ import os
 import secrets
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -398,6 +399,46 @@ def main() -> int:
           up.status_code == 200 and up.json().get("current_level") == "admin"
           and [x["kind"] for x in told] == ["escalation_sent_up"] and fin.json().get("status") == "resolved",
           f"up {up.status_code}, admin inbox {told}, resolve {fin.status_code}")  # fmt: skip
+
+    # --- 6d. field reports (Phase 16): an agent reports only for their own polling unit; critical incidents escalate
+    agent = users[("a", "viewer")]
+    rpc = f"{URL}/rest/v1/rpc/change_member_role"
+    r = http.post(rpc, headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": agent["id"], "p_role": "field_agent"})  # fmt: skip
+    pu = {"org_id": orgs["a"], "user_id": agent["id"], "level": "polling_unit", "state": "CI State", "lga": "CI LGA",
+          "ward": "CI Ward", "pu_code": "CI-PU-1", "created_by": admin_a["id"]}  # fmt: skip
+    made = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(admin_a["token"]), json=pu)
+    check("admin makes a member a field agent with one polling unit",
+          r.status_code in (200, 204) and made.status_code == 201, f"role {r.status_code}, assign {made.status_code}")  # fmt: skip
+    agent_h = {"Authorization": f"Bearer {agent['token']}"}
+    cid = uuid.uuid4().hex
+    rep = {"client_id": cid, "project_id": projects["a"], "kind": "incident", "pu_code": "CI-PU-1",
+              "captured_at": datetime.now(UTC).isoformat(), "location": None,
+              "payload": {"category": "ballot_snatching", "severity": "critical",
+                          "description": "CI: box taken at the unit.", "ongoing": False}}  # fmt: skip
+    first = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid}, json=rep)
+    again = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid}, json=rep)
+    other = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid + "x"},
+                     json={**rep, "client_id": cid + "x", "pu_code": "CI-PU-2"})  # fmt: skip
+    body = first.json() if first.status_code == 201 else {}
+    check("agent sends a report once (repeat returns the same one) and only for their own unit",
+          first.status_code == 201 and again.status_code == 200 and again.json().get("id") == body.get("id")
+          and other.status_code == 403, f"first {first.status_code}, again {again.status_code}, other {other.status_code}")  # fmt: skip
+    eid = body.get("escalation_id")
+    esc = api.get(f"/escalations/{eid}", headers=bearer("a", "researcher")).json() if eid else {}
+    check("a critical incident goes straight to the area coordinator",
+          esc.get("current_level") == "lga" and esc.get("source_kind") == "field_report", str(esc)[:160])  # fmt: skip
+    mine = api.get(f"/field-reports?project_id={projects['a']}", headers=agent_h).json().get("items", [])
+    seen_b = api.get(f"/field-reports?project_id={projects['a']}", headers=bearer("b", "admin")).status_code
+    check("agent sees their own report; another organisation cannot list them",
+          [x["id"] for x in mine] == [body.get("id")] and seen_b in (403, 404), f"mine {len(mine)}, org B {seen_b}")  # fmt: skip
+    if esc.get("id"):
+        api.post(f"/escalations/{esc['id']}/resolve", headers=bearer("a", "admin"), json={"note": "CI: closed."})
+    r = http.post(rpc, headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": agent["id"], "p_role": "viewer"})  # fmt: skip
+    gone = http.get(f"{URL}/rest/v1/area_assignments?select=id&user_id=eq.{agent['id']}",
+                    headers=user_headers(admin_a["token"])).json()  # fmt: skip
+    check("changing the role back removes the polling unit", r.status_code in (200, 204) and gone == [], str(gone)[:80])
 
     # --- 7. storage
     def download(tag: str, role: str, path: str) -> int:

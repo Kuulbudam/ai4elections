@@ -725,6 +725,77 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /field/assignments:
+    get:
+      operationId: myFieldAssignments
+      summary: The polling units the caller reports from (field agents), in one project's organisation
+      x-required-roles: [field_agent, admin, coordinator]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Assigned polling units
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldAssignmentList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /field-reports:
+    post:
+      operationId: createFieldReport
+      summary: Send one report from a polling unit (safe to resend with the same client_id)
+      description: Field agents report only from their assigned polling units. A critical incident is escalated at once.
+      x-required-roles: [field_agent, admin, coordinator]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldReportCreate" }
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldReport" }
+        "200":
+          description: Already recorded earlier (same client_id)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldReport" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+    get:
+      operationId: listFieldReports
+      summary: Field reports in a project, newest first (field agents see only their own)
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator, field_agent]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: since, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: kind, in: query, required: false, schema: { $ref: "#/components/schemas/FieldReportKind" } }
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldReportList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1281,6 +1352,94 @@ components:
           type: object
           additionalProperties: { type: integer }
 
+    FieldReportKind:
+      type: string
+      enum: [arrival, accreditation, incident, result, closing]
+
+    IncidentCategory:
+      type: string
+      enum: [bvas_failure, late_opening, materials_missing, violence, intimidation, vote_buying, ballot_snatching, agents_denied, observers_denied, other]
+
+    FieldLocation:
+      type: object
+      additionalProperties: false
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracy_m: { type: [number, "null"], minimum: 0 }
+
+    FieldReportCreate:
+      type: object
+      additionalProperties: false
+      required: [project_id, client_id, kind, pu_code, captured_at, payload]
+      properties:
+        project_id: { type: string, format: uuid }
+        client_id: { type: string, pattern: "^[A-Za-z0-9_-]{8,64}$", description: "made on the phone; the same id twice is the same report" }
+        kind: { $ref: "#/components/schemas/FieldReportKind" }
+        pu_code: { type: string, minLength: 1, maxLength: 60 }
+        captured_at: { type: string, format: date-time, description: "when the agent made the report (phone time)" }
+        location: { oneOf: [{ $ref: "#/components/schemas/FieldLocation" }, { type: "null" }] }
+        payload:
+          type: object
+          description: >-
+            arrival {opened, opened_at (HH:MM), officials_present, bvas_working, materials_complete, security_present};
+            accreditation {accredited_on_bvas, bvas_working, voters_waiting};
+            incident {category, severity (low|medium|critical), description, ongoing};
+            result {sheet_id};
+            closing {counting_done, result_posted_publicly, bvas_upload_seen, agents_signed}
+
+    FieldReport:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, client_id, kind, pu_code, state, lga, ward, payload, captured_at, received_at, agent_id]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        client_id: { type: string }
+        kind: { $ref: "#/components/schemas/FieldReportKind" }
+        pu_code: { type: string }
+        state: { type: string }
+        lga: { type: string }
+        ward: { type: string }
+        payload: { type: object }
+        severity: { type: [string, "null"], enum: [low, medium, critical, null] }
+        sheet_id: { type: [string, "null"], format: uuid }
+        captured_at: { type: string, format: date-time }
+        received_at: { type: string, format: date-time }
+        location: { oneOf: [{ $ref: "#/components/schemas/FieldLocation" }, { type: "null" }] }
+        agent_id: { type: string, format: uuid }
+        agent_name: { type: [string, "null"] }
+        escalation_id: { type: [string, "null"], format: uuid }
+
+    FieldReportList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FieldReport" }
+
+    FieldAssignment:
+      type: object
+      additionalProperties: false
+      required: [pu_code, state, lga, ward]
+      properties:
+        pu_code: { type: string }
+        state: { type: string }
+        lga: { type: string }
+        ward: { type: string }
+
+    FieldAssignmentList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FieldAssignment" }
+
     EscalationLevel:
       type: string
       enum: [ward, lga, state, admin]
@@ -1312,7 +1471,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        source_kind: { type: string, enum: [finding, field_report] }
+        source_kind: { type: string, enum: [finding, field_report, result_sheet] }
         source_id: { type: string, format: uuid }
         title: { type: string }
         area: { type: object, additionalProperties: { type: string } }
@@ -1540,7 +1699,8 @@ components:
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
-        dataset_version_id: { type: string, format: uuid }
+        dataset_version_id: { type: [string, "null"], format: uuid }
+        escalation_id: { type: [string, "null"], format: uuid, description: "set when a problem on a sheet with no results file to compare was escalated" }
         status: { type: string, enum: [read, confirmed] }
         model: { type: [string, "null"] }
         reading: { $ref: "#/components/schemas/SheetReading" }
@@ -1568,10 +1728,10 @@ components:
     SheetUpload:
       type: object
       additionalProperties: false
-      required: [project_id, dataset_version_id, image_base64]
+      required: [project_id, image_base64]
       properties:
         project_id: { type: string, format: uuid }
-        dataset_version_id: { type: string, format: uuid, description: "The results the sheet will be compared with" }
+        dataset_version_id: { type: [string, "null"], format: uuid, description: "The results the sheet will be compared with; leave out on election day when there are none yet (the sheet's own sums are still checked)" }
         image_base64:
           type: string
           minLength: 100

@@ -19,6 +19,7 @@ from app import idempotency
 from app.auth import CurrentUser
 from app.contracts.models import ResultSheet, SheetConfirm, SheetList, SheetUpload
 from app.deps import act_as, authorize, get_db, get_storage, rate_limited_user, row_or_404
+from app.escalation import service as esc
 from app.sheets import checks as chk
 from app.sheets.image import ImageRejected, clean, decode_base64
 from app.sheets.read import VisionModel, configured_vision_model, empty_reading, read_sheet
@@ -26,8 +27,8 @@ from app.storage import Storage
 
 router = APIRouter()
 BUCKET = "sheets"
-WRITERS = {"admin", "analyst", "researcher"}
-READERS = {"admin", "analyst", "researcher", "viewer", "coordinator"}
+WRITERS = {"admin", "analyst", "researcher", "coordinator", "field_agent"}
+READERS = {"admin", "analyst", "researcher", "viewer", "coordinator", "field_agent"}
 CHECK_VERSION = "1.0.0"
 
 LIMITATIONS = (
@@ -51,14 +52,26 @@ def get_vision() -> VisionModel | None:
     return configured_vision_model()
 
 
-def _view(r: dict[str, Any], image_url: str | None = None) -> dict[str, Any]:
+def _own_only(role: str, sheet: dict[str, Any], user: CurrentUser) -> None:
+    """Field agents work only with the sheets they photographed."""
+    if role == "field_agent" and str(sheet["created_by"]) != user.id:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+def _escalation_for(db: psycopg.Connection, sheet_id: str) -> str | None:
+    r = db.execute("SELECT id::text AS id FROM public.escalations WHERE source_id = %s "
+                   "ORDER BY created_at DESC LIMIT 1", (sheet_id,)).fetchone()  # fmt: skip
+    return r["id"] if r else None
+
+
+def _view(r: dict[str, Any], image_url: str | None = None, escalation_id: str | None = None) -> dict[str, Any]:
     reading = r["extracted"] if (r["extracted"] or {}).get("status") else empty_reading("failed")
     return ResultSheet(
         id=r["id"], project_id=r["project_id"], dataset_version_id=r["dataset_version_id"], status=r["status"],
         model=r["model"], reading=reading, confirmed=r["confirmed"], checks=r["checks"],
         comparison=r["comparison"], finding_ids=[str(x) for x in (r["finding_ids"] or [])],
         image_sha256=r["image_sha256"], image_url=image_url, created_at=r["created_at"], created_by=r["created_by"],
-        confirmed_at=r["confirmed_at"], confirmed_by=r["confirmed_by"],
+        confirmed_at=r["confirmed_at"], confirmed_by=r["confirmed_by"], escalation_id=escalation_id,
     ).model_dump(mode="json")  # fmt: skip
 
 
@@ -74,16 +87,24 @@ def create_sheet(
     fingerprint = body.model_copy(update={"image_base64": hashlib.sha256(body.image_base64.encode()).hexdigest()})
     if (cached := idempotency.replay(db, user.id, idempotency_key, "POST /sheets", fingerprint)) is not None:
         return cached
-    v = row_or_404(
-        db.execute(
-            """SELECT v.id, v.org_id, v.project_id, v.validated_at, v.archived_at FROM public.dataset_versions v
-               WHERE v.id = %s AND v.project_id = %s""",
-            (str(body.dataset_version_id), str(body.project_id)),
-        ).fetchone()
-    )
-    authorize(db, str(v["org_id"]), user, WRITERS)
-    if v["validated_at"] is None or v["archived_at"] is not None:
-        raise HTTPException(status_code=409, detail="Choose a validated dataset version to check the sheet against.")
+    if body.dataset_version_id is None:  # election day: no results file yet, the sheet's own sums are checked
+        p = row_or_404(db.execute("SELECT id, org_id FROM public.projects WHERE id = %s",
+                                  (str(body.project_id),)).fetchone())  # fmt: skip
+        v = {"id": None, "org_id": p["org_id"], "project_id": p["id"]}
+        authorize(db, str(v["org_id"]), user, WRITERS)
+    else:
+        v = row_or_404(
+            db.execute(
+                """SELECT v.id, v.org_id, v.project_id, v.validated_at, v.archived_at FROM public.dataset_versions v
+                   WHERE v.id = %s AND v.project_id = %s""",
+                (str(body.dataset_version_id), str(body.project_id)),
+            ).fetchone()
+        )
+        authorize(db, str(v["org_id"]), user, WRITERS)
+        if v["validated_at"] is None or v["archived_at"] is not None:
+            raise HTTPException(
+                status_code=409, detail="Choose a validated dataset version to check the sheet against."
+            )
     try:
         img = clean(decode_base64(body.image_base64))
     except ImageRejected as e:
@@ -100,7 +121,7 @@ def create_sheet(
             f"""INSERT INTO public.result_sheets (id, org_id, project_id, dataset_version_id, image_path, image_sha256,
                     original_sha256, image_bytes, model, extracted, pu_code, created_by)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING {_COLS}""",  # noqa: S608 - fixed column list
-            (sid, org, pid, str(v["id"]), path, img.sha256, img.original_sha256, len(img.jpeg),
+            (sid, org, pid, str(v["id"]) if v["id"] else None, path, img.sha256, img.original_sha256, len(img.jpeg),
              vision.name if vision and reading["status"] in ("read", "unreadable") else None, Jsonb(reading),
              reading["figures"].get("pu_code"), user.id),
         ).fetchone()  # fmt: skip
@@ -116,10 +137,12 @@ def list_sheets(
     db: psycopg.Connection = Depends(get_db),
 ) -> Any:
     p = row_or_404(db.execute("SELECT org_id FROM public.projects WHERE id = %s", (str(project_id),)).fetchone())
-    authorize(db, str(p["org_id"]), user, READERS)
+    role = authorize(db, str(p["org_id"]), user, READERS)
+    mine = role == "field_agent"
     rows = db.execute(
-        f"SELECT {_COLS} FROM public.result_sheets WHERE project_id = %s ORDER BY created_at DESC LIMIT 200",  # noqa: S608
-        (str(project_id),),
+        f"""SELECT {_COLS} FROM public.result_sheets WHERE project_id = %s AND (%s = false OR created_by = %s)
+            ORDER BY created_at DESC LIMIT 200""",  # noqa: S608
+        (str(project_id), mine, user.id),
     ).fetchall()
     return SheetList(items=[_view(r) for r in rows]).model_dump(mode="json")
 
@@ -132,8 +155,8 @@ def get_sheet(
     storage: Storage = Depends(get_storage),
 ) -> Any:
     r = row_or_404(db.execute(f"SELECT {_COLS} FROM public.result_sheets WHERE id = %s", (str(id),)).fetchone())  # noqa: S608
-    authorize(db, str(r["org_id"]), user, READERS)
-    return _view(r, storage.signed_read_url(r["image_path"], bucket=BUCKET))
+    _own_only(authorize(db, str(r["org_id"]), user, READERS), r, user)
+    return _view(r, storage.signed_read_url(r["image_path"], bucket=BUCKET), _escalation_for(db, str(r["id"])))
 
 
 def _clean_figures(fig: dict[str, Any]) -> dict[str, Any]:
@@ -191,14 +214,14 @@ def confirm_sheet(
     if (cached := idempotency.replay(db, user.id, idempotency_key, key_scope, body)) is not None:
         return cached
     sheet = row_or_404(db.execute(f"SELECT {_COLS} FROM public.result_sheets WHERE id = %s", (str(id),)).fetchone())  # noqa: S608
-    authorize(db, str(sheet["org_id"]), user, WRITERS)
+    _own_only(authorize(db, str(sheet["org_id"]), user, WRITERS), sheet, user)
     if sheet["status"] == "confirmed":
         raise HTTPException(status_code=409, detail="This sheet has already been confirmed.")
     fig = _clean_figures(body.figures.model_dump(mode="json"))
 
     row = None
     code = chk.norm_code(fig.get("pu_code"))
-    if code:
+    if code and sheet["dataset_version_id"]:
         row = db.execute(
             """SELECT r.raw_row_id::text AS raw_row_id, w.source_row_number, r.pu_code, r.state, r.lga, r.ward,
                       r.registered_voters, r.accredited_voters, r.valid_votes, r.rejected_votes, r.total_cast,
@@ -211,7 +234,15 @@ def confirm_sheet(
         ).fetchone()
     results = chk.arithmetic(fig)
     cmp = chk.compare(fig, row)
-    results.append(chk.comparison_check(cmp))
+    compared = chk.comparison_check(cmp)
+    if not sheet["dataset_version_id"]:
+        compared = {
+            **compared,
+            "ok": None,
+            "detail": "Not checked: no results file has been uploaded to compare with yet.",
+        }
+    results.append(compared)
+    escalation_id = None
 
     with db.transaction():
         act_as(db, user)
@@ -219,7 +250,17 @@ def confirm_sheet(
         if locked["status"] == "confirmed":
             raise HTTPException(status_code=409, detail="This sheet has already been confirmed.")
         finding_ids = []
-        for values in _finding_rows(sheet, fig, results, cmp, row):
+        failed = [c for c in results if c["ok"] is False]
+        if not sheet["dataset_version_id"] and failed:
+            # No results file to hang findings on: the problem goes straight to the coordinators for this area.
+            escalation_id = esc.raise_escalation(
+                db, org_id=str(sheet["org_id"]), project_id=str(sheet["project_id"]), source_kind="result_sheet",
+                source_id=str(id), title=f"Result sheet problem at {fig.get('pu_code') or 'a polling unit'}",
+                raised_by=user.id, reason=" ".join(c["detail"] for c in failed)[:4000],
+                area={"state": fig.get("state"), "lga": fig.get("lga"), "ward": fig.get("ward"),
+                      "pu_code": fig.get("pu_code")},
+            )  # fmt: skip
+        for values in _finding_rows(sheet, fig, results, cmp, row) if sheet["dataset_version_id"] else []:
             finding_ids.append(db.execute(
                 """INSERT INTO public.findings (org_id, project_id, dataset_version_id, category, rule_id, raw_row_id,
                        pu_code, state, lga, ward, severity, confidence, title, explanation, limitations, evidence,
@@ -233,6 +274,6 @@ def confirm_sheet(
             (Jsonb(fig), Jsonb(results), Jsonb(cmp), fig.get("pu_code"), (row or {}).get("raw_row_id"),
              finding_ids, user.id, str(id)),
         ).fetchone()  # fmt: skip
-    view = _view(r, storage.signed_read_url(r["image_path"], bucket=BUCKET))
+    view = _view(r, storage.signed_read_url(r["image_path"], bucket=BUCKET), escalation_id)
     idempotency.remember(db, user.id, idempotency_key, key_scope, body, 200, view)
     return JSONResponse(status_code=200, content=view)

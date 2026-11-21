@@ -270,6 +270,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       end: false,
     },
     {
+      to: `/projects/${pid}/field`,
+      label: 'Field reports',
+      icon: 'pin',
+      end: false,
+    },
+    {
       to: `/projects/${pid}/escalations`,
       label: `Escalations${counts?.escalations ? ` (${counts.escalations} open)` : ''}`,
       icon: 'up',
@@ -331,6 +337,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
             )}
           </div>
 
+          {role !== 'field_agent' && (
           <nav aria-label="Workflow">
             <p className="rail-title">Workflow</p>
             <ol className="steps">
@@ -363,11 +370,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
               })}
             </ol>
           </nav>
+          )}
 
           <nav aria-label="Explore">
             <p className="rail-title">Explore</p>
             <ul className="explore">
-              {explore.map((x) => (
+              {(role === 'field_agent' ? explore.filter((x) => x.icon === 'pin' || x.icon === 'up') : explore).map((x) => (
                 <li key={x.to}>
                   <NavLink to={x.to} end={x.end}>
                     <Icon name={x.icon} />

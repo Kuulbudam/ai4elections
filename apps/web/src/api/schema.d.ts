@@ -499,6 +499,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/field/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The polling units the caller reports from (field agents), in one project's organisation */
+        get: operations["myFieldAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/field-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Field reports in a project, newest first (field agents see only their own) */
+        get: operations["listFieldReports"];
+        put?: never;
+        /**
+         * Send one report from a polling unit (safe to resend with the same client_id)
+         * @description Field agents report only from their assigned polling units. A critical incident is escalated at once.
+         */
+        post: operations["createFieldReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -866,6 +904,70 @@ export interface components {
             };
         };
         /** @enum {string} */
+        FieldReportKind: "arrival" | "accreditation" | "incident" | "result" | "closing";
+        /** @enum {string} */
+        IncidentCategory: "bvas_failure" | "late_opening" | "materials_missing" | "violence" | "intimidation" | "vote_buying" | "ballot_snatching" | "agents_denied" | "observers_denied" | "other";
+        FieldLocation: {
+            lat: number;
+            lng: number;
+            accuracy_m?: number | null;
+        };
+        FieldReportCreate: {
+            /** Format: uuid */
+            project_id: string;
+            /** @description made on the phone; the same id twice is the same report */
+            client_id: string;
+            kind: components["schemas"]["FieldReportKind"];
+            pu_code: string;
+            /**
+             * Format: date-time
+             * @description when the agent made the report (phone time)
+             */
+            captured_at: string;
+            location?: components["schemas"]["FieldLocation"] | null;
+            /** @description arrival {opened, opened_at (HH:MM), officials_present, bvas_working, materials_complete, security_present}; accreditation {accredited_on_bvas, bvas_working, voters_waiting}; incident {category, severity (low|medium|critical), description, ongoing}; result {sheet_id}; closing {counting_done, result_posted_publicly, bvas_upload_seen, agents_signed} */
+            payload: Record<string, never>;
+        };
+        FieldReport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            client_id: string;
+            kind: components["schemas"]["FieldReportKind"];
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+            payload: Record<string, never>;
+            /** @enum {string|null} */
+            severity?: "low" | "medium" | "critical" | null;
+            /** Format: uuid */
+            sheet_id?: string | null;
+            /** Format: date-time */
+            captured_at: string;
+            /** Format: date-time */
+            received_at: string;
+            location?: components["schemas"]["FieldLocation"] | null;
+            /** Format: uuid */
+            agent_id: string;
+            agent_name?: string | null;
+            /** Format: uuid */
+            escalation_id?: string | null;
+        };
+        FieldReportList: {
+            items: components["schemas"]["FieldReport"][];
+        };
+        FieldAssignment: {
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+        };
+        FieldAssignmentList: {
+            items: components["schemas"]["FieldAssignment"][];
+        };
+        /** @enum {string} */
         EscalationLevel: "ward" | "lga" | "state" | "admin";
         EscalationNote: {
             note: string;
@@ -889,7 +991,7 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /** @enum {string} */
-            source_kind: "finding" | "field_report";
+            source_kind: "finding" | "field_report" | "result_sheet";
             /** Format: uuid */
             source_id: string;
             title: string;
@@ -1071,7 +1173,12 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /** Format: uuid */
-            dataset_version_id: string;
+            dataset_version_id: string | null;
+            /**
+             * Format: uuid
+             * @description set when a problem on a sheet with no results file to compare was escalated
+             */
+            escalation_id?: string | null;
             /** @enum {string} */
             status: "read" | "confirmed";
             model?: string | null;
@@ -1097,9 +1204,9 @@ export interface components {
             project_id: string;
             /**
              * Format: uuid
-             * @description The results the sheet will be compared with
+             * @description The results the sheet will be compared with; leave out on election day when there are none yet (the sheet's own sums are still checked)
              */
-            dataset_version_id: string;
+            dataset_version_id?: string | null;
             /** @description JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first) */
             image_base64: string;
         };
@@ -2136,6 +2243,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    myFieldAssignments: {
+        parameters: {
+            query: {
+                project_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assigned polling units */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldAssignmentList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listFieldReports: {
+        parameters: {
+            query: {
+                project_id: string;
+                since?: string;
+                kind?: components["schemas"]["FieldReportKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createFieldReport: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldReportCreate"];
+            };
+        };
+        responses: {
+            /** @description Already recorded earlier (same client_id) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReport"];
+                };
+            };
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReport"];
                 };
             };
             400: components["responses"]["ValidationFailed"];

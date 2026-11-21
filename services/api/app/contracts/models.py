@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
@@ -514,6 +514,110 @@ class VersionDashboard(BaseModel):
     data_quality_by_rule: dict[str, int]
 
 
+class FieldReportKind(Enum):
+    arrival = "arrival"
+    accreditation = "accreditation"
+    incident = "incident"
+    result = "result"
+    closing = "closing"
+
+
+class IncidentCategory(Enum):
+    bvas_failure = "bvas_failure"
+    late_opening = "late_opening"
+    materials_missing = "materials_missing"
+    violence = "violence"
+    intimidation = "intimidation"
+    vote_buying = "vote_buying"
+    ballot_snatching = "ballot_snatching"
+    agents_denied = "agents_denied"
+    observers_denied = "observers_denied"
+    other = "other"
+
+
+class FieldLocation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lng: float = Field(..., ge=-180.0, le=180.0)
+    accuracy_m: float | None = Field(None, ge=0.0)
+
+
+class FieldReportCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    client_id: str = Field(
+        ...,
+        description="made on the phone; the same id twice is the same report",
+        pattern="^[A-Za-z0-9_-]{8,64}$",
+    )
+    kind: FieldReportKind
+    pu_code: str = Field(..., max_length=60, min_length=1)
+    captured_at: AwareDatetime = Field(..., description="when the agent made the report (phone time)")
+    location: FieldLocation | None = None
+    payload: dict[str, Any] = Field(
+        ...,
+        description="arrival {opened, opened_at (HH:MM), officials_present, bvas_working, materials_complete, security_present}; accreditation {accredited_on_bvas, bvas_working, voters_waiting}; incident {category, severity (low|medium|critical), description, ongoing}; result {sheet_id}; closing {counting_done, result_posted_publicly, bvas_upload_seen, agents_signed}",
+    )
+
+
+class Severity1(Enum):
+    low = "low"
+    medium = "medium"
+    critical = "critical"
+    NoneType_None = None
+
+
+class FieldReport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    client_id: str
+    kind: FieldReportKind
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+    payload: dict[str, Any]
+    severity: Severity1 | None = None
+    sheet_id: UUID | None = None
+    captured_at: AwareDatetime
+    received_at: AwareDatetime
+    location: FieldLocation | None = None
+    agent_id: UUID
+    agent_name: str | None = None
+    escalation_id: UUID | None = None
+
+
+class FieldReportList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[FieldReport]
+
+
+class FieldAssignment(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+
+
+class FieldAssignmentList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[FieldAssignment]
+
+
 class EscalationLevel(Enum):
     ward = "ward"
     lga = "lga"
@@ -551,6 +655,7 @@ class EscalationEvent(BaseModel):
 class SourceKind(Enum):
     finding = "finding"
     field_report = "field_report"
+    result_sheet = "result_sheet"
 
 
 class Status(Enum):
@@ -811,7 +916,11 @@ class ResultSheet(BaseModel):
     )
     id: UUID
     project_id: UUID
-    dataset_version_id: UUID
+    dataset_version_id: UUID | None = None
+    escalation_id: UUID | None = Field(
+        None,
+        description="set when a problem on a sheet with no results file to compare was escalated",
+    )
     status: Status2
     model: str | None = None
     reading: SheetReading
@@ -832,7 +941,10 @@ class SheetUpload(BaseModel):
         extra="forbid",
     )
     project_id: UUID
-    dataset_version_id: UUID = Field(..., description="The results the sheet will be compared with")
+    dataset_version_id: UUID | None = Field(
+        None,
+        description="The results the sheet will be compared with; leave out on election day when there are none yet (the sheet's own sums are still checked)",
+    )
     image_base64: str = Field(
         ...,
         description="JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first)",

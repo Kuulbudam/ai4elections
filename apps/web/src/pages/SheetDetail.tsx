@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { COUNT_FIELDS, TEXT_FIELDS, readingLabel, sumParties, type Check, type Figures, type Sheet } from '../lib/sheets'
 import { getSupabase } from '../lib/supabase'
 import { useRole } from '../lib/useRole'
+import { enqueue, flush, locate, newClientId } from '../lib/outbox'
 
 const blank = (): Figures => ({ party_votes: [] })
 
@@ -15,6 +16,9 @@ export default function SheetDetail() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const role = useRole(orgId)
+  const [params] = useSearchParams()
+  const reportPu = params.get('report')
+  const [sentAsResult, setSentAsResult] = useState(false)
 
   useEffect(() => {
     getSupabase()
@@ -39,6 +43,12 @@ export default function SheetDetail() {
       const figures: Figures = { ...fig, party_votes: (fig.party_votes ?? []).filter((p) => p.party.trim()) }
       const s = await api<Sheet>('POST', `/sheets/${sheetId}/confirm`, { figures }, { 'Idempotency-Key': crypto.randomUUID() })
       setSheet(s)
+      if (reportPu) {
+        // Sent from the field app: record it as this polling unit's result (queued if the signal drops).
+        enqueue({ client_id: newClientId(), project_id: projectId, kind: 'result', pu_code: reportPu, captured_at: new Date().toISOString(), location: await locate(), payload: { sheet_id: s.id } })
+        await flush()
+        setSentAsResult(true)
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not confirm the sheet. Try again.')
     }
@@ -58,7 +68,7 @@ export default function SheetDetail() {
       </section>
     )
 
-  const editable = sheet.status === 'read' && (role === 'admin' || role === 'analyst' || role === 'researcher')
+  const editable = sheet.status === 'read' && (role === 'admin' || role === 'analyst' || role === 'researcher' || role === 'coordinator' || role === 'field_agent')
   const conf = sheet.reading.confidence ?? {}
   const flag = (key: string, value: unknown) => {
     if (sheet.status !== 'read' || sheet.reading.status !== 'read') return null
@@ -101,7 +111,19 @@ export default function SheetDetail() {
 
         <div className="sheet-side">
           {sheet.status === 'confirmed' ? (
+            <>
+            {sentAsResult && (
+              <p className="notice" role="status">
+                Sent as the result for {reportPu}. <Link to={`/projects/${projectId}/field`}>Back to field reports</Link>
+              </p>
+            )}
+            {sheet.escalation_id && (
+              <p className="notice warn">
+                The sheet doesn’t add up, so your coordinator has been alerted. <Link to={`/escalations/${sheet.escalation_id}`}>See the escalation</Link>
+              </p>
+            )}
             <Results sheet={sheet} projectId={projectId} />
+            </>
           ) : editable ? (
             <form className="form sheet-form" aria-label="Confirm the sheet's figures" onSubmit={(e) => void confirm(e)}>
               <fieldset>

@@ -546,3 +546,30 @@ a.step-link:hover { background: var(--panel); }
 .area-form input, .area-form select { padding: 6px 8px; }
 .area-actions { display: flex; gap: 6px; }
 .area-actions button { padding: 6px 12px; }
+
+/* ---------- field app (phone first) ---------- */
+.field { max-width: 640px; }
+.net { padding: 8px 12px; border-radius: 4px; font-size: 0.92rem; max-width: none; }
+.net-on { background: var(--good-bg); color: var(--good); }
+.net-off { background: var(--warn-bg); color: var(--warn-ink); }
+.pu-pick select, .pu-pick input { font-size: 1.05rem; padding: 12px; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { display: grid; place-items: center; min-height: 88px; padding: 14px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper); color: var(--ink); font-size: 1.05rem; font-weight: 500; text-align: center; cursor: pointer; }
+.tile:hover { background: var(--panel); }
+.tile input[type='file'] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.tile-alert { border-color: var(--bad-border); color: var(--bad); }
+.tile.busy { opacity: 0.6; }
+.yesno { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border: none; padding: 0; margin: 0; }
+.yesno legend { width: 100%; padding: 0 0 6px; font-family: var(--sans); font-size: 0.95rem; font-weight: 500; }
+.yesno label { display: inline-flex; align-items: center; justify-content: center; min-width: 88px; padding: 10px 16px;
+  border: 1px solid var(--input-border); border-radius: 4px; cursor: pointer; font-weight: 500; }
+.yesno label.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.yesno input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.field-form input, .field-form select, .field-form textarea { font-size: 1.05rem; padding: 12px; }
+.row-actions { display: flex; gap: 10px; }
+.row-actions button { padding: 12px 22px; }
+.sent { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sent li { border-bottom: 1px solid var(--rule); padding: 8px 0; }
+.sent .sev { margin-left: 8px; }
+.field-entry { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .field-entry h2 { width: 100%; }

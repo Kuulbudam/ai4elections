@@ -30,6 +30,7 @@ import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
 import Inbox from './pages/Inbox'
+import Field from './pages/Field'
 import Escalations from './pages/Escalations'
 import EscalationDetail from './pages/EscalationDetail'
 import NotificationBell from './components/NotificationBell'
@@ -127,6 +128,7 @@ function Shell() {
                   <Route path="/findings/:findingId" element={<FindingDetail />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/projects/:projectId/field" element={<Field />} />
                   <Route path="/projects/:projectId/escalations" element={<Escalations />} />
                   <Route path="/escalations/:escalationId" element={<EscalationDetail />} />
                   <Route path="*" element={<p className="empty">Page not found.</p>} />
