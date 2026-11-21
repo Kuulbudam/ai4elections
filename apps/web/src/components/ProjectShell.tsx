@@ -270,6 +270,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       end: false,
     },
     {
+      to: `/projects/${pid}/live`,
+      label: 'Live',
+      icon: 'pulse',
+      end: false,
+    },
+    {
       to: `/projects/${pid}/field`,
       label: 'Field reports',
       icon: 'pin',

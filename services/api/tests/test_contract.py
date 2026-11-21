@@ -43,7 +43,7 @@ def test_all_required_endpoints_present():
 @pytest.mark.parametrize("method,path,op", list(_operations()), ids=lambda x: str(x)[:40])
 def test_operation_conventions(method, path, op):
     assert op.get("operationId")
-    if path == "/health":
+    if path in ("/health", "/signing-key"):
         assert op.get("security") == []
         return
     roles = op.get("x-required-roles")

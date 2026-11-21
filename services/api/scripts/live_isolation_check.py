@@ -16,10 +16,13 @@ append-only by design, so they remain; RLS keeps them invisible to every other o
 
 from __future__ import annotations
 
+import base64
+import io
 import os
 import secrets
 import sys
 import uuid
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -439,6 +442,42 @@ def main() -> int:
     gone = http.get(f"{URL}/rest/v1/area_assignments?select=id&user_id=eq.{agent['id']}",
                     headers=user_headers(admin_a["token"])).json()  # fmt: skip
     check("changing the role back removes the polling unit", r.status_code in (200, 204) and gone == [], str(gone)[:80])
+
+    # --- 6e. live view and signed submission pack (Phase 17)
+    lv = api.get(f"/projects/{projects['a']}/live", headers=bearer("a", "viewer"))
+    row = next((x for x in lv.json().get("areas", []) if x["lga"] == "CI LGA"), {}) if lv.status_code == 200 else {}
+    check("live view counts the field report and its critical incident",
+          row.get("incidents", 0) >= 1 and row.get("critical", 0) >= 1, f"HTTP {lv.status_code} {row}")  # fmt: skip
+    made = api.post(f"/projects/{projects['a']}/submission-packs",
+                    headers={**bearer("a", "admin"), "Idempotency-Key": uuid.uuid4().hex})  # fmt: skip
+    pid = made.json().get("id") if made.status_code == 201 else None
+    dl = api.get(f"/submission-packs/{pid}/download", headers=bearer("a", "viewer")) if pid else None
+    other_org = api.get(f"/submission-packs/{pid}/download", headers=bearer("b", "admin")).status_code if pid else 0
+    check("admin makes a signed pack; it is stored and only the organisation can download it",
+          dl is not None and dl.status_code == 200 and other_org == 404,
+          f"make {made.status_code} {made.text[:120] if made.status_code != 201 else ''}, "
+          f"download {dl.status_code if dl else '-'}, org B {other_org}")  # fmt: skip
+    blob = base64.b64decode(dl.json()["zip_base64"]) if dl is not None and dl.status_code == 200 else b""
+
+    def verify_blob(b: bytes) -> dict:
+        r = api.post("/submission-packs/verify", headers=bearer("b", "viewer"),
+                     json={"zip_base64": base64.b64encode(b).decode()})  # fmt: skip
+        return r.json() if r.status_code == 200 else {"valid": None, "status": r.status_code}
+
+    good = verify_blob(blob) if blob else {}
+    tampered = b""
+    if blob:
+        src, out = zipfile.ZipFile(io.BytesIO(blob)), io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            for n in src.namelist():
+                z.writestr(n, src.read(n) + (b"CI-PU-9,1\n" if n == "results_by_polling_unit.csv" else b""))
+        tampered = out.getvalue()
+    bad = verify_blob(tampered) if tampered else {}
+    key = api.get("/signing-key")
+    check("pack checks out (signature, key, files, recorded); a changed file is caught",
+          good.get("valid") is True and bad.get("valid") is False and key.status_code == 200
+          and key.json().get("key_id") == good.get("key_id"),
+          f"good {good.get('valid')}, tampered {bad.get('valid')}, key {key.status_code}")  # fmt: skip
 
     # --- 7. storage
     def download(tag: str, role: str, path: str) -> int:

@@ -537,6 +537,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/signing-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public key that signs submission packs (no sign-in needed, so anyone given a pack can check it) */
+        get: operations["getSigningKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Election-day view. Counts of what observers reported and sums of confirmed result sheets; no estimates */
+        get: operations["getLiveSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/submission-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Signed submission packs made for this election */
+        get: operations["listSubmissionPacks"];
+        put?: never;
+        /**
+         * Make a signed submission pack (zip with a manifest of SHA-256 hashes and an Ed25519 signature)
+         * @description The organisation hands the pack over itself. Nothing is sent into any INEC system.
+         */
+        post: operations["createSubmissionPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/submission-packs/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The pack's zip file, base64 */
+        get: operations["downloadSubmissionPack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/submission-packs/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a pack (signature, signing key, file hashes, and whether this platform made it)
+         * @description Any signed-in user may check a pack. The same checks can be made offline with VERIFY.txt.
+         */
+        post: operations["verifySubmissionPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1286,6 +1378,132 @@ export interface components {
         };
         CollationList: {
             items: components["schemas"]["CollationCheck"][];
+        };
+        SigningKey: {
+            /** @enum {string} */
+            algorithm: "Ed25519";
+            key_id: string;
+            /** @description Raw 32-byte public key, base64 */
+            public_key: string;
+        };
+        LiveCoverage: {
+            assigned_units: number;
+            reporting_units: number;
+            opened: number;
+            accreditation: number;
+            results: number;
+            closing: number;
+        };
+        LiveIncident: {
+            /** Format: uuid */
+            id: string;
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+            category: components["schemas"]["IncidentCategory"];
+            label: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "critical";
+            description: string;
+            /** Format: date-time */
+            captured_at: string;
+            /** Format: uuid */
+            escalation_id: string | null;
+            /** @enum {string|null} */
+            escalation_status: "open" | "resolved" | null;
+        };
+        LiveCategoryCount: {
+            category: string;
+            label: string;
+            count: number;
+        };
+        LiveIncidents: {
+            total: number;
+            critical: number;
+            open_escalations: number;
+            by_category: components["schemas"]["LiveCategoryCount"][];
+            recent: components["schemas"]["LiveIncident"][];
+        };
+        LiveResults: {
+            /** @description Polling units with a confirmed result sheet */
+            units: number;
+            with_failed_checks: number;
+            party_totals: components["schemas"]["PartyVotes"][];
+            registered_voters: number;
+            accredited_voters: number;
+            valid_votes: number;
+            rejected_votes: number;
+            total_cast: number;
+        };
+        LiveArea: {
+            state: string;
+            lga: string;
+            assigned: number;
+            reporting: number;
+            incidents: number;
+            critical: number;
+            results: number;
+        };
+        LiveSummary: {
+            /** Format: date-time */
+            generated_at: string;
+            coverage: components["schemas"]["LiveCoverage"];
+            incidents: components["schemas"]["LiveIncidents"];
+            results: components["schemas"]["LiveResults"];
+            areas: components["schemas"]["LiveArea"][];
+            /** Format: date-time */
+            last_report_at: string | null;
+        };
+        PackCounts: {
+            polling_units_with_results: number;
+            field_reports: number;
+            incidents: number;
+            critical_incidents: number;
+            escalations: number;
+            open_escalations: number;
+        };
+        SubmissionPack: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by_name: string | null;
+            manifest_sha256: string;
+            zip_sha256: string;
+            zip_bytes: number;
+            key_id: string;
+            counts: components["schemas"]["PackCounts"];
+        };
+        SubmissionPackList: {
+            items: components["schemas"]["SubmissionPack"][];
+        };
+        PackDownload: {
+            filename: string;
+            zip_sha256: string;
+            zip_base64: string;
+        };
+        PackVerify: {
+            zip_base64: string;
+        };
+        PackCheckItem: {
+            id: string;
+            ok: boolean;
+            title: string;
+            detail: string;
+        };
+        PackCheck: {
+            valid: boolean;
+            checks: components["schemas"]["PackCheckItem"][];
+            manifest_sha256: string | null;
+            pack_id: string | null;
+            generated_at: string | null;
+            organisation: string | null;
+            election: string | null;
+            key_id: string | null;
+            counts: components["schemas"]["PackCounts"] | null;
         };
     };
     responses: {
@@ -2348,6 +2566,187 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKey"];
+                };
+            };
+            /** @description Signing is not set up on this server */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLiveSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSummary"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listSubmissionPacks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Packs, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionPackList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createSubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Made and recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionPack"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description Signing is not set up on this server */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    downloadSubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zip */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackDownload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    verifySubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackVerify"];
+            };
+        };
+        responses: {
+            /** @description Result of each check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackCheck"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };

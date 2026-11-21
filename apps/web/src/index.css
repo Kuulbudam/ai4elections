@@ -573,3 +573,20 @@ a.step-link:hover { background: var(--panel); }
 .sent li { border-bottom: 1px solid var(--rule); padding: 8px 0; }
 .sent .sev { margin-left: 8px; }
 .field-entry { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .field-entry h2 { width: 100%; }
+
+/* Phase 17: live view, submission packs */
+.page-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.live-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin: 20px 0; }
+@media (max-width: 860px) { .live-grid { grid-template-columns: 1fr; } }
+.incidents { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; max-height: 420px; overflow-y: auto; }
+.incidents li { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.table td.num, .table th.num { text-align: right; }
+.alert-text { color: var(--bad); font-weight: 500; }
+.ok-text { color: var(--good); }
+.sev-low { background: var(--panel); }
+.pack-card { margin-top: 24px; }
+.pack-card .row-actions { align-items: center; }
+.packs { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; font-size: 0.92rem; }
+.file-button { position: relative; }
+.checks li.pass strong { color: var(--ink); }
+.checks li.fail strong { color: var(--bad); }

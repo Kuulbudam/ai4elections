@@ -1059,6 +1059,191 @@ class CollationList(BaseModel):
     items: list[CollationCheck]
 
 
+class SigningKey(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    algorithm: Literal["Ed25519"]
+    key_id: str = Field(..., pattern="^[a-f0-9]{16}$")
+    public_key: str = Field(..., description="Raw 32-byte public key, base64")
+
+
+class LiveCoverage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    assigned_units: int = Field(..., ge=0)
+    reporting_units: int = Field(..., ge=0)
+    opened: int = Field(..., ge=0)
+    accreditation: int = Field(..., ge=0)
+    results: int = Field(..., ge=0)
+    closing: int = Field(..., ge=0)
+
+
+class Severity2(Enum):
+    low = "low"
+    medium = "medium"
+    critical = "critical"
+
+
+class EscalationStatus(Enum):
+    open = "open"
+    resolved = "resolved"
+    NoneType_None = None
+
+
+class LiveIncident(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+    category: IncidentCategory
+    label: str
+    severity: Severity2
+    description: str
+    captured_at: AwareDatetime
+    escalation_id: UUID | None = None
+    escalation_status: EscalationStatus | None
+
+
+class LiveCategoryCount(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    category: str
+    label: str
+    count: int = Field(..., ge=0)
+
+
+class LiveIncidents(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    total: int = Field(..., ge=0)
+    critical: int = Field(..., ge=0)
+    open_escalations: int = Field(..., ge=0)
+    by_category: list[LiveCategoryCount]
+    recent: list[LiveIncident] = Field(..., max_length=25)
+
+
+class LiveResults(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    units: int = Field(..., description="Polling units with a confirmed result sheet", ge=0)
+    with_failed_checks: int = Field(..., ge=0)
+    party_totals: list[PartyVotes]
+    registered_voters: int = Field(..., ge=0)
+    accredited_voters: int = Field(..., ge=0)
+    valid_votes: int = Field(..., ge=0)
+    rejected_votes: int = Field(..., ge=0)
+    total_cast: int = Field(..., ge=0)
+
+
+class LiveArea(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    state: str
+    lga: str
+    assigned: int = Field(..., ge=0)
+    reporting: int = Field(..., ge=0)
+    incidents: int = Field(..., ge=0)
+    critical: int = Field(..., ge=0)
+    results: int = Field(..., ge=0)
+
+
+class LiveSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    generated_at: AwareDatetime
+    coverage: LiveCoverage
+    incidents: LiveIncidents
+    results: LiveResults
+    areas: list[LiveArea] = Field(..., max_length=200)
+    last_report_at: AwareDatetime | None = None
+
+
+class PackCounts(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    polling_units_with_results: int = Field(..., ge=0)
+    field_reports: int = Field(..., ge=0)
+    incidents: int = Field(..., ge=0)
+    critical_incidents: int = Field(..., ge=0)
+    escalations: int = Field(..., ge=0)
+    open_escalations: int = Field(..., ge=0)
+
+
+class SubmissionPack(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    created_at: AwareDatetime
+    created_by_name: str | None = None
+    manifest_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_bytes: int = Field(..., ge=1)
+    key_id: str = Field(..., pattern="^[a-f0-9]{16}$")
+    counts: PackCounts
+
+
+class SubmissionPackList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[SubmissionPack]
+
+
+class PackDownload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: str
+    zip_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_base64: str
+
+
+class PackVerify(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    zip_base64: str = Field(..., max_length=28000000, min_length=4)
+
+
+class PackCheckItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    ok: bool
+    title: str
+    detail: str
+
+
+class PackCheck(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    valid: bool
+    checks: list[PackCheckItem]
+    manifest_sha256: str | None = None
+    pack_id: str | None = None
+    generated_at: str | None = None
+    organisation: str | None = None
+    election: str | None = None
+    key_id: str | None = None
+    counts: PackCounts | None = None
+
+
 class FinalizeResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
