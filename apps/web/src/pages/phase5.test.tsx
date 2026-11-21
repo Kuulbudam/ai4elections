@@ -67,7 +67,7 @@ function stubApi(calls: string[]) {
       const json = (b: unknown, status = 200) => ({ ok: status < 400, status, json: async () => b })
       if (url.includes('/findings?')) return json({ items: [finding], next_cursor: null })
       if (url.endsWith('/findings/f1')) return json(finding)
-      if (url.endsWith('/reviews')) return json({ id: 'rv2' }, 201)
+      if (url.endsWith('/reviews')) return json({ id: 'rv2', escalation_id: 'e9' }, 201)
       if (url.endsWith('/verify')) return json({ id: 'c1', status: 'verified_fact' })
       return json({ status: 'ok', version: '0.1.0' })
     }),
@@ -112,10 +112,14 @@ describe('finding details', () => {
     expect(screen.getByText('Review decision recorded')).toBeTruthy()
     expect(document.body.textContent).not.toMatch(/fraud|rigg/i)
 
-    fireEvent.change(await screen.findByLabelText('Decision'), { target: { value: 'escalated' } })
+    const decision = await screen.findByLabelText('Decision')
+    expect(Array.from(decision.querySelectorAll('option'), (o) => o.textContent)).toContain('Escalate')
+    fireEvent.change(decision, { target: { value: 'escalated' } })
+    expect(screen.getByText(/goes to the people above you to resolve/)).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Reason (required)'), { target: { value: 'The sheet total disagrees with the row.' } })
     fireEvent.submit(screen.getByRole('form', { name: 'Record a review decision' }))
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST https://api.test/findings/f1/reviews') && c.includes('escalated'))).toBe(true))
+    expect((await screen.findByRole('link', { name: 'Follow it here' })).getAttribute('href')).toBe('/escalations/e9')
 
     fireEvent.change(screen.getByLabelText('Why is this now a verified fact?'), { target: { value: 'Matches the observer report.' } })
     fireEvent.submit(screen.getByRole('form', { name: 'Verify claim' }))

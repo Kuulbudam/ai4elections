@@ -20,6 +20,7 @@ import os
 import secrets
 import sys
 import uuid
+from pathlib import Path
 
 import httpx
 import psycopg
@@ -314,6 +315,49 @@ def main() -> int:
         json={"reason": "Rewriting history attempt."},
     )
     check("reviews cannot be edited via API", r.status_code in (401, 403), f"HTTP {r.status_code}")
+
+    # --- 6b. escalation (Phase 14): real tokens through the API, notifications read through the Data API
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    api = TestClient(app, raise_server_exceptions=False)
+
+    def bearer(tag: str, role: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {users[(tag, role)]['token']}", "Idempotency-Key": str(uuid.uuid4())}
+
+    r = api.post(f"/findings/{findings['a']}/reviews", headers=bearer("a", "analyst"),
+                 json={"decision": "escalated", "reason": "CI: needs a senior decision."})  # fmt: skip
+    eid = r.json().get("escalation_id") if r.status_code == 201 else None
+    check("analyst escalates a finding; it goes to the admins", bool(eid), f"HTTP {r.status_code} {r.text[:120]}")
+    note = http.get(f"{URL}/rest/v1/notifications?select=kind,link&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "admin")]["token"]))  # fmt: skip
+    check("the admin gets a notification", note.status_code == 200 and len(note.json()) == 1, note.text[:120])
+    peek = http.get(f"{URL}/rest/v1/notifications?select=id&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "viewer")]["token"]))  # fmt: skip
+    check(
+        "nobody else can read the admin's notification", peek.status_code == 200 and peek.json() == [], peek.text[:80]
+    )
+    codes = {
+        role: api.post(
+            f"/escalations/{eid}/resolve", headers=bearer("a", role), json={"note": "CI: resolve attempt."}
+        ).status_code  # fmt: skip
+        for role in ("viewer", "researcher", "analyst")
+    }
+    cross = api.get(f"/escalations/{eid}", headers=bearer("b", "admin")).status_code
+    check("only admins can resolve; other organisations get 404",
+          all(c == 403 for c in codes.values()) and cross == 404, f"{codes}, org B {cross}")  # fmt: skip
+    r = api.post(f"/escalations/{eid}/resolve", headers=bearer("a", "admin"),
+                 json={"note": "CI: checked the result sheet; resolved."})  # fmt: skip
+    told = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "analyst")]["token"]))  # fmt: skip
+    check("admin resolves; the analyst who raised it is told",
+          r.status_code == 200 and r.json().get("status") == "resolved"
+          and [x["kind"] for x in told.json()] == ["escalation_resolved"], f"HTTP {r.status_code} {told.text[:120]}")  # fmt: skip
+    edit = http.patch(f"{URL}/rest/v1/escalation_events?escalation_id=eq.{eid}",
+                      headers=user_headers(users[("a", "admin")]["token"]), json={"note": "rewritten"})  # fmt: skip
+    check("escalation history cannot be edited", edit.status_code in (401, 403), f"HTTP {edit.status_code}")
 
     # --- 7. storage
     def download(tag: str, role: str, path: str) -> int:

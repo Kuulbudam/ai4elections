@@ -32,6 +32,7 @@ from app.contracts.models import (
     VerifyClaimRequest,
 )
 from app.deps import act_as, authorize, get_db, rate_limited_user, row_or_404
+from app.escalation import service as esc
 
 router = APIRouter()
 
@@ -218,9 +219,13 @@ def create_review(
 ) -> Any:
     if cached := idempotency.replay(db, user.id, idempotency_key, f"POST /findings/{finding_id}/reviews", body):
         return cached
-    f = row_or_404(db.execute("SELECT id, org_id FROM public.findings WHERE id = %s", (str(finding_id),)).fetchone())
+    f = row_or_404(db.execute(
+        "SELECT id, org_id, project_id, title, state, lga, ward, pu_code FROM public.findings WHERE id = %s",
+        (str(finding_id),),
+    ).fetchone())  # fmt: skip
     authorize(db, str(f["org_id"]), user, REVIEWERS)
     reason = _text(body.reason, "reason", 10)
+    escalation_id = None
     with db.transaction():
         act_as(db, user)
         r = db.execute(
@@ -228,7 +233,13 @@ def create_review(
                VALUES (%s,%s,%s,%s,%s) RETURNING id, finding_id, decision, reason, reviewer_id, created_at""",
             (str(f["org_id"]), str(f["id"]), body.decision.value, reason, user.id),
         ).fetchone()
-    view = Review(**r).model_dump(mode="json")
+        if body.decision.value == "escalated":  # "Escalate": route it up for someone to resolve
+            escalation_id = esc.raise_escalation(
+                db, org_id=str(f["org_id"]), project_id=str(f["project_id"]), source_kind="finding",
+                source_id=str(f["id"]), title=f["title"], raised_by=user.id, reason=reason,
+                area={k: f[k] for k in ("state", "lga", "ward", "pu_code")},
+            )  # fmt: skip
+    view = Review(**r, escalation_id=escalation_id).model_dump(mode="json")
     idempotency.remember(db, user.id, idempotency_key, f"POST /findings/{finding_id}/reviews", body, 201, view)
     return JSONResponse(status_code=201, content=view)
 

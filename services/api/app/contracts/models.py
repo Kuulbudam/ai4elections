@@ -512,6 +512,80 @@ class VersionDashboard(BaseModel):
     data_quality_by_rule: dict[str, int]
 
 
+class EscalationLevel(Enum):
+    ward = "ward"
+    lga = "lga"
+    state = "state"
+    admin = "admin"
+
+
+class EscalationNote(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    note: str = Field(..., max_length=4000, min_length=5)
+
+
+class Kind(Enum):
+    raised = "raised"
+    sent_up = "sent_up"
+    resolved = "resolved"
+    comment = "comment"
+
+
+class EscalationEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    kind: Kind
+    level: EscalationLevel
+    actor_id: UUID
+    actor_name: str | None = None
+    note: str
+    created_at: AwareDatetime
+
+
+class SourceKind(Enum):
+    finding = "finding"
+    field_report = "field_report"
+
+
+class Status(Enum):
+    open = "open"
+    resolved = "resolved"
+
+
+class Escalation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    source_kind: SourceKind
+    source_id: UUID
+    title: str
+    area: dict[str, str]
+    raised_by: UUID
+    raised_by_name: str | None = None
+    reason: str
+    created_at: AwareDatetime
+    current_level: EscalationLevel
+    status: Status
+    resolved_at: AwareDatetime | None = None
+    resolution: str | None = None
+    can_resolve: bool = Field(..., description="the caller may resolve it now")
+    can_send_up: bool = Field(..., description="the caller may pass it to the next level")
+    events: list[EscalationEvent]
+
+
+class EscalationList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[Escalation]
+
+
 class ReviewRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -530,6 +604,7 @@ class Review(BaseModel):
     reason: str
     reviewer_id: UUID
     created_at: AwareDatetime
+    escalation_id: UUID | None = Field(None, description="set when the decision raised an escalation")
 
 
 class ClaimStatus(Enum):
@@ -537,7 +612,7 @@ class ClaimStatus(Enum):
     verified_fact = "verified_fact"
 
 
-class Kind(Enum):
+class Kind1(Enum):
     document_reference = "document_reference"
     link = "link"
     file = "file"
@@ -547,7 +622,7 @@ class ClaimEvidenceInput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    kind: Kind
+    kind: Kind1
     description: str = Field(..., max_length=2000, min_length=1)
     url: AnyUrl | None = None
     file_sha256: str | None = Field(None, pattern="^[a-f0-9]{64}$")
@@ -652,7 +727,7 @@ class SheetFigures(BaseModel):
     party_votes: list[PartyVotes] = Field(..., max_length=40)
 
 
-class Status(Enum):
+class Status1(Enum):
     """
     no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)
     """
@@ -677,7 +752,7 @@ class SheetReading(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    status: Status = Field(
+    status: Status1 = Field(
         ...,
         description="no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)",
     )
@@ -723,7 +798,7 @@ class SheetComparison(BaseModel):
     rows: list[SheetComparisonRow]
 
 
-class Status1(Enum):
+class Status2(Enum):
     read = "read"
     confirmed = "confirmed"
 
@@ -735,7 +810,7 @@ class ResultSheet(BaseModel):
     id: UUID
     project_id: UUID
     dataset_version_id: UUID
-    status: Status1
+    status: Status2
     model: str | None = None
     reading: SheetReading
     confirmed: SheetFigures | None = None
@@ -801,7 +876,7 @@ class CollationFigure(BaseModel):
     missing_units: int = Field(..., ge=0)
 
 
-class Status2(Enum):
+class Status3(Enum):
     match = "match"
     mismatch = "mismatch"
     incomplete = "incomplete"
@@ -817,7 +892,7 @@ class CollationArea(BaseModel):
     lga: str | None = None
     ward: str | None = None
     row: int = Field(..., description="Row of the declared-totals file")
-    status: Status2
+    status: Status3
     units: int = Field(..., ge=0)
     duplicate_units: int = Field(..., ge=0)
     figures: list[CollationFigure]

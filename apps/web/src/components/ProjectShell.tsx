@@ -23,6 +23,7 @@ type Project = {
   election_year: number
 }
 type Counts = {
+  escalations: number
   toReview: number
   flagged: number
   reports: number
@@ -47,6 +48,7 @@ function useScope() {
     versionId: m('/versions/:versionId')?.versionId,
     findingId: m('/findings/:findingId')?.findingId,
     reportId: m('/reports/:reportId')?.reportId,
+    escalationId: m('/escalations/:escalationId')?.escalationId,
   }
 }
 
@@ -74,6 +76,8 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
           pid = (await sb.from('dataset_versions').select('project_id').eq('id', scope.versionId).maybeSingle()).data?.project_id ?? null
         if (!pid && scope.findingId) pid = (await sb.from('findings').select('project_id').eq('id', scope.findingId).maybeSingle()).data?.project_id ?? null
         if (!pid && scope.reportId) pid = (await sb.from('reports').select('project_id').eq('id', scope.reportId).maybeSingle()).data?.project_id ?? null
+        if (!pid && scope.escalationId)
+          pid = (await sb.from('escalations').select('project_id').eq('id', scope.escalationId).maybeSingle()).data?.project_id ?? null
         if (live) setProjectId(pid)
       } catch {
         if (live) setProjectId(null)
@@ -82,7 +86,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
     return () => {
       live = false
     }
-  }, [scope.projectId, scope.versionId, scope.findingId, scope.reportId])
+  }, [scope.projectId, scope.versionId, scope.findingId, scope.reportId, scope.escalationId])
 
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -92,7 +96,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
     let live = true
     ;(async () => {
       try {
-        const [p, v, r, c] = await Promise.all([
+        const [p, v, r, c, es] = await Promise.all([
           sb.from('projects').select('id, org_id, election_name, election_year').eq('id', projectId).maybeSingle(),
           sb
             .from('dataset_versions')
@@ -104,6 +108,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
             .order('created_at', { ascending: false }),
           sb.from('reports').select('id').eq('project_id', projectId).limit(500),
           sb.from('claims').select('id').eq('project_id', projectId).eq('status', 'unverified_allegation').limit(500),
+          sb.from('escalation_overview').select('id').eq('project_id', projectId).eq('status', 'open').limit(500),
         ])
         if (!live) return
         setProject((p.data as Project) ?? null)
@@ -135,9 +140,10 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
             flagged,
             reports: Array.isArray(r.data) ? r.data.length : 0,
             unverified: Array.isArray(c.data) ? c.data.length : 0,
+            escalations: Array.isArray(es.data) ? es.data.length : 0,
           })
       } catch {
-        if (live) setCounts({ toReview: 0, flagged: 0, reports: 0, unverified: 0 })
+        if (live) setCounts({ toReview: 0, flagged: 0, reports: 0, unverified: 0, escalations: 0 })
       }
     })()
     return () => {
@@ -261,6 +267,12 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       to: `/projects/${pid}/collation`,
       label: 'Collation check',
       icon: 'sum',
+      end: false,
+    },
+    {
+      to: `/projects/${pid}/escalations`,
+      label: `Escalations${counts?.escalations ? ` (${counts.escalations} open)` : ''}`,
+      icon: 'up',
       end: false,
     },
     {

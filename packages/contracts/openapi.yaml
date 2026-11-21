@@ -628,6 +628,103 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /escalations:
+    get:
+      operationId: listEscalations
+      summary: Escalations in a project, open first
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator, field_agent]
+      parameters:
+        - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [open, resolved] } }
+      responses:
+        "200":
+          description: Escalations
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EscalationList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /escalations/{id}:
+    get:
+      operationId: getEscalation
+      summary: One escalation with its full history
+      x-required-roles: [admin, analyst, researcher, viewer]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: The escalation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Escalation" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /escalations/{id}/resolve:
+    post:
+      operationId: resolveEscalation
+      summary: Resolve an escalation (reason required); the person who raised it is notified
+      x-required-roles: [admin, coordinator]
+      description: Admins, or a coordinator it was escalated to (current level and area).
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EscalationNote" }
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Escalation" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /escalations/{id}/send-up:
+    post:
+      operationId: sendUpEscalation
+      summary: Pass an escalation to the next level up (note required)
+      x-required-roles: [coordinator]
+      description: A coordinator it was escalated to (current level and area).
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EscalationNote" }
+      responses:
+        "200":
+          description: Sent up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Escalation" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1184,6 +1281,64 @@ components:
           type: object
           additionalProperties: { type: integer }
 
+    EscalationLevel:
+      type: string
+      enum: [ward, lga, state, admin]
+
+    EscalationNote:
+      type: object
+      additionalProperties: false
+      required: [note]
+      properties:
+        note: { type: string, minLength: 5, maxLength: 4000 }
+
+    EscalationEvent:
+      type: object
+      additionalProperties: false
+      required: [id, kind, level, actor_id, note, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [raised, sent_up, resolved, comment] }
+        level: { $ref: "#/components/schemas/EscalationLevel" }
+        actor_id: { type: string, format: uuid }
+        actor_name: { type: [string, "null"] }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Escalation:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, source_kind, source_id, title, area, raised_by, reason, created_at, current_level, status, can_resolve, can_send_up, events]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        source_kind: { type: string, enum: [finding, field_report] }
+        source_id: { type: string, format: uuid }
+        title: { type: string }
+        area: { type: object, additionalProperties: { type: string } }
+        raised_by: { type: string, format: uuid }
+        raised_by_name: { type: [string, "null"] }
+        reason: { type: string }
+        created_at: { type: string, format: date-time }
+        current_level: { $ref: "#/components/schemas/EscalationLevel" }
+        status: { type: string, enum: [open, resolved] }
+        resolved_at: { type: [string, "null"], format: date-time }
+        resolution: { type: [string, "null"] }
+        can_resolve: { type: boolean, description: "the caller may resolve it now" }
+        can_send_up: { type: boolean, description: "the caller may pass it to the next level" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/EscalationEvent" }
+
+    EscalationList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Escalation" }
+
     ReviewRequest:
       type: object
       additionalProperties: false
@@ -1203,6 +1358,7 @@ components:
         reason: { type: string }
         reviewer_id: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
+        escalation_id: { type: [string, "null"], format: uuid, description: "set when the decision raised an escalation" }
 
     ClaimStatus:
       type: string

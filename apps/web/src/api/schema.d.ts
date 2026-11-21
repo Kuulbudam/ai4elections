@@ -425,6 +425,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/escalations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Escalations in a project, open first */
+        get: operations["listEscalations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One escalation with its full history */
+        get: operations["getEscalation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve an escalation (reason required); the person who raised it is notified
+         * @description Admins, or a coordinator it was escalated to (current level and area).
+         */
+        post: operations["resolveEscalation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}/send-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pass an escalation to the next level up (note required)
+         * @description A coordinator it was escalated to (current level and area).
+         */
+        post: operations["sendUpEscalation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -791,6 +865,58 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** @enum {string} */
+        EscalationLevel: "ward" | "lga" | "state" | "admin";
+        EscalationNote: {
+            note: string;
+        };
+        EscalationEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "raised" | "sent_up" | "resolved" | "comment";
+            level: components["schemas"]["EscalationLevel"];
+            /** Format: uuid */
+            actor_id: string;
+            actor_name?: string | null;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        Escalation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** @enum {string} */
+            source_kind: "finding" | "field_report";
+            /** Format: uuid */
+            source_id: string;
+            title: string;
+            area: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            raised_by: string;
+            raised_by_name?: string | null;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            current_level: components["schemas"]["EscalationLevel"];
+            /** @enum {string} */
+            status: "open" | "resolved";
+            /** Format: date-time */
+            resolved_at?: string | null;
+            resolution?: string | null;
+            /** @description the caller may resolve it now */
+            can_resolve: boolean;
+            /** @description the caller may pass it to the next level */
+            can_send_up: boolean;
+            events: components["schemas"]["EscalationEvent"][];
+        };
+        EscalationList: {
+            items: components["schemas"]["Escalation"][];
+        };
         ReviewRequest: {
             decision: components["schemas"]["ReviewDecision"];
             reason: string;
@@ -806,6 +932,11 @@ export interface components {
             reviewer_id: string;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: uuid
+             * @description set when the decision raised an escalation
+             */
+            escalation_id?: string | null;
         };
         /** @enum {string} */
         ClaimStatus: "unverified_allegation" | "verified_fact";
@@ -1887,6 +2018,131 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listEscalations: {
+        parameters: {
+            query: {
+                project_id: string;
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Escalations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EscalationList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getEscalation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The escalation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    resolveEscalation: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EscalationNote"];
+            };
+        };
+        responses: {
+            /** @description Resolved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    sendUpEscalation: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EscalationNote"];
+            };
+        };
+        responses: {
+            /** @description Sent up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
         };

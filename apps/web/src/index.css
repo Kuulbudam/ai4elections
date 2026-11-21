@@ -527,3 +527,15 @@ a.step-link:hover { background: var(--panel); }
   .masthead .theme-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .masthead .theme-toggle { padding: 6px 8px; }
 }
+
+/* ---------- inbox and escalations ---------- */
+.bell { position: relative; display: inline-flex; align-items: center; color: var(--ink); padding: 4px; border-radius: 4px; }
+.bell svg { width: 20px; height: 20px; }
+.bell-count { position: absolute; top: -4px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--bad); color: var(--paper); font-size: 0.72rem; font-weight: 500; display: grid; place-items: center; }
+.inbox { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-width: 760px; }
+.inbox-item { display: grid; gap: 2px; width: 100%; text-align: left; border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px;
+  background: var(--paper); color: var(--ink); font-weight: 400; }
+.inbox li.unread .inbox-item { border-left: 3px solid var(--brand); }
+.inbox li.unread .inbox-title { font-weight: 500; }
+.inbox-body { color: var(--granite); font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

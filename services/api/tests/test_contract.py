@@ -10,7 +10,7 @@ from openapi_spec_validator import validate
 
 CONTRACTS = Path(__file__).resolve().parents[3] / "packages" / "contracts"
 SPEC = yaml.safe_load((CONTRACTS / "openapi.yaml").read_text())
-ROLES = {"admin", "analyst", "researcher", "viewer"}
+ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator", "field_agent"}
 REQUIRED_PATHS = {
     ("post", "/uploads"),
     ("post", "/dataset-versions/{id}/finalize"),
