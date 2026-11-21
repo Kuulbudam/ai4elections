@@ -97,7 +97,7 @@ def configured() -> Transcriber | None:
             items.append(Whisper(p["key"], p["base"], model))
         elif p["provider"] == "gemini":
             m = os.environ.get("GEMINI_STT_MODEL", "").strip()
-            for name in [m] if m else candidate_models(p["key"], p["base"], PREFERRED_GEMINI_MODELS)[:2]:
+            for name in [m] if m else candidate_models(p["key"], p["base"], PREFERRED_GEMINI_MODELS):
                 items.append(GeminiAudio(p["key"], name))
     if not items:
         return None
