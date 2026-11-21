@@ -518,3 +518,12 @@ a.step-link:hover { background: var(--panel); }
 /* Figures line up in tables and counters (kept off body text, where it widens hyphens). */
 .table td, .table th, .kpi-value, .stat-value, .facts dd { font-variant-numeric: tabular-nums; }
 .auth-aside .auth-statement { color: var(--aside-ink); }
+
+/* Phones: the top bar keeps the logo, the theme switch (icon only, still named for screen readers) and Sign out. */
+@media (max-width: 560px) {
+  .masthead { flex-wrap: wrap; }
+  .account { gap: 10px; }
+  .account-email { display: none; }
+  .masthead .theme-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .masthead .theme-toggle { padding: 6px 8px; }
+}
