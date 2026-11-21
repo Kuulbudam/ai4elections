@@ -3,13 +3,14 @@ import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { CATEGORY, DECISION, INDICATOR, SEVERITY, pct, type Finding, type FindingPage } from '../lib/findings'
 import { getSupabase } from '../lib/supabase'
+import FindingsSummary from '../components/FindingsSummary'
 
 type Filters = Record<'category' | 'indicator' | 'severity' | 'confidence' | 'review_status' | 'state' | 'lga' | 'ward', string>
 const EMPTY: Filters = { category: '', indicator: '', severity: '', confidence: '', review_status: '', state: '', lga: '', ward: '' }
 
 export default function Findings() {
   const { projectId = '' } = useParams()
-  const [project, setProject] = useState<{ election_name: string } | null>(null)
+  const [project, setProject] = useState<{ election_name: string; org_id: string } | null>(null)
   const [units, setUnits] = useState<{ state: string; lga: string; ward: string }[]>([])
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [items, setItems] = useState<Finding[] | null>(null)
@@ -20,7 +21,7 @@ export default function Findings() {
   useEffect(() => {
     const sb = getSupabase()
     if (!sb) return
-    sb.from('projects').select('election_name').eq('id', projectId).maybeSingle().then(({ data }) => setProject(data))
+    sb.from('projects').select('election_name, org_id').eq('id', projectId).maybeSingle().then(({ data }) => setProject(data))
     sb.from('admin_units').select('state, lga, ward').eq('project_id', projectId).order('state').order('lga').order('ward').limit(1000)
       .then(({ data }) => setUnits(data ?? []))
   }, [projectId])
@@ -159,6 +160,7 @@ export default function Findings() {
           </div>
         </>
       )}
+      <FindingsSummary projectId={projectId} orgId={project?.org_id} />
     </section>
   )
 }

@@ -128,15 +128,8 @@ def list_findings(
     return FindingPage(items=[_finding_view(r) for r in rows], next_cursor=nxt).model_dump(mode="json")
 
 
-def find_rows(
-    db: psycopg.Connection,
-    project_id: str,
-    analytical_run_id: uuid.UUID | str | None,
-    filters: dict[str, Any],
-    cursor: str | None,
-    limit: int,
-) -> tuple[list[dict[str, Any]], str | None]:
-    """Filtered, ordered page of findings for one project. Caller must have authorised the project."""
+def scope(project_id: str, analytical_run_id: uuid.UUID | str | None = None) -> tuple[list[str], list[Any]]:
+    """WHERE parts (and their values) for the findings people see for a project: what the Findings page lists."""
     where, args = ["project_id = %s"], [project_id]
     # Cross-checks (result sheets, collation) belong to a dataset version, not to an analysis run: they are listed
     # with the run of the version they were checked against.
@@ -154,6 +147,19 @@ def find_rows(
             "(SELECT id FROM public.dataset_versions WHERE project_id = %s AND archived_at IS NULL)))"
         )
         args += [project_id, project_id]
+    return where, args
+
+
+def find_rows(
+    db: psycopg.Connection,
+    project_id: str,
+    analytical_run_id: uuid.UUID | str | None,
+    filters: dict[str, Any],
+    cursor: str | None,
+    limit: int,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Filtered, ordered page of findings for one project. Caller must have authorised the project."""
+    where, args = scope(project_id, analytical_run_id)
     for col in ("category", "indicator", "severity", "confidence", "review_status"):
         val = filters.get(col)
         if val is not None:

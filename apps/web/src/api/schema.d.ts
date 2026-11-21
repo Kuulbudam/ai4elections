@@ -646,6 +646,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/findings-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The latest AI summary of the findings in one language, and whether the counts have changed since */
+        get: operations["getFindingsSummary"];
+        put?: never;
+        /** Write a new AI summary from counts the server makes. Every number is checked against those counts */
+        post: operations["writeFindingsSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1533,6 +1551,31 @@ export interface components {
             text: string;
             language: components["schemas"]["AnswerLanguage"];
             model: string;
+        };
+        FindingsSummaryRequest: {
+            language?: components["schemas"]["AnswerLanguage"];
+        };
+        FindingsSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by_name: string | null;
+            language: components["schemas"]["AnswerLanguage"];
+            /** @description The counts the summary was written from (made by the server, not the AI) */
+            facts: {
+                [key: string]: unknown;
+            };
+            summary: string;
+            /** @description Every number in the summary was found in the counts */
+            grounded: boolean;
+            /** @enum {string|null} */
+            note: "ungrounded" | "wording" | "empty" | null;
+            model: string | null;
+            /** @description The findings changed after this summary was written */
+            stale: boolean;
         };
     };
     responses: {
@@ -2828,6 +2871,87 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
+        };
+    };
+    getFindingsSummary: {
+        parameters: {
+            query?: {
+                language?: components["schemas"]["AnswerLanguage"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsSummary"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    writeFindingsSummary: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingsSummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Written and kept */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsSummary"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description The AI service could not be used */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description No AI provider key */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

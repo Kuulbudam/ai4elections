@@ -1263,6 +1263,40 @@ class Transcript(BaseModel):
     model: str
 
 
+class FindingsSummaryRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    language: AnswerLanguage | None = "en"
+
+
+class Note1(Enum):
+    ungrounded = "ungrounded"
+    wording = "wording"
+    empty = "empty"
+    NoneType_None = None
+
+
+class FindingsSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    created_at: AwareDatetime
+    created_by_name: str | None = None
+    language: AnswerLanguage
+    facts: dict[str, Any] = Field(
+        ...,
+        description="The counts the summary was written from (made by the server, not the AI)",
+    )
+    summary: str = Field(..., max_length=4000)
+    grounded: bool = Field(..., description="Every number in the summary was found in the counts")
+    note: Note1 | None
+    model: str | None = None
+    stale: bool = Field(..., description="The findings changed after this summary was written")
+
+
 class FinalizeResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

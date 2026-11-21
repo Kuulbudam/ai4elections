@@ -599,3 +599,8 @@ a.step-link:hover { background: var(--panel); }
 @media (prefers-reduced-motion: reduce) { .mic-on .icon { animation: none; } }
 .speak-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -4px 0 8px; }
 .turn-assistant > .link { margin: 4px 0; }
+
+/* Phase 19: findings summary */
+.summary-card { margin-top: 28px; }
+.summary-card .row-between { align-items: baseline; }
+.summary-text { font-size: 1.05rem; line-height: 1.6; max-width: 72ch; }

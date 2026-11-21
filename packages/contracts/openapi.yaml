@@ -960,6 +960,61 @@ paths:
         "500": { $ref: "#/components/responses/Internal" }
 
 
+  /projects/{id}/findings-summary:
+    get:
+      operationId: getFindingsSummary
+      summary: The latest AI summary of the findings in one language, and whether the counts have changed since
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - { name: language, in: query, required: false, schema: { $ref: "#/components/schemas/AnswerLanguage" } }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingsSummary" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+    post:
+      operationId: writeFindingsSummary
+      summary: Write a new AI summary from counts the server makes. Every number is checked against those counts
+      x-required-roles: [admin, analyst, researcher, coordinator]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FindingsSummaryRequest" }
+      responses:
+        "201":
+          description: Written and kept
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingsSummary" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502":
+          description: The AI service could not be used
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: No AI provider key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2219,3 +2274,29 @@ components:
         text: { type: string, maxLength: 2000 }
         language: { $ref: "#/components/schemas/AnswerLanguage" }
         model: { type: string }
+
+    FindingsSummaryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
+
+    FindingsSummary:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, created_at, created_by_name, language, facts, summary, grounded, note, model, stale]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        created_by_name: { type: [string, "null"] }
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
+        facts:
+          type: object
+          description: The counts the summary was written from (made by the server, not the AI)
+          additionalProperties: true
+        summary: { type: string, maxLength: 4000 }
+        grounded: { type: boolean, description: "Every number in the summary was found in the counts" }
+        note: { type: [string, "null"], enum: [ungrounded, wording, empty, null] }
+        model: { type: [string, "null"] }
+        stale: { type: boolean, description: "The findings changed after this summary was written" }

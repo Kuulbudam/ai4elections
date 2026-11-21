@@ -137,6 +137,21 @@ def main() -> int:
     check("unknown finding id returns no invented details",
           code == 200 and not any(x["name"] == "get_finding" and x["ok"] for x in out.get("lookups", [])),
           f"{took:.1f}s; lookups {out.get('lookups')}; {ans[:160]!r}")  # fmt: skip
+
+    # Phase 19: the summary at the end of Findings, written by the real model from the server's counts.
+    for lang in ("en", "ha"):
+        time.sleep(35)
+        t0 = time.monotonic()
+        r = api.post(f"/projects/{proj}/findings-summary", headers=auth, json={"language": lang})
+        s = r.json() if r.status_code == 201 else {}
+        text = s.get("summary", "")
+        check(f"findings summary in {lang}: written from the counts, every number checked, no accusation",
+              r.status_code == 201 and s.get("grounded") is True and s.get("note") is None
+              and str(s.get("facts", {}).get("findings")) in text and not service.accuses(text),
+              f"HTTP {r.status_code} in {time.monotonic() - t0:.1f}s: {text[:220]!r}")  # fmt: skip
+    got = api.get(f"/projects/{proj}/findings-summary", headers=auth, params={"language": "en"})
+    check("latest summary is kept and up to date", got.status_code == 200 and got.json().get("stale") is False,
+          f"HTTP {got.status_code}")  # fmt: skip
     return L.report()
 
 
