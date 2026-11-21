@@ -47,7 +47,7 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: always()
         with:
           python-version: "3.13"
