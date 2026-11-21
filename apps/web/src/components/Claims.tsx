@@ -67,7 +67,7 @@ export function ClaimForm({ projectId, findingId, onDone }: { projectId: string;
   if (!open)
     return (
       <button type="button" onClick={() => setOpen(true)}>
-        Record an allegation
+        Add a claim
       </button>
     )
   async function submit(e: FormEvent) {
@@ -81,20 +81,20 @@ export function ClaimForm({ projectId, findingId, onDone }: { projectId: string;
       setOpen(false)
       await onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not record the allegation.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t save the claim. Try again.')
     }
     setBusy(false)
   }
   return (
-    <form className="form card" aria-label="Record an allegation" onSubmit={(e) => void submit(e)}>
+    <form className="form card" aria-label="Add a claim" onSubmit={(e) => void submit(e)}>
       <label>
-        What is being alleged? (recorded as an unverified allegation)
+        What was reported?
         <textarea value={statement} onChange={(e) => setStatement(e.target.value)} minLength={10} maxLength={4000} rows={3} required />
       </label>
-      <p className="small muted">Evidence (optional now; needed before anyone can verify the claim)</p>
+      <p className="small muted">Evidence (you can add this later, but it’s needed before the claim can be verified)</p>
       <EvidenceFields value={ev} onChange={setEv} />
       <button type="submit" className="primary" disabled={busy || statement.trim().length < 10}>
-        {busy ? 'Saving…' : 'Record allegation'}
+        {busy ? 'Saving…' : 'Save claim'}
       </button>
       {error && <p role="alert" className="error">{error}</p>}
     </form>
@@ -122,7 +122,7 @@ export function ClaimCard({ c, items, who, canReview, canContribute, me, orgId, 
       await api('POST', `/claims/${c.id}/verify`, { reason: reason.trim() }, { 'Idempotency-Key': crypto.randomUUID() })
       await onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not verify the claim.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t verify the claim. Try again.')
     }
   }
 
@@ -137,7 +137,7 @@ export function ClaimCard({ c, items, who, canReview, canContribute, me, orgId, 
           {c.finding_id && (
           <>
             {' · '}
-            <Link to={`/findings/${c.finding_id}`}>open finding</Link>
+            <Link to={`/findings/${c.finding_id}`}>open the finding</Link>
           </>
         )}
         {verified && ` · verified by ${who(c.verified_by)}, ${new Date(c.verified_at!).toLocaleString()}: ${c.verification_reason}`}
@@ -160,29 +160,29 @@ export function ClaimCard({ c, items, who, canReview, canContribute, me, orgId, 
           ))}
         </ul>
       ) : (
-        <p className="small muted">No evidence attached yet.</p>
+        <p className="small muted">No evidence yet.</p>
       )}
       {canContribute && (
-        <form className="form" aria-label="Attach evidence" onSubmit={(e) => void addEvidence(e)}>
+        <form className="form" aria-label="Add evidence" onSubmit={(e) => void addEvidence(e)}>
           <EvidenceFields value={ev} onChange={setEv} />
           <button type="submit" disabled={!evidenceReady(ev)}>
-            Attach evidence
+            Add evidence
           </button>
         </form>
       )}
       {canReview && !verified && c.created_by !== me && (
         <form className="form" aria-label="Verify claim" onSubmit={(e) => void verify(e)}>
           <label>
-            Verify as fact: reason (required)
+            Why is this now a verified fact?
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} minLength={10} />
           </label>
           <button type="submit" disabled={items.length === 0 || reason.trim().length < 10}>
-            Verify claim
+            Mark as verified
           </button>
-          {items.length === 0 && <span className="small muted"> Attach evidence first.</span>}
+          {items.length === 0 && <span className="small muted"> Add evidence first.</span>}
         </form>
       )}
-      {canReview && !verified && c.created_by === me && <p className="small muted">You recorded this claim, so someone else must verify it.</p>}
+      {canReview && !verified && c.created_by === me && <p className="small muted">You added this claim, so someone else has to verify it.</p>}
       {error && <p role="alert" className="error">{error}</p>}
     </article>
   )

@@ -72,7 +72,7 @@ describe('areas page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Synthia' }))
     await waitFor(() => expect(calls.some((c) => c.includes('level=lga') && c.includes('state=Synthia'))).toBe(true))
     expect((await screen.findAllByText('Birchx')).length).toBeGreaterThan(0)
-    expect(screen.getByText(/not in reference list/)).toBeTruthy()
+    expect(screen.getByText(/not on official list/)).toBeTruthy()
     expect(document.body.textContent).not.toMatch(/fraud|rigg/i)
   })
 })

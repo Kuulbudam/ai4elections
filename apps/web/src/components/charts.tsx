@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { C, SEV_LABEL } from './chartTheme'
+import { SEV_LABEL, useChartColours } from './chartTheme'
 
 /* Chart set for the analysis dashboard. Method: dataviz skill (validated reference palette).
    - One series per chart in the series blue; "unusual" is shown as emphasis, not a new hue.
@@ -32,6 +32,7 @@ export function ChartCard({ title, subtitle, children, action }: { title: string
 
 type Tip = { x: number; y: number; lines: string[] } | null
 function Tooltip({ tip, width }: { tip: Tip; width: number }) {
+  const C = useChartColours()
   if (!tip) return null
   const w = Math.max(...tip.lines.map((l) => l.length)) * 6.6 + 16
   const h = tip.lines.length * 16 + 10
@@ -39,7 +40,7 @@ function Tooltip({ tip, width }: { tip: Tip; width: number }) {
   const y = tip.y - h - 10 < 0 ? tip.y + 14 : tip.y - h - 10
   return (
     <g pointerEvents="none">
-      <rect x={x} y={y} width={w} height={h} rx={3} fill="#fff" stroke={C.axis} />
+      <rect x={x} y={y} width={w} height={h} rx={3} fill={C.surface} stroke={C.axis} />
       {tip.lines.map((l, i) => (
         <text key={i} x={x + 8} y={y + 17 + i * 16} fontSize={12} fill={i === 0 ? C.ink : C.ink2} fontWeight={i === 0 ? 600 : 400}>
           {l}
@@ -53,6 +54,7 @@ const pct = (v: number, d = 0) => `${(v * 100).toFixed(d)}%`
 
 /** Distribution of a 0–1 rate across polling units, with the unusual units' values marked on a rug below the axis. */
 export function Histogram({ values, marks, label }: { values: number[]; marks: { value: number; severity: string }[]; label: string }) {
+  const C = useChartColours()
   const [tip, setTip] = useState<Tip>(null)
   const W = 420, H = 210, L = 38, R = 10, T = 10, B = 46 // prettier-ignore
   const bins = 40
@@ -125,6 +127,7 @@ export type Point = { id: string; x: number; y: number; severity: string; label:
 
 /** Each unusual unit's value against its peer group's median. Points far from the diagonal differ most from their peers. */
 export function Scatter({ points, onPick, xLabel, yLabel }: { points: Point[]; onPick: (id: string) => void; xLabel: string; yLabel: string }) {
+  const C = useChartColours()
   const [tip, setTip] = useState<Tip>(null)
   const W = 420, H = 280, L = 44, R = 12, T = 10, B = 40 // prettier-ignore
   const sx = (v: number) => L + v * (W - L - R)
@@ -167,7 +170,7 @@ export function Scatter({ points, onPick, xLabel, yLabel }: { points: Point[]; o
           cy={sy(p.y)}
           r={5}
           fill={C.sev[p.severity] ?? C.series}
-          stroke="#fff"
+          stroke={C.surface}
           strokeWidth={2}
           style={{ cursor: 'pointer' }}
           tabIndex={0}
@@ -195,6 +198,7 @@ export function RankedBars({
   onPick?: (key: string) => void
   unit: string
 }) {
+  const C = useChartColours()
   const [hover, setHover] = useState<number | null>(null)
   const W = 420, rowH = 24, L = 150, R = 36 // prettier-ignore
   const H = rows.length * rowH + 6
@@ -216,7 +220,7 @@ export function RankedBars({
             aria-label={onPick ? `${r.label}: ${r.value} ${unit}. Filter the dashboard to this area` : undefined}
             onKeyDown={(e) => onPick && (e.key === 'Enter' || e.key === ' ') && onPick(r.key)}
           >
-            <rect x={0} y={y - 2} width={W} height={rowH} fill={hover === i ? '#f3f5f7' : 'transparent'} />
+            <rect x={0} y={y - 2} width={W} height={rowH} fill={hover === i ? C.hover : 'transparent'} />
             <text x={L - 8} y={y + 13} fontSize={12} textAnchor="end" fill={dim ? C.ink2 : C.ink} fontWeight={selected === r.key ? 700 : 400}>
               {r.label.length > 23 ? `${r.label.slice(0, 22)}…` : r.label}
             </text>
@@ -233,6 +237,7 @@ export function RankedBars({
 
 /** One whole split into a few ordered parts (how unusual), with labels on the blocks and a legend. */
 export function SegmentedBar({ parts, label }: { parts: { key: string; value: number }[]; label: string }) {
+  const C = useChartColours()
   const total = parts.reduce((a, b) => a + b.value, 0)
   if (!total) return <p className="muted small">No unusual units.</p>
   return (

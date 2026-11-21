@@ -14,8 +14,7 @@
     "gen:types:check": "openapi-typescript ../../packages/contracts/openapi.yaml -o /tmp/ai4e-schema.d.ts && diff -q /tmp/ai4e-schema.d.ts src/api/schema.d.ts && echo \"TypeScript types match openapi.yaml\""
   },
   "dependencies": {
-    "@fontsource/source-sans-3": "^5.3.1",
-    "@fontsource/source-serif-4": "^5.3.1",
+    "@fontsource/inter": "^5.3.0",
     "@supabase/supabase-js": "^2.119.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

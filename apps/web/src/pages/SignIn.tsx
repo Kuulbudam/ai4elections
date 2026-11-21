@@ -47,12 +47,12 @@ export default function SignIn() {
 
   return (
     <AuthLayout labelledBy="auth-heading">
-        <h1 id="auth-heading">{mode === 'signin' ? 'Sign in' : 'Create an account'}</h1>
+        <h1 id="auth-heading">{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
         <button type="button" className="primary wide" onClick={() => void google()} disabled={busy}>
           Continue with Google
         </button>
         <p className="divider">
-          <span>or use your email and password</span>
+          <span>or</span>
         </p>
         <form onSubmit={submit} className="form">
           {mode === 'signup' && (
@@ -87,7 +87,7 @@ export default function SignIn() {
           </button>
         </form>
         <button type="button" className="link" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
-          {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
+          {mode === 'signin' ? 'Create account' : 'Sign in'}
         </button>
     </AuthLayout>
   )

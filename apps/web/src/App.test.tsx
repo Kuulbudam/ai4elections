@@ -43,7 +43,7 @@ describe('configuration and sign-in', () => {
   it('says plainly when Supabase is not configured', () => {
     setSupabaseForTests(null)
     render(<App />)
-    expect(screen.getByRole('alert').textContent).toMatch(/not configured/i)
+    expect(screen.getByRole('alert').textContent).toMatch(/not set up yet/i)
   })
 
   it('signs in with email and password', async () => {
@@ -92,7 +92,7 @@ describe('configuration and sign-in', () => {
     const sb = fakeClient()
     setSupabaseForTests(sb as never)
     render(<App />)
-    fireEvent.click(await screen.findByText(/Create an account/))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create account' }))
     fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Ada' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.test' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-enough-pw' } })
@@ -154,10 +154,10 @@ describe('members', () => {
     setSupabaseForTests(membersClient('researcher') as never)
     window.history.pushState({}, '', '/orgs/o1/members')
     render(<App />)
-    expect(await screen.findByText('Org One — members')).toBeTruthy()
+    expect(await screen.findByText('Org One: members')).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Add member' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
-    expect(screen.getByText(/Only organisation admins/)).toBeTruthy()
+    expect(screen.getByText(/Only admins can add or remove members/)).toBeTruthy()
   })
 
   it('lets admins add members and shows server errors clearly', async () => {
@@ -168,7 +168,7 @@ describe('members', () => {
     setSupabaseForTests(sb as never)
     window.history.pushState({}, '', '/orgs/o1/members')
     render(<App />)
-    fireEvent.change(await screen.findByLabelText('Email of a registered user'), { target: { value: 'new@example.test' } })
+    fireEvent.change(await screen.findByLabelText('Their email (they need an account first)'), { target: { value: 'new@example.test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add member' }))
     expect((await screen.findByRole('alert')).textContent).toMatch(/ask them to sign up first/)
     expect(sb.rpc).toHaveBeenCalledWith('add_member', { p_org: 'o1', p_email: 'new@example.test', p_role: 'viewer' })
@@ -180,7 +180,7 @@ describe('API status and wording', () => {
   it('reports when the API is not configured', () => {
     vi.stubEnv('VITE_API_BASE_URL', '')
     render(<ApiStatus />)
-    expect(screen.getByTestId('api-status').textContent).toMatch(/not configured/i)
+    expect(screen.getByTestId('api-status').textContent).toMatch(/not set/i)
   })
 
   it('shows the real health response', async () => {
@@ -188,7 +188,7 @@ describe('API status and wording', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0' }) })
     vi.stubGlobal('fetch', fetchMock)
     render(<ApiStatus />)
-    expect(await screen.findByText(/API online \(version 0\.1\.0\)/)).toBeTruthy()
+    expect(await screen.findByText(/Connected · v0\.1\.0/)).toBeTruthy()
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.test/health')
   })
 
@@ -196,7 +196,7 @@ describe('API status and wording', () => {
     vi.stubEnv('VITE_API_BASE_URL', 'https://api.test')
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')))
     render(<ApiStatus />)
-    expect(await screen.findByText(/unreachable/i)).toBeTruthy()
+    expect(await screen.findByText(/Can’t reach the server/i)).toBeTruthy()
   })
 
   it('never uses verdict language and never leaks raw errors', async () => {

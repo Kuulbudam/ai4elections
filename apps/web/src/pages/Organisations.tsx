@@ -17,13 +17,13 @@ type WorkRow = { project: ProjectRow; versions: number; toReview: number; unveri
 
 /** The project's next step, following the same six-step workflow as the project menu. */
 function nextStep(pid: string, v: VersionRow | undefined, toReview: number, reports: number): Next {
-  if (!v) return { step: 1, label: 'Upload data', action: 'Upload a results file', to: `/projects/${pid}/upload` }
-  if (!v.mapping_saved_at) return { step: 2, label: 'Map columns', action: 'Map the columns', to: `/versions/${v.id}/mapping` }
-  if (!v.validated_at) return { step: 3, label: 'Check data', action: 'Run the data checks', to: `/versions/${v.id}/validation` }
-  if (!v.latest_analysis_run_id) return { step: 4, label: 'Analyse', action: 'Run the analysis', to: `/versions/${v.id}/analysis` }
+  if (!v) return { step: 1, label: 'Upload results', action: 'Upload results', to: `/projects/${pid}/upload` }
+  if (!v.mapping_saved_at) return { step: 2, label: 'Match columns', action: 'Match columns', to: `/versions/${v.id}/mapping` }
+  if (!v.validated_at) return { step: 3, label: 'Check data', action: 'Check data', to: `/versions/${v.id}/validation` }
+  if (!v.latest_analysis_run_id) return { step: 4, label: 'Analyse', action: 'Analyse', to: `/versions/${v.id}/analysis` }
   if (toReview > 0)
-    return { step: 5, label: 'Review findings', action: `Review ${toReview} high or very high finding${toReview > 1 ? 's' : ''}`, to: `/projects/${pid}/findings` }
-  if (reports === 0) return { step: 6, label: 'Report', action: 'Generate a report', to: `/projects/${pid}/reports` }
+    return { step: 5, label: 'Review findings', action: `Review ${toReview} finding${toReview > 1 ? 's' : ''}`, to: `/projects/${pid}/findings` }
+  if (reports === 0) return { step: 6, label: 'Report', action: 'Make a report', to: `/projects/${pid}/reports` }
   return null
 }
 
@@ -122,7 +122,7 @@ export default function Organisations() {
           </div>
           <div className={`kpi ${work.some((w) => w.toReview) ? 'alert' : 'ok'}`} role="listitem">
             <div className="kpi-value">{work.reduce((a, w) => a + w.toReview, 0)}</div>
-            <div className="kpi-label">High or very high findings to review</div>
+            <div className="kpi-label">Findings to review</div>
           </div>
           <div className="kpi" role="listitem">
             <div className="kpi-value">{work.reduce((a, w) => a + w.unverified, 0)}</div>
@@ -138,7 +138,7 @@ export default function Organisations() {
       {work === null ? (
         <p className="muted">Loading…</p>
       ) : work.length === 0 ? (
-        <p className="empty">No projects yet. Create an organisation below, open it, and create your first project.</p>
+        <p className="empty">No projects yet. Create an organisation below, then add your first project to it.</p>
       ) : (
         <ul className="todo" aria-label="What to do next">
           {work.map((w) => (
@@ -151,7 +151,7 @@ export default function Organisations() {
                   {w.project.election_name}
                 </Link>
                 <span className="small muted">
-                  {w.next ? `Step ${w.next.step} of 6 · ${w.next.label}` : 'All steps done'} · {w.versions} dataset version{w.versions === 1 ? '' : 's'}
+                  {w.next ? `Step ${w.next.step} of 6: ${w.next.label}` : 'All steps done'} · {w.versions} file{w.versions === 1 ? '' : 's'}
                   {w.unverified ? ` · ${w.unverified} unverified allegation${w.unverified === 1 ? '' : 's'}` : ''}
                 </span>
               </div>
@@ -169,11 +169,10 @@ export default function Organisations() {
         </ul>
       )}
       <h2>Organisations</h2>
-      <p className="page-intro">The organisations you belong to and your role in each.</p>
       {orgs === null ? (
         <p className="muted">Loading…</p>
       ) : orgs.length === 0 ? (
-        <p className="empty">You are not in an organisation yet. Create one below, or ask an admin to add you.</p>
+        <p className="empty">You’re not in an organisation yet. Create one below, or ask your admin to add you.</p>
       ) : (
         <table className="table">
           <thead>

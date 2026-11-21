@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError, type Schemas } from '../lib/api'
 import { getSupabase } from '../lib/supabase'
+import { useChartColours } from '../components/chartTheme'
 
 type AreaList = Schemas['AreaList']
 type Area = Schemas['AreaSummary']
 type Level = 'state' | 'lga' | 'ward'
 type SortKey = 'name' | 'turnout' | 'share' | 'flags' | 'units'
 
-const BAR = '#2a78d6' // single-series hue (validated reference palette, slot 1)
 const pct = (s: string | null | undefined) => (s == null ? '—' : `${(Number(s) * 100).toFixed(1)}%`)
 const nameOf = (a: Area, level: Level) => (level === 'state' ? a.state : level === 'lga' ? a.lga : a.ward) ?? '(missing label)'
 const flags = (a: Area) => (a.findings ? a.findings.unusual_turnout + a.findings.unusual_share : 0)
@@ -78,10 +78,7 @@ export default function Areas() {
           </>
         )}
       </p>
-      <h1 id="areas-heading">Areas{version ? ` — ${version.original_filename} (v${version.version_number})` : ''}</h1>
-      <p className="page-intro">
-        Totals by state, LGA and ward, built from the same units the analysis could use. Areas are named exactly as in the data; there is no map.
-      </p>
+      <h1 id="areas-heading">Areas{version ? `: ${version.original_filename} (v${version.version_number})` : ''}</h1>
       <nav aria-label="Area level" className="crumbs">
         <button type="button" className="link" onClick={() => setParams({})} disabled={level === 'state'}>
           All states
@@ -99,7 +96,7 @@ export default function Areas() {
       {error && (
         <p role="alert" className="error">
           {error}{' '}
-          {error.includes('validation') && <Link to={`/versions/${versionId}/validation`}>Open validation</Link>}
+          {error.includes('validation') && <Link to={`/versions/${versionId}/validation`}>Check data</Link>}
         </p>
       )}
       {!data && !error && <p className="muted">Loading…</p>}
@@ -108,11 +105,11 @@ export default function Areas() {
         <>
           {!data.analytical_run_id && (
             <p className="notice warn">
-              No analysis has been run for this version, so finding counts are not shown. <Link to={`/versions/${versionId}/analysis`}>Run analysis</Link>
+              Flag counts appear after you analyse this file. <Link to={`/versions/${versionId}/analysis`}>Analyse</Link>
             </p>
           )}
           <div className="grid2 charts">
-            <BarChart title="Turnout" note="accredited ÷ registered, counted units" rows={rows} level={level} value={(a) => (a.turnout.rate == null ? null : Number(a.turnout.rate))} format={(v) => `${(v * 100).toFixed(1)}%`} />
+            <BarChart title="Turnout" note="accredited ÷ registered" rows={rows} level={level} value={(a) => (a.turnout.rate == null ? null : Number(a.turnout.rate))} format={(v) => `${(v * 100).toFixed(1)}%`} />
             {data.analytical_run_id && (
               <BarChart title="Unusual polling units" note="turnout + leading-share flags" rows={rows} level={level} value={(a) => flags(a)} format={(v) => String(v)} />
             )}
@@ -125,7 +122,7 @@ export default function Areas() {
               <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
                 <option value="name">Name</option>
                 <option value="turnout">Turnout (high first)</option>
-                <option value="share">Leading-party share (high first)</option>
+                <option value="share">Winning share (highest first)</option>
                 <option value="flags">Unusual units (most first)</option>
                 <option value="units">Polling units (most first)</option>
               </select>
@@ -140,13 +137,13 @@ export default function Areas() {
                 <th scope="col">{level === 'state' ? 'State' : level === 'lga' ? 'LGA' : 'Ward'}</th>
                 <th scope="col">Polling units</th>
                 <th scope="col">Turnout</th>
-                <th scope="col">Leading party</th>
+                <th scope="col">Winning party</th>
                 {data.analytical_run_id && (
                   <>
                     <th scope="col">Unusual turnout</th>
                     <th scope="col">Unusual share</th>
-                    <th scope="col">Very high</th>
-                    <th scope="col">Data issues</th>
+                    <th scope="col">Very unusual</th>
+                    <th scope="col">Data problems</th>
                     <th scope="col">Not reviewed</th>
                   </>
                 )}
@@ -174,11 +171,11 @@ export default function Areas() {
                       ) : (
                         nameOf(a, level)
                       )}
-                      {a.in_reference_list === false && <span className="badge small"> not in reference list</span>}
+                      {a.in_reference_list === false && <span className="badge small"> not on official list</span>}
                     </th>
                     <td>
                       {a.units.toLocaleString()}
-                      <span className="muted small"> ({a.turnout.units.toLocaleString()} counted)</span>
+                      <span className="muted small"> ({a.turnout.units.toLocaleString()} with figures)</span>
                     </td>
                     <td>{pct(a.turnout.rate)}</td>
                     <td>{a.vote_share.leading_party ? `${a.vote_share.leading_party} ${pct(a.vote_share.leading_share)}` : '—'}</td>
@@ -196,7 +193,6 @@ export default function Areas() {
               })}
             </tbody>
           </table>
-          <p className="small muted">Tick up to four areas to compare them side by side. "Counted" units are those the analysis could use for turnout.</p>
 
           {compared.length >= 2 && (
             <>
@@ -214,7 +210,7 @@ export default function Areas() {
                 </thead>
                 <tbody>
                   <Row label="Polling units" cells={compared.map((a) => a.units.toLocaleString())} />
-                  <Row label="Registered (counted units)" cells={compared.map((a) => a.turnout.registered_voters.toLocaleString())} />
+                  <Row label="Registered voters" cells={compared.map((a) => a.turnout.registered_voters.toLocaleString())} />
                   <Row label="Accredited (counted units)" cells={compared.map((a) => a.turnout.accredited_voters.toLocaleString())} />
                   <Row label="Turnout" cells={compared.map((a) => pct(a.turnout.rate))} />
                   <Row label="Valid votes (counted units)" cells={compared.map((a) => a.vote_share.valid_votes.toLocaleString())} />
@@ -252,6 +248,7 @@ function Row({ label, cells }: { label: string; cells: string[] }) {
 
 /** Horizontal bars, one series: thin bars from a single baseline, hover tooltip, no legend (the title names it). */
 function BarChart({ title, note, rows, level, value, format }: { title: string; note: string; rows: Area[]; level: Level; value: (a: Area) => number | null; format: (v: number) => string }) {
+  const C = useChartColours()
   const [hover, setHover] = useState<number | null>(null)
   const shown = rows.slice(0, 30)
   const max = Math.max(0, ...shown.map((a) => value(a) ?? 0)) || 1
@@ -266,7 +263,7 @@ function BarChart({ title, note, rows, level, value, format }: { title: string; 
         <strong>{title}</strong> <span className="muted small">{note}</span>
       </figcaption>
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" role="img" aria-label={`${title} by area`} onMouseLeave={() => setHover(null)}>
-        <line x1={labelW} x2={labelW} y1={0} y2={height} stroke="#d9dcdf" strokeWidth={1} />
+        <line x1={labelW} x2={labelW} y1={0} y2={height} stroke={C.axis} strokeWidth={1} />
         {shown.map((a, i) => {
           const v = value(a)
           const w = v == null ? 0 : Math.max(v > 0 ? 2 : 0, (v / max) * plotW)
@@ -274,13 +271,13 @@ function BarChart({ title, note, rows, level, value, format }: { title: string; 
           const name = nameOf(a, level)
           return (
             <g key={i} onMouseEnter={() => setHover(i)}>
-              <rect x={0} y={y - 2} width={width} height={rowH} fill={hover === i ? '#f3f4f5' : 'transparent'} />
-              <text x={labelW - 8} y={y + 12} textAnchor="end" fontSize={12} fill="#596371">
+              <rect x={0} y={y - 2} width={width} height={rowH} fill={hover === i ? C.hover : 'transparent'} />
+              <text x={labelW - 8} y={y + 12} textAnchor="end" fontSize={12} fill={C.ink2}>
                 {name.length > 22 ? `${name.slice(0, 21)}…` : name}
               </text>
-              {w > 0 && <path d={roundedBar(labelW, y + 3, w, 12)} fill={BAR} />}
+              {w > 0 && <path d={roundedBar(labelW, y + 3, w, 12)} fill={C.series} />}
               {(hover === i || v === max || v == null) && (
-                <text x={labelW + w + 6} y={y + 12} fontSize={11.5} fill="#1d232b">
+                <text x={labelW + w + 6} y={y + 12} fontSize={11.5} fill={C.ink}>
                   {v == null ? 'n/a' : format(v)}
                 </text>
               )}
@@ -288,7 +285,7 @@ function BarChart({ title, note, rows, level, value, format }: { title: string; 
           )
         })}
       </svg>
-      {rows.length > shown.length && <p className="small muted">Showing the first {shown.length} of {rows.length} in the current sort order; the table lists all.</p>}
+      {rows.length > shown.length && <p className="small muted">Showing the top {shown.length} of {rows.length}. The table below has them all.</p>}
     </figure>
   )
 }

@@ -1,0 +1,13 @@
+Level,State,LGA,Ward,Registered Voters,Accredited Voters,Valid Votes,Rejected Votes,Total Votes Cast,PA,PB,PC,PD,PE,Source
+ward,Synthia,Amber North,Amber Ward 1,51627,12810,12450,256,12706,2779,1212,1443,2246,4770,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 10,5286,1574,1539,30,1569,135,290,624,235,255,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 2,38576,9298,9049,188,9237,1095,1930,1490,2301,2353,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 3,40341,10206,9904,202,10146,1943,2110,1768,2978,1145,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 4,52746,17558,17099,327,17426,1818,5907,2174,3975,3225,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 5,45052,18880,18392,353,18745,2403,5723,3567,2468,4231,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 6,50096,14952,14564,292,14874,2236,3575,2806,1746,4201,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 7,54984,12632,12287,257,12544,2134,2088,1560,5191,1314,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 8,32479,10015,9748,190,9938,1745,4410,1495,1320,778,Sample EC8B
+ward,Synthia,Amber North,Amber Ward 9,48364,8564,8333,184,8517,3853,1005,1459,963,1053,Sample EC8B
+lga,Synthia,Amber North,,419551,116489,113405,2279,115737,20021,28250,18386,23423,23325,Sample EC8C
+state,Synthia,,,2608264,951747,925595,18902,944371,175654,208406,176654,204106,160739,Sample EC8D

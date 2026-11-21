@@ -70,7 +70,7 @@ export default function Members() {
   if (members !== null && !orgName && !error) {
     return (
       <section className="page">
-        <p className="empty">Organisation not found, or you are not a member.</p>
+        <p className="empty">We couldn’t find this organisation, or you’re not a member.</p>
         <Link to="/">Back to organisations</Link>
       </section>
     )
@@ -81,7 +81,7 @@ export default function Members() {
       <p>
         <Link to="/">← Organisations</Link>
       </p>
-      <h1 id="members-heading">{orgName ? `${orgName} — members` : 'Members'}</h1>
+      <h1 id="members-heading">{orgName ? `${orgName}: members` : 'Members'}</h1>
       {members === null ? (
         <p className="muted">Loading…</p>
       ) : (
@@ -146,7 +146,7 @@ export default function Members() {
       {isAdmin && (
         <form onSubmit={add} className="form inline card" aria-label="Add member">
           <label>
-            Email of a registered user
+            Their email (they need an account first)
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label>
@@ -164,7 +164,7 @@ export default function Members() {
           </button>
         </form>
       )}
-      {!isAdmin && members !== null && <p className="muted small">Only organisation admins can change members.</p>}
+      {!isAdmin && members !== null && <p className="muted small">Only admins can add or remove members.</p>}
       {error && (
         <p role="alert" className="error">
           {error}

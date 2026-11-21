@@ -85,16 +85,12 @@ export default function Collation() {
   return (
     <section className="page" aria-labelledby="collation-heading">
       <h1 id="collation-heading">Collation check{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Compare the totals declared at ward, LGA or state collation (Forms EC8B, EC8C, EC8D) with the sum of their polling units in the uploaded results.
-        Every area where a declared figure differs becomes a finding for review.
-      </p>
 
       {canRun && (
         <div className="card">
           <h2>Check declared totals</h2>
           {versions.length === 0 ? (
-            <p className="muted">Upload and validate the polling-unit results first.</p>
+            <p className="muted">Upload and check your polling-unit results first.</p>
           ) : (
             <>
               {versions.length > 1 && (
@@ -110,18 +106,18 @@ export default function Collation() {
                 </label>
               )}
               <label className="file-drop">
-                <span>{busy ? 'Adding up polling units and comparing…' : 'Choose the declared totals (CSV)'}</span>
+                <span>{busy ? 'Comparing…' : 'Choose the declared totals (CSV)'}</span>
                 <span className="small muted">
-                  One row per area: State, LGA, Ward (leave Ward blank for an LGA total, LGA and Ward blank for a state total), any of Registered, Accredited, Valid,
-                  Rejected, Total votes cast, and one column per party.
+                  One row per area with columns State, LGA and Ward. Leave Ward empty for an LGA total, and LGA and Ward empty for a state total. Add
+                  any of Registered, Accredited, Valid, Rejected and Total votes cast, plus one column per party.
                 </span>
                 <input type="file" accept=".csv,text/csv" disabled={busy} onChange={(e) => void onFile(e)} />
               </label>
               <p className="small">
-                <a href="/samples/SYNTHETIC_declared_totals.csv" download>
+                <a href="/samples/sample_declared_totals.csv" download>
                   Download a sample file
                 </a>{' '}
-                <span className="muted">(synthetic, for the demo data)</span>
+                <span className="muted">(sample totals for the sample results)</span>
               </p>
             </>
           )}
@@ -142,7 +138,7 @@ export default function Collation() {
         <>
           {checks.length > 1 && (
             <nav aria-label="Earlier checks" className="small">
-              Checks:{' '}
+              Earlier:{' '}
               {checks.map((c, i) => (
                 <span key={c.id}>
                   {i > 0 && ' · '}
@@ -168,14 +164,14 @@ function Results({ check }: { check: Check }) {
   return (
     <div className="collation-results">
       <h2>
-        {check.filename} <span className="small muted">checked {new Date(check.created_at).toLocaleString()}</span>
+        {check.filename} <span className="small muted">compared {new Date(check.created_at).toLocaleString()}</span>
       </h2>
       <div className="kpis" role="list" aria-label="Collation summary">
         <Kpi label="Areas compared" value={s.areas} />
-        <Kpi label="Differ from their polling units" value={s.mismatch} tone={s.mismatch ? 'alert' : 'ok'} note={s.mismatch ? 'Sent to the findings queue' : undefined} />
+        <Kpi label="Don’t match" value={s.mismatch} tone={s.mismatch ? 'alert' : 'ok'} note={s.mismatch ? 'Added to findings' : undefined} />
         <Kpi label="Match exactly" value={s.match} />
-        <Kpi label="Not fully checked" value={s.incomplete} note="Some polling units lack a figure" />
-        <Kpi label="Not in the data" value={s.unmatched} />
+        <Kpi label="Couldn’t fully check" value={s.incomplete} note="Some units are missing figures" />
+        <Kpi label="Not in your results" value={s.unmatched} />
       </div>
       {check.skipped.length > 0 && (
         <details className="notice warn">
@@ -249,8 +245,8 @@ function Results({ check }: { check: Check }) {
         </table>
       </div>
       <p className="small muted">
-        File SHA-256 <code>{check.sha256.slice(0, 16)}…</code>. A difference can have a recorded reason (results cancelled at collation, units missing from the file,
-        corrections); check the collation form before drawing any conclusion.
+        Differences often have a simple reason, such as results cancelled at collation or units missing from your file. Check the collation form
+        before drawing conclusions. File ID <code>{check.sha256.slice(0, 12)}</code>
       </p>
     </div>
   )

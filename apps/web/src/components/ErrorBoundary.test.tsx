@@ -16,7 +16,7 @@ describe('ErrorBoundary', () => {
         <Boom />
       </ErrorBoundary>,
     )
-    expect(screen.getByRole('heading', { name: 'This page hit a problem' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeTruthy()
     expect(screen.getByText(/kaboom/)).toBeTruthy()
   })
 

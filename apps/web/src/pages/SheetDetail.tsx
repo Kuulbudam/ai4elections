@@ -62,9 +62,9 @@ export default function SheetDetail() {
   const conf = sheet.reading.confidence ?? {}
   const flag = (key: string, value: unknown) => {
     if (sheet.status !== 'read' || sheet.reading.status !== 'read') return null
-    if (value === null || value === undefined || value === '') return <span className="chk chk-missing">Not read: type it in</span>
+    if (value === null || value === undefined || value === '') return <span className="chk chk-missing">Blank: type it in</span>
     const c = conf[key]
-    return c && c !== 'high' ? <span className="chk chk-unsure">AI unsure: check this</span> : null
+    return c && c !== 'high' ? <span className="chk chk-unsure">Check this one</span> : null
   }
   const setCount = (key: (typeof COUNT_FIELDS)[number]['key'], v: string) =>
     setFig((f) => ({ ...f, [key]: v.trim() === '' ? null : Math.max(0, Math.floor(Number(v))) }))
@@ -79,8 +79,8 @@ export default function SheetDetail() {
       <h1 id="sheet-heading">Result sheet {(sheet.confirmed ?? sheet.reading.figures).pu_code ?? ''}</h1>
       <p className="page-intro">
         {sheet.status === 'read'
-          ? 'Compare every figure with the photo. Correct anything the AI got wrong, then confirm. Nothing is checked until you confirm.'
-          : `Confirmed ${sheet.confirmed_at ? new Date(sheet.confirmed_at).toLocaleString() : ''}. The figures below are what a person confirmed.`}
+          ? 'Check each figure against the photo and fix anything that’s wrong. Nothing is compared until you confirm.'
+          : `Confirmed ${sheet.confirmed_at ? new Date(sheet.confirmed_at).toLocaleString() : ''}.`}
       </p>
 
       <div className="sheet-layout">
@@ -90,13 +90,13 @@ export default function SheetDetail() {
               <img src={sheet.image_url} alt="Photo of the polling-unit result sheet" />
             </a>
           ) : (
-            <p className="muted">The photo link has expired. Reload the page.</p>
+            <p className="muted">The photo has timed out. Refresh the page to see it again.</p>
           )}
           <figcaption className="small muted">
             {readingLabel(sheet.reading.status)}
             {sheet.model ? ` (${sheet.model})` : ''}. Photo SHA-256 <code>{sheet.image_sha256.slice(0, 16)}…</code>
           </figcaption>
-          {sheet.reading.notes && <p className="notice warn small">AI note: {sheet.reading.notes}</p>}
+          {sheet.reading.notes && <p className="notice warn small">Note from the reader: {sheet.reading.notes}</p>}
         </figure>
 
         <div className="sheet-side">
@@ -127,7 +127,7 @@ export default function SheetDetail() {
                 ))}
               </fieldset>
               <fieldset>
-                <legend>Party scores</legend>
+                <legend>Votes by party</legend>
                 {parties.map((p, i) => (
                   <div className="party-row" key={i}>
                     <input aria-label={`Party ${i + 1}`} value={p.party} maxLength={20} onChange={(e) => setFig((x) => ({ ...x, party_votes: parties.map((q, j) => (j === i ? { ...q, party: e.target.value } : q)) }))} />
@@ -149,8 +149,8 @@ export default function SheetDetail() {
                   Add a party
                 </button>
                 <p className={`small ${fig.valid_votes != null && partySum !== fig.valid_votes ? 'warn-text' : 'muted'}`} aria-live="polite">
-                  Party scores add up to {partySum.toLocaleString()}
-                  {fig.valid_votes != null ? `; total valid votes is ${fig.valid_votes.toLocaleString()}.` : '.'}
+                  Party votes add up to {partySum.toLocaleString()}
+                  {fig.valid_votes != null ? `. Total valid votes: ${fig.valid_votes.toLocaleString()}.` : '.'}
                 </p>
               </fieldset>
               {error && (
@@ -159,12 +159,12 @@ export default function SheetDetail() {
                 </p>
               )}
               <button type="submit" className="primary" disabled={busy}>
-                {busy ? 'Checking…' : 'Confirm figures and check'}
+                {busy ? 'Checking…' : 'Confirm and check'}
               </button>
-              <p className="small muted">Confirm only what the photo shows. You can confirm once; the record cannot be changed afterwards.</p>
+              <p className="small muted">Only confirm what you can see on the photo. Once confirmed, the figures can’t be changed.</p>
             </form>
           ) : (
-            <p className="empty">This sheet is waiting for an analyst, admin or researcher to confirm its figures.</p>
+            <p className="empty">Waiting for a team member to confirm the figures.</p>
           )}
         </div>
       </div>
@@ -174,9 +174,9 @@ export default function SheetDetail() {
 
 function mark(c: Check) {
   return c.ok === true ? (
-    <span className="chk chk-ok">✓ Passed</span>
+    <span className="chk chk-ok">✓ OK</span>
   ) : c.ok === false ? (
-    <span className="chk chk-flag">✗ Needs a look</span>
+    <span className="chk chk-flag">✗ Problem</span>
   ) : (
     <span className="chk chk-missing">– Not checked</span>
   )
@@ -209,7 +209,7 @@ function Results({ sheet, projectId }: { sheet: Sheet; projectId: string }) {
           . A mismatch is a reason to look again at the sheet and the data, not a conclusion.
         </p>
       )}
-      <h2>Sheet compared with the data</h2>
+      <h2>Sheet vs uploaded results</h2>
       {cmp && cmp.matched ? (
         <>
           <p className="small muted">
@@ -221,8 +221,8 @@ function Results({ sheet, projectId }: { sheet: Sheet; projectId: string }) {
                 <tr>
                   <th scope="col">Figure</th>
                   <th scope="col">Sheet</th>
-                  <th scope="col">Data</th>
-                  <th scope="col">Same?</th>
+                  <th scope="col">Uploaded</th>
+                  <th scope="col">Match</th>
                 </tr>
               </thead>
               <tbody>
@@ -239,10 +239,10 @@ function Results({ sheet, projectId }: { sheet: Sheet; projectId: string }) {
           </div>
         </>
       ) : (
-        <p className="empty">No polling unit in the uploaded results has the code {cmp?.pu_code ?? '(none)'}. The sheet's own sums were still checked.</p>
+        <p className="empty">Polling unit {cmp?.pu_code ?? '(no code)'} isn’t in your uploaded results, so only the sheet’s own sums were checked.</p>
       )}
       <p className="small">
-        <Link to={`/projects/${projectId}/findings`}>Go to the findings queue</Link>
+        <Link to={`/projects/${projectId}/findings`}>See all findings</Link>
       </p>
     </div>
   )

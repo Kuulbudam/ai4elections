@@ -26,9 +26,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children
     return (
       <section className="page" role="alert" aria-labelledby="crash-heading">
-        <h1 id="crash-heading">This page hit a problem</h1>
-        <p>Something on this page failed to display. Your data is safe; nothing was changed.</p>
-        <p className="small muted">Details: {this.state.error.message}</p>
+        <h1 id="crash-heading">Something went wrong</h1>
+        <p>This page couldn’t load. Your data is safe and nothing was changed.</p>
+        <p className="small muted">Error: {this.state.error.message}</p>
         <p>
           <button type="button" className="primary" onClick={() => this.setState({ error: null })}>
             Try again

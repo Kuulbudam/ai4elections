@@ -58,19 +58,15 @@ export default function Reports() {
       <p>
         <Link to={`/projects/${projectId}`}>← Project</Link>
       </p>
-      <h1 id="reports-heading">Reports{project ? ` — ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        A report is a fixed snapshot of one analysis: provenance, method, findings with evidence, review decisions and claims. The same inputs always
-        give the same content hash. No AI is used to write reports.
-      </p>
+      <h1 id="reports-heading">Reports{project ? `: ${project.election_name}` : ''}</h1>
       {canGenerate && (
         <div className="card form" aria-label="Generate a report">
           {versions.length === 0 ? (
-            <p className="empty">Run an analysis on a dataset version first.</p>
+            <p className="empty">Analyse a results file first.</p>
           ) : (
             <>
               <label>
-                Analysis to report on
+                Analysis
                 <select value={run} onChange={(e) => setRun(e.target.value)}>
                   {versions.map((v) => (
                     <option key={v.id} value={v.latest_analysis_run_id}>
@@ -84,7 +80,7 @@ export default function Reports() {
                 <input value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} />
               </label>
               <button type="button" className="primary" disabled={busy || !run} onClick={() => void generate()}>
-                {busy ? 'Generating…' : 'Generate report'}
+                {busy ? 'Making report…' : 'Make report'}
               </button>
             </>
           )}
@@ -104,8 +100,8 @@ export default function Reports() {
           <thead>
             <tr>
               <th scope="col">Report</th>
-              <th scope="col">Generated</th>
-              <th scope="col">Content hash</th>
+              <th scope="col">Made</th>
+              <th scope="col">Report ID</th>
             </tr>
           </thead>
           <tbody>

@@ -175,31 +175,31 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
   }[] = [
     {
       n: 1,
-      label: 'Upload data',
+      label: 'Upload results',
       to: `/projects/${pid}/upload`,
       done: versions.length > 0,
-      note: versions.length ? `${versions.length} version${versions.length > 1 ? 's' : ''}` : 'Add a results file',
+      note: versions.length ? `${versions.length} version${versions.length > 1 ? 's' : ''}` : 'Add a CSV of results',
     },
     {
       n: 2,
-      label: 'Map columns',
+      label: 'Match columns',
       to: vid ? `/versions/${vid}/mapping` : null,
       done: !!version?.mapping_saved_at,
-      note: version?.mapping_saved_at ? 'Saved' : 'Tell us which column is which',
+      note: version?.mapping_saved_at ? 'Saved' : 'Say which column is which',
     },
     {
       n: 3,
       label: 'Check data',
       to: vid ? `/versions/${vid}/validation` : null,
       done: !!version?.validated_at,
-      note: version?.validated_at ? `${issues.toLocaleString()} issue${issues === 1 ? '' : 's'} found` : 'Run the data checks',
+      note: version?.validated_at ? `${issues.toLocaleString()} issue${issues === 1 ? '' : 's'} found` : 'Find rows with problems',
     },
     {
       n: 4,
       label: 'Analyse',
       to: vid ? `/versions/${vid}/analysis` : null,
       done: !!version?.latest_analysis_run_id,
-      note: version?.latest_analysis_run_id ? `${(counts?.flagged ?? 0).toLocaleString()} unusual units` : 'Compare units with their peers',
+      note: version?.latest_analysis_run_id ? `${(counts?.flagged ?? 0).toLocaleString()} unusual units` : 'Find unusual polling units',
     },
     {
       n: 5,
@@ -208,8 +208,8 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       done: !!version?.latest_analysis_run_id && (counts?.toReview ?? 1) === 0,
       note: version?.latest_analysis_run_id
         ? counts?.toReview
-          ? `${counts.toReview} high or very high to review`
-          : 'All high ones reviewed'
+          ? `${counts.toReview} to review`
+          : 'All reviewed'
         : 'After analysis',
     },
     {
@@ -217,7 +217,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       label: 'Report',
       to: `/projects/${pid}/reports`,
       done: (counts?.reports ?? 0) > 0,
-      note: counts?.reports ? `${counts.reports} report${counts.reports > 1 ? 's' : ''}` : 'Publish a fixed snapshot',
+      note: counts?.reports ? `${counts.reports} report${counts.reports > 1 ? 's' : ''}` : 'Share what you found',
     },
   ]
   const nextIndex = steps.findIndex((s) => !s.done)
@@ -233,7 +233,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
       ? [
           {
             to: `/versions/${vid}/analysis`,
-            label: 'Analysis dashboard',
+            label: 'Dashboard',
             icon: 'chart',
             end: false,
           },
@@ -294,7 +294,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
             <span className="rail-year">{project.election_year}</span>
             {versions.length > 1 && (
               <label className="rail-version">
-                <span>Dataset version</span>
+                <span>File</span>
                 <select
                   value={version?.id ?? ''}
                   onChange={(e) => {
@@ -371,7 +371,7 @@ export default function ProjectShell({ children }: { children: ReactNode }) {
               <Icon name="chat" />
               <span>
                 <strong>Ask the data</strong>
-                <span className="step-note">Questions in plain language</span>
+                <span className="step-note">Ask questions in your own words</span>
               </span>
             </NavLink>
           )}

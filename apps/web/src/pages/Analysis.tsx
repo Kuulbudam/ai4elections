@@ -53,14 +53,14 @@ type FindingRow = {
 
 const PAGE = 50
 const RUNNERS = ['admin', 'analyst', 'researcher']
-const LABEL: Record<Indicator, string> = { turnout_rate: 'Turnout', leading_party_share: 'Leading-party share' }
+const LABEL: Record<Indicator, string> = { turnout_rate: 'Turnout', leading_party_share: 'Winning share' }
 const SEV: Record<string, string> = { medium: 'Medium', high: 'High', very_high: 'Very high' }
 const REASON: Record<string, string> = {
-  excluded_by_validation: 'Excluded by a data check',
-  not_computable: 'Cannot be calculated (missing or zero count)',
-  missing_geography: 'Missing state, LGA or ward',
-  insufficient_peers: 'Too few comparable units (ward and LGA)',
-  zero_mad: 'Peers are all the same (no spread to measure against)',
+  excluded_by_validation: 'Left out by a data check',
+  not_computable: 'Missing or zero figures',
+  missing_geography: 'No state, LGA or ward',
+  insufficient_peers: 'Too few units nearby to compare with',
+  zero_mad: 'Every unit nearby has the same figure',
 }
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`
 
@@ -130,9 +130,9 @@ export default function Analysis() {
   async function start() {
     setError(null)
     try {
-      setRunning('Queuing analysis…')
+      setRunning('Starting…')
       let job = await api<Job>('POST', '/jobs', { job_type: 'analyse', dataset_version_id: versionId }, { 'Idempotency-Key': crypto.randomUUID() })
-      setRunning('Analysing (a worker picks this up, usually within a minute)…')
+      setRunning('Comparing polling units. This usually takes under a minute…')
       const deadline = Date.now() + 10 * 60 * 1000
       while ((job.status === 'queued' || job.status === 'running') && Date.now() < deadline) {
         await sleep(3000)
@@ -141,16 +141,16 @@ export default function Analysis() {
       if (job.status === 'succeeded') {
         setPage(0)
         await load()
-      } else if (job.status === 'failed') setError('Analysis failed. Re-run validation, then try again.')
-      else setError('Analysis is taking longer than expected. It continues in the background; refresh later.')
+      } else if (job.status === 'failed') setError('The analysis didn’t finish. Check the data again, then retry.')
+      else setError('This is taking longer than usual. It will keep running; refresh the page in a few minutes.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not start analysis. Please try again.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t start the analysis. Try again.')
     }
     setRunning(null)
   }
 
   if (version === undefined) return <p className="muted">Loading…</p>
-  if (version === null) return <p className="empty">Dataset version not found, or you are not a member of its organisation.</p>
+  if (version === null) return <p className="empty">We couldn’t find this file, or you’re not on its team.</p>
   const canRun = role !== null && RUNNERS.includes(role)
   const s = run?.summary
 
@@ -158,21 +158,17 @@ export default function Analysis() {
     <section className="page" aria-labelledby="analysis-heading">
       <div className="row-between">
         <h1 id="analysis-heading">
-          Analysis — {version.original_filename} (v{version.version_number})
+          Analysis: {version.original_filename} (v{version.version_number})
         </h1>
         {canRun && (
           <button type="button" className="primary" onClick={() => void start()} disabled={!!running || !version.validated_at}>
-            {run ? 'Re-run analysis' : 'Run analysis'}
+            {run ? 'Analyse again' : 'Analyse'}
           </button>
         )}
       </div>
-      <p className="page-intro">
-        Each polling unit is compared with the other units in its ward. A unit is listed when its turnout or leading-party share is far from its
-        peers. That is a reason to check the result sheet, not a conclusion about what happened.
-      </p>
       {!version.validated_at && (
         <p className="empty">
-          Run validation first. <Link to={`/versions/${versionId}/validation`}>Open validation</Link>
+          Check the data first. <Link to={`/versions/${versionId}/validation`}>Check data</Link>
         </p>
       )}
       {running && (
@@ -187,18 +183,18 @@ export default function Analysis() {
       )}
 
       {!run || !s ? (
-        version.validated_at && !running && <p className="empty">This version has not been analysed yet.</p>
+        version.validated_at && !running && <p className="empty">This file hasn’t been analysed yet.</p>
       ) : (
         <>
           <AnalysisDashboard versionId={versionId} runId={run.id} />
 
-          <h3>How each indicator was scored</h3>
+          <h3>Summary</h3>
           <table className="table compact">
             <thead>
               <tr>
-                <th scope="col">Indicator</th>
-                <th scope="col">Scored</th>
-                <th scope="col">Compared with LGA</th>
+                <th scope="col">Measure</th>
+                <th scope="col">Units compared</th>
+                <th scope="col">Compared across the LGA</th>
                 <th scope="col">Medium</th>
                 <th scope="col">High</th>
                 <th scope="col">Very high</th>
@@ -236,11 +232,11 @@ export default function Analysis() {
             <h3>Unusual polling units</h3>
             <div className="filters">
               <label className="inline-label">
-                Indicator
+                Measure
                 <select value={indicator} onChange={(e) => { setIndicator(e.target.value as Indicator | ''); setPage(0) }}>
                   <option value="">Both</option>
                   <option value="turnout_rate">Turnout</option>
-                  <option value="leading_party_share">Leading-party share</option>
+                  <option value="leading_party_share">Winning share</option>
                 </select>
               </label>
               <label className="inline-label">
@@ -265,10 +261,10 @@ export default function Analysis() {
                   <tr>
                     <th scope="col">Polling unit</th>
                     <th scope="col">LGA / ward</th>
-                    <th scope="col">Indicator</th>
-                    <th scope="col">Value</th>
-                    <th scope="col">Peer median</th>
-                    <th scope="col">Robust z</th>
+                    <th scope="col">Measure</th>
+                    <th scope="col">This unit</th>
+                    <th scope="col">Typical nearby</th>
+                    <th scope="col" title="How far from typical, in robust z-score units">Score</th>
                     <th scope="col">How unusual</th>
                     <th scope="col">Confidence</th>
                   </tr>
@@ -283,7 +279,7 @@ export default function Analysis() {
                       </td>
                       <td className="small">
                         {f.lga} / {f.ward}
-                        {f.peer_group.level === 'lga' && <span className="muted"> (compared with LGA)</span>}
+                        {f.peer_group.level === 'lga' && <span className="muted"> (vs whole LGA)</span>}
                       </td>
                       <td>
                         {LABEL[f.indicator]}
@@ -291,7 +287,7 @@ export default function Analysis() {
                       </td>
                       <td>{pct(f.statistics.value)}</td>
                       <td>
-                        {pct(f.statistics.median)} <span className="muted small">of {f.peer_group.n}</span>
+                        {pct(f.statistics.median)} <span className="muted small">across {f.peer_group.n}</span>
                       </td>
                       <td>{f.statistics.robust_z > 0 ? '+' : ''}{f.statistics.robust_z.toFixed(2)}</td>
                       <td>
@@ -319,13 +315,13 @@ export default function Analysis() {
           )}
 
           <details className="card">
-            <summary>Polling units that were not scored ({run.not_scored.length.toLocaleString()})</summary>
+            <summary>Units we couldn’t compare ({run.not_scored.length.toLocaleString()})</summary>
             <table className="table compact">
               <thead>
                 <tr>
-                  <th scope="col">Source row</th>
+                  <th scope="col">Row</th>
                   <th scope="col">Polling unit</th>
-                  <th scope="col">Indicator</th>
+                  <th scope="col">Measure</th>
                   <th scope="col">Why</th>
                 </tr>
               </thead>
@@ -347,10 +343,7 @@ export default function Analysis() {
           </details>
 
           <p className="muted small">
-            Method {run.method_version}, engine {run.engine_version}: peers are the same ward (the LGA when the ward has fewer than{' '}
-            {run.parameters.min_peers} usable units); a unit is listed when |robust z| ≥ {run.parameters.threshold}. Run completed{' '}
-            {new Date(run.completed_at).toLocaleString()}. Content hash <code>{run.content_hash.slice(0, 16)}…</code> — the same data always gives the
-            same hash.
+            Analysed {new Date(run.completed_at).toLocaleString()} · run ID <code>{run.content_hash.slice(0, 12)}</code>
           </p>
         </>
       )}

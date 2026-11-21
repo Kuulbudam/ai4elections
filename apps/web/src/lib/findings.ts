@@ -5,26 +5,26 @@ export type FindingPage = Schemas['FindingPage']
 export type Claim = Schemas['Claim']
 
 export const CATEGORY: Record<string, string> = {
-  statistical_anomaly: 'Statistical outlier',
-  data_quality_issue: 'Data quality issue',
-  cross_check: 'Cross-check (result sheet or collation)',
+  statistical_anomaly: 'Unusual result',
+  data_quality_issue: 'Data problem',
+  cross_check: 'Doesn’t match sheet or collation',
   observation: 'Observation',
 }
-export const INDICATOR: Record<string, string> = { turnout_rate: 'Turnout', leading_party_share: 'Leading-party share' }
+export const INDICATOR: Record<string, string> = { turnout_rate: 'Turnout', leading_party_share: 'Winning share' }
 export const SEVERITY: Record<string, string> = { very_high: 'Very high', high: 'High', medium: 'Medium', low: 'Low', info: 'Info' }
 export const DECISION: Record<string, string> = {
   unreviewed: 'Not reviewed',
   acknowledged: 'Acknowledged',
   needs_more_evidence: 'Needs more evidence',
   explained_by_data_error: 'Explained by a data error',
-  explained_by_context: 'Explained by context',
+  explained_by_context: 'Explained by events on the day',
   escalated: 'Escalated',
 }
 export const CLAIM_STATUS: Record<string, string> = {
   unverified_allegation: 'Unverified allegation',
   verified_fact: 'Verified fact',
 }
-export const EVIDENCE_KIND: Record<string, string> = { document_reference: 'Document reference', link: 'Link', file: 'File (fingerprint)' }
+export const EVIDENCE_KIND: Record<string, string> = { document_reference: 'Document reference', link: 'Link', file: 'File' }
 
 export const pct = (s: string | null | undefined) => (s == null ? '—' : `${(Number(s) * 100).toFixed(1)}%`)
 

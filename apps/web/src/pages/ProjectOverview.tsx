@@ -32,10 +32,10 @@ type Version = {
 
 const STATUS_LABEL: Record<string, string> = {
   awaiting_upload: 'Waiting for file',
-  uploaded: 'Queued for ingestion',
-  ingesting: 'Ingesting…',
-  ingested: 'Ingested',
-  ingest_failed: 'Ingestion failed',
+  uploaded: 'In the queue',
+  ingesting: 'Reading file…',
+  ingested: 'Ready',
+  ingest_failed: 'Couldn’t read file',
 }
 
 export default function ProjectOverview() {
@@ -75,7 +75,7 @@ export default function ProjectOverview() {
   if (project === null)
     return (
       <section className="page">
-        <p className="empty">Project not found, or you are not a member of its organisation.</p>
+        <p className="empty">We couldn’t find this project. It may have been removed, or you’re not on its team.</p>
         <Link to="/">Back to organisations</Link>
       </section>
     )
@@ -99,7 +99,7 @@ export default function ProjectOverview() {
         </span>
         {canUpload(role) && (
           <Link className="button primary" to={`/projects/${project.id}/upload`}>
-            Upload dataset
+            Upload results
           </Link>
         )}
       </div>
@@ -120,9 +120,9 @@ export default function ProjectOverview() {
 
       <ReferenceList projectId={project.id} orgId={project.org_id} canEdit={canUpload(role)} />
 
-      <h3>Datasets and versions</h3>
+      <h3>Uploaded results</h3>
       {datasets.length === 0 ? (
-        <p className="empty">No datasets yet.{canUpload(role) ? ' Upload a CSV of polling-unit results to start.' : ''}</p>
+        <p className="empty">No data yet.{canUpload(role) ? ' Upload a CSV of polling-unit results to get started.' : ''}</p>
       ) : (
         datasets.map((d) => (
           <div key={d.id} className="card">
@@ -135,7 +135,7 @@ export default function ProjectOverview() {
                   <th scope="col">Status</th>
                   <th scope="col">Rows</th>
                   <th scope="col">Size</th>
-                  <th scope="col">SHA-256</th>
+                  <th scope="col">File ID</th>
                   <th scope="col">Uploaded</th>
                   <th scope="col">
                     <span className="visually-hidden">Actions</span>
@@ -150,7 +150,7 @@ export default function ProjectOverview() {
                       <td>v{v.version_number}</td>
                       <td>
                         {v.original_filename}
-                        {v.duplicate_of_version_id && <span className="badge warn" title="Same SHA-256 as an earlier version">duplicate file</span>}
+                        {v.duplicate_of_version_id && <span className="badge warn" title="This is exactly the same file as an earlier version">same file as before</span>}
                         {v.archived_at && <span className="badge">archived</span>}
                       </td>
                       <td>
@@ -169,11 +169,11 @@ export default function ProjectOverview() {
                       <td>
                         {v.status === 'ingested' && !v.archived_at && (
                           <>
-                            <Link to={`/versions/${v.id}/mapping`}>{v.mapping_saved_at ? 'Mapping' : 'Map columns'}</Link>
+                            <Link to={`/versions/${v.id}/mapping`}>{v.mapping_saved_at ? 'Columns' : 'Match columns'}</Link>
                             {v.mapping_saved_at && (
                               <>
                                 <span aria-hidden="true">&ensp;</span>
-                                <Link to={`/versions/${v.id}/validation`}>{v.validated_at ? 'Validation' : 'Validate'}</Link>
+                                <Link to={`/versions/${v.id}/validation`}>{v.validated_at ? 'Data check' : 'Check data'}</Link>
                                 {v.validated_at && (
                                   <>
                                     <span aria-hidden="true">&ensp;</span>
