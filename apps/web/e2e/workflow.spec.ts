@@ -70,7 +70,7 @@ test('a new user runs the whole workflow on the deployed site', async ({ page })
   const projectUrl = page.url()
 
   await test.step('upload the synthetic file; the worker ingests it', async () => {
-    await page.getByRole('link', { name: 'Upload results' }).click()
+    await page.getByRole('link', { name: 'Upload results', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Results')
     await page.getByLabel('Source details').fill('SYNTHETIC demo data, end-to-end test')
     await page.getByLabel('CSV file (max 25 MB)').setInputFiles(DEMO)
