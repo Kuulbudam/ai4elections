@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Election as a System">
-  <rect width="64" height="64" rx="14" fill="#0b6b4f"/>
-  <rect x="12" y="7" width="40" height="50" rx="5" fill="#ffffff"/>
-  <path d="M18 14h16M18 19h10" stroke="#b9d8cb" stroke-width="2.6" stroke-linecap="round"/>
-  <path d="M33.20 40.95A2.40 2.83 0 1 0 30.46 40.67 M30.19 32.62A5.30 6.25 0 1 0 34.65 33.08 M39.71 41.81A8.20 9.68 0 1 0 24.29 41.81 M27.30 46.43A8.20 9.68 0 0 0 36.10 46.88 M37.55 27.16A11.10 13.10 0 1 0 28.20 50.81 M32.97 51.55A11.10 13.10 0 0 0 41.09 30.99" fill="none" stroke="#5b3fa0" stroke-width="2.4" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#171a20"/>
+  <g fill="#ffffff">
+    <rect x="15" y="14" width="34" height="7" rx="1.5"/>
+    <rect x="15" y="28.5" width="24" height="7" rx="1.5"/>
+    <rect x="15" y="43" width="30" height="7" rx="1.5"/>
+    <rect x="15" y="14" width="7" height="36" rx="1.5"/>
+  </g>
+  <rect x="42" y="28.5" width="7" height="7" rx="1.5" fill="#3e6ae1"/>
 </svg>

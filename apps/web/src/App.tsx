@@ -3,7 +3,7 @@ import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-
 import type { components } from './api/schema'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import AuthLayout from './components/AuthLayout'
-import Logo from './components/Logo'
+import { Wordmark } from './components/Logo'
 import { ThemeProvider, ThemeToggle } from './lib/theme'
 import { getSupabase } from './lib/supabase'
 import Mapping from './pages/Mapping'
@@ -78,12 +78,8 @@ function Shell() {
       <div className="layout">
         <header className="topbar">
           <div className="masthead">
-            <Link to="/" className="brand">
-              <Logo size={40} />
-              <span>
-                Election as a System
-                <span className="brand-sub">EaaS · election results checking</span>
-              </span>
+            <Link to="/" className="brand" aria-label="EaaS, Election as a System: dashboard">
+              <Wordmark size={30} />
             </Link>
             <div className="account">
               <ThemeToggle />

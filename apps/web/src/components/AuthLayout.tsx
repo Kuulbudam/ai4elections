@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import Logo from './Logo'
+import { Wordmark } from './Logo'
 import { ThemeToggle } from '../lib/theme'
 
 /** Split layout for sign-in and two-step screens: the product beside the form. */
@@ -8,12 +8,7 @@ export default function AuthLayout({ children, labelledBy }: { children: ReactNo
     <div className="auth-shell">
       <ThemeToggle className="auth-theme" />
       <aside className="auth-aside">
-        <div className="auth-brand">
-          <Logo size={56} />
-          <p className="brand">
-            Election as a System <span className="brand-short">EaaS</span>
-          </p>
-        </div>
+        <Wordmark size={34} />
         <div>
           <p className="auth-statement">Check election results, polling unit by polling unit.</p>
           <ul className="auth-points">
@@ -28,8 +23,7 @@ export default function AuthLayout({ children, labelledBy }: { children: ReactNo
       <main className="auth-main">
         <section className="auth-card" aria-labelledby={labelledBy}>
           <div className="auth-card-logo">
-            <Logo size={40} />
-            <span>Election as a System</span>
+            <Wordmark size={30} />
           </div>
           {children}
         </section>
