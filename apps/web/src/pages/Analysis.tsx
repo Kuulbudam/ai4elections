@@ -166,10 +166,6 @@ export default function Analysis() {
           </button>
         )}
       </div>
-      <p className="page-intro">
-        Each polling unit is compared with other units in the same ward. Units whose turnout or winning share stands out are listed here so
-        you can check their result sheets.
-      </p>
       {!version.validated_at && (
         <p className="empty">
           Check the data first. <Link to={`/versions/${versionId}/validation`}>Check data</Link>
@@ -347,9 +343,7 @@ export default function Analysis() {
           </details>
 
           <p className="muted small">
-            How it works: each unit is compared with the rest of its ward, or its LGA when the ward has fewer than {run.parameters.min_peers}{' '}
-            usable units. A unit is listed when its score is {run.parameters.threshold} or more. Analysed{' '}
-            {new Date(run.completed_at).toLocaleString()} · method {run.method_version} · run ID <code>{run.content_hash.slice(0, 12)}</code>
+            Analysed {new Date(run.completed_at).toLocaleString()} · run ID <code>{run.content_hash.slice(0, 12)}</code>
           </p>
         </>
       )}

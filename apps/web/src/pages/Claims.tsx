@@ -57,10 +57,6 @@ export default function Claims() {
         <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/findings`}>Findings</Link>
       </p>
       <h1 id="claims-heading">Claims{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Things people have reported, such as “results were changed at the ward”. Every claim starts as an <strong>unverified allegation</strong>. It
-        becomes a <strong>verified fact</strong> only when evidence is attached and a second admin or analyst signs it off.
-      </p>
       <label className="inline-label">
         Status
         <select value={status} onChange={(e) => setStatus(e.target.value)}>

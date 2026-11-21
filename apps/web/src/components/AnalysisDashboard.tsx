@@ -91,7 +91,6 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
             Show all areas
           </button>
         )}
-        <span className="muted small">Tip: click a bar under “Unusual units by area” to focus on that area.</span>
       </div>
 
       <div className="dash-grid">

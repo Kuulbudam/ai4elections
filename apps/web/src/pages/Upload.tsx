@@ -134,10 +134,6 @@ export default function Upload() {
         <Link to={`/projects/${projectId}`}>← {project?.election_name ?? 'Project'}</Link>
       </p>
       <h1 id="upload-heading">Upload results</h1>
-      <p className="muted small">
-        One row per polling unit, saved as CSV. Your original file is stored as-is and never changed. Uploading a corrected file adds a new
-        version and keeps the old one.
-      </p>
       <form onSubmit={submit} className="form card" aria-label="Upload results">
         <label>
           Add to

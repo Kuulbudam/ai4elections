@@ -169,7 +169,6 @@ export default function Organisations() {
         </ul>
       )}
       <h2>Organisations</h2>
-      <p className="page-intro">Where you’re a member, and your role.</p>
       {orgs === null ? (
         <p className="muted">Loading…</p>
       ) : orgs.length === 0 ? (

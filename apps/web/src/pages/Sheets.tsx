@@ -69,10 +69,6 @@ export default function Sheets() {
   return (
     <section className="page" aria-labelledby="sheets-heading">
       <h1 id="sheets-heading">Result sheets{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Add a photo of a polling-unit result sheet (Form EC8A). We read the figures for you to check against the photo. Once you confirm them, we
-        check the sheet’s sums and compare it with your uploaded results.
-      </p>
 
       {canUpload && (
         <div className="card sheet-upload">

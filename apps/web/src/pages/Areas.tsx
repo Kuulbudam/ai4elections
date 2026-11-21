@@ -79,9 +79,6 @@ export default function Areas() {
         )}
       </p>
       <h1 id="areas-heading">Areas{version ? `: ${version.original_filename} (v${version.version_number})` : ''}</h1>
-      <p className="page-intro">
-        Totals by state, LGA and ward. Names are shown exactly as they appear in your file.
-      </p>
       <nav aria-label="Area level" className="crumbs">
         <button type="button" className="link" onClick={() => setParams({})} disabled={level === 'state'}>
           All states
@@ -196,7 +193,6 @@ export default function Areas() {
               })}
             </tbody>
           </table>
-          <p className="small muted">Tick up to four areas to compare them side by side.</p>
 
           {compared.length >= 2 && (
             <>

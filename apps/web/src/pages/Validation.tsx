@@ -263,7 +263,6 @@ export default function Validation() {
               </div>
             </>
           )}
-          <p className="muted small">Row numbers match your spreadsheet (the header is row 1). Values are shown exactly as in your file.</p>
         </>
       )}
     </section>

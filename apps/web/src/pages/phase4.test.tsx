@@ -89,7 +89,6 @@ describe('analysis page', () => {
     expect(within(stats).getByText('91')).toBeTruthy()
     expect(screen.getByText('91.0%')).toBeTruthy()
     expect(screen.getByText('+11.20')).toBeTruthy()
-    expect(screen.getByText(/so\s+you can check their result sheets/)).toBeTruthy()
     expect(calls).toContainEqual(['eq', 'severity', 'very_high'])
     expect(calls).toContainEqual(['eq', 'category', 'statistical_anomaly'])
     expect(document.body.textContent).not.toMatch(/fraud|rigg/i)

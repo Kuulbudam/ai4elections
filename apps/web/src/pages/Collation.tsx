@@ -85,10 +85,6 @@ export default function Collation() {
   return (
     <section className="page" aria-labelledby="collation-heading">
       <h1 id="collation-heading">Collation check{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Check the totals announced at ward, LGA or state collation (Forms EC8B, EC8C, EC8D) against what their polling units add up to. Any area
-        that doesn’t match is added to your findings.
-      </p>
 
       {canRun && (
         <div className="card">

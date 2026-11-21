@@ -212,7 +212,6 @@ export default function FindingDetail() {
           ))}
         </ol>
       )}
-      <p className="small muted">Decisions can’t be edited or deleted. A new decision is added on top, and the latest one counts.</p>
 
       <h2>Notes</h2>
       {notes.length === 0 ? <p className="empty">No notes yet.</p> : (
@@ -230,7 +229,6 @@ export default function FindingDetail() {
       {canContribute && orgId && <NoteForm orgId={orgId} findingId={f.id} me={me!} onDone={load} />}
 
       <h2>Claims about this unit</h2>
-      <p className="small muted">Claims stay unverified until a second admin or analyst checks the evidence.</p>
       {claims.length === 0 ? <p className="empty">No claims about this unit.</p> : (
         claims.map((c) => (
           <ClaimCard key={c.id} c={c} items={evidence.filter((e) => e.claim_id === c.id)} who={who} canReview={canReview} canContribute={canContribute} me={me!} orgId={orgId!} onDone={load} />
@@ -261,7 +259,6 @@ export default function FindingDetail() {
           </tbody>
         </table>
       )}
-      <p className="small muted">This log can’t be edited, so you can always see who did what.</p>
     </section>
   )
 }

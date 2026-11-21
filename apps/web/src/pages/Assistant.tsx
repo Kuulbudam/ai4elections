@@ -82,10 +82,6 @@ export default function Assistant() {
         <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/findings`}>Findings</Link>
       </p>
       <h1 id="assistant-heading">Ask the data{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Ask about this project’s results, flags and claims. Answers only use this project’s data, and each one links to where the figures came
-        from.
-      </p>
 
       {role !== null && !allowed && <p className="empty">Ask the data is for admins and analysts.</p>}
       {allowed && enabled === false && (

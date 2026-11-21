@@ -65,10 +65,6 @@ export default function Findings() {
         <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/claims`}>Claims</Link>
       </p>
       <h1 id="findings-heading">Findings{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        Everything flagged in your latest analysis: unusual results, data problems, and mismatches with result sheets or collation totals. Open
-        one to see why it was flagged and record what you found.
-      </p>
 
       <form className="filters card" aria-label="Filter findings" onSubmit={(e) => e.preventDefault()}>
         <Select label="Type" value={filters.category} onChange={(v) => set('category', v)} options={CATEGORY} />

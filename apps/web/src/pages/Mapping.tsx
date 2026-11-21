@@ -149,7 +149,6 @@ export default function Mapping() {
       <h1 id="mapping-heading">
         Match columns: {version.original_filename} (v{version.version_number})
       </h1>
-      <p className="muted small">Pick the column in your file that holds each item. Your file itself isn’t changed.</p>
       {templates.length > 0 && !readOnly && (
         <label className="inline-label">
           Use a saved layout

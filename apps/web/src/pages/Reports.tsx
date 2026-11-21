@@ -59,10 +59,6 @@ export default function Reports() {
         <Link to={`/projects/${projectId}`}>← Project</Link>
       </p>
       <h1 id="reports-heading">Reports{project ? `: ${project.election_name}` : ''}</h1>
-      <p className="page-intro">
-        A report captures one analysis as it stands today: where the data came from, what was flagged, what your team decided, and any claims. Once
-        made, it can’t be changed. Make a new one after more reviews.
-      </p>
       {canGenerate && (
         <div className="card form" aria-label="Generate a report">
           {versions.length === 0 ? (
