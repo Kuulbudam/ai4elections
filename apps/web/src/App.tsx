@@ -83,7 +83,7 @@ function Shell() {
             </Link>
             <div className="account">
               <ThemeToggle />
-              <span>{session.user.email}</span>
+              <span className="account-email">{session.user.email}</span>
               <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
                 Sign out
               </button>
