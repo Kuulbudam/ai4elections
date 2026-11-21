@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import time
 from typing import Any, Protocol
 
 import httpx
 
-from app.assistant.llm import DEFAULT_BASE_URL, LLMError, list_models
+from app.assistant.llm import PREFERRED_GEMINI_MODELS, LLMError, is_gemini, list_models, provider_error, providers
 from app.assistant.llm import _limit_detail as _llm_limit_detail
 
 # Vision-capable models, in order of preference, used when LLM_VISION_MODEL is not set.
@@ -58,7 +57,9 @@ Rules:
 - Read each figure from the digits. If the amount in words is visible and disagrees with the digits, give the
   digits, set confidence to "low" and say so in notes.
 - "confidence": "high" only when the digits are clear; "medium" if slightly unclear; "low" if hard to read.
-- List every party row that has a score written, in the order printed. Skip rows with no score.
+- List EVERY party row in the order printed, all the way to the last row. A score written as 0, a dash, "nil" or
+  "zero" is 0. Use null only for a box that is empty or unreadable.
+- Return compact JSON on one line (no spaces or line breaks between items) so the whole sheet fits.
 - Do not copy names of people, signatures or phone numbers."""
 
 
@@ -76,23 +77,28 @@ class OpenAICompatibleVision:
         self.name = model
         self._headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         self._timeout = timeout
+        self.wait_on_limit = True  # off when another provider can answer straight away
 
     def _post(self, body: dict[str, Any]) -> httpx.Response:
         return httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
 
     def read_image(self, prompt: str, jpeg: bytes) -> str:
         url = "data:image/jpeg;base64," + base64.b64encode(jpeg).decode()
+        gemini = is_gemini(self.base_url)
         plain = {
-            "model": self.name, "temperature": 0, "max_completion_tokens": 900,
+            # Gemini counts its hidden "thinking" in the reply allowance, so it gets more room
+            "model": self.name, "temperature": 0, "max_completion_tokens": 8000 if gemini else 2000,
             "messages": [{"role": "user", "content": [{"type": "text", "text": prompt},
                                                       {"type": "image_url", "image_url": {"url": url}}]}],
         }  # fmt: skip
         tuned = plain | {"response_format": {"type": "json_object"}}
         if "qwen" in self.name:
             tuned["reasoning_effort"] = "none"  # copying figures needs no hidden "thinking" tokens
+        elif gemini:
+            tuned["reasoning_effort"] = "low"
         try:
             r = self._post(tuned)
-            if r.status_code == 429:  # free-tier per-minute limit: wait once if the provider says it is short
+            if r.status_code == 429 and self.wait_on_limit:  # per-minute limit: wait once if the wait is short
                 wait = _retry_after(r)
                 if wait is not None and wait <= MAX_WAIT_SECONDS:
                     time.sleep(wait + 0.5)
@@ -104,7 +110,7 @@ class OpenAICompatibleVision:
         if r.status_code == 404:
             _chosen.pop(self.base_url, None)
             raise LLMError(f"The sheet reader's model ({self.name}) is not available from the provider.")
-        if r.status_code == 429:
+        if r.status_code in (429, 503):
             raise LLMError(f"The sheet reader is busy (free-tier limit reached{_limit_detail(r)}). Try again in a "
                            "minute or type the figures in.", code="rate_limit")  # fmt: skip
         if r.status_code >= 400:
@@ -117,10 +123,7 @@ class OpenAICompatibleVision:
 
 def _limit_detail(r: httpx.Response) -> str:
     """Which limit was hit and by how much (from the provider's message; never the prompt or the key)."""
-    try:
-        msg = str(r.json().get("error", {}).get("message", ""))
-    except (ValueError, AttributeError):
-        msg = ""
+    msg = str(provider_error(r).get("message", ""))
     kind = re.search(r"on (tokens|requests) per (minute|day) \(([A-Z]+)\)", msg)
     again = re.search(r"try again in ([0-9hms.]+)", msg)
     parts = [
@@ -142,24 +145,50 @@ def _retry_after(r: httpx.Response) -> float | None:
 def choose_vision_model(api_key: str, base_url: str) -> str | None:
     if base_url in _chosen:
         return _chosen[base_url]
+    preferred = PREFERRED_GEMINI_MODELS if is_gemini(base_url) else PREFERRED_VISION_MODELS
     listed = list_models(api_key, base_url)
-    model = next((m for m in PREFERRED_VISION_MODELS if m in listed), None)
+    model = next((m for m in preferred if m in listed), None)
     if model is None:  # any other listed model that says it can see images
         model = next((m for m in listed if re.search(r"vision|llama-4|-vl\b|-vl-|qwen3\.[6-9]", m)), None)
     if model is None and not listed:
-        model = PREFERRED_VISION_MODELS[0]  # listing failed; try the first choice anyway
+        model = preferred[0]  # listing failed; try the first choice anyway
     if model and listed:
         _chosen[base_url] = model
     return model
 
 
+class FallbackVision:
+    """Reads with the first provider; if it fails (busy, out of quota, down), the next one reads instead."""
+
+    def __init__(self, models: list[OpenAICompatibleVision]) -> None:
+        self.models = models
+        self._i = 0
+        for m in models[:-1]:
+            m.wait_on_limit = False
+
+    @property
+    def name(self) -> str:
+        return self.models[self._i].name
+
+    def read_image(self, prompt: str, jpeg: bytes) -> str:
+        while True:
+            try:
+                return self.models[self._i].read_image(prompt, jpeg)
+            except LLMError:
+                if self._i == len(self.models) - 1:
+                    raise
+                self._i += 1
+
+
 def configured_vision_model() -> VisionModel | None:
-    key = os.environ.get("LLM_API_KEY", "").strip()
-    if not key:
+    models = []
+    for p in providers():
+        model = p["vision_model"] or choose_vision_model(p["key"], p["base"])
+        if model:
+            models.append(OpenAICompatibleVision(p["key"], p["base"], model))
+    if not models:
         return None
-    base = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
-    model = os.environ.get("LLM_VISION_MODEL", "").strip() or choose_vision_model(key, base)
-    return OpenAICompatibleVision(key, base, model) if model else None
+    return models[0] if len(models) == 1 else FallbackVision(models)
 
 
 # ----------------------------------------------------------------------------------------- parsing (untrusted)

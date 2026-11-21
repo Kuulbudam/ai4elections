@@ -73,7 +73,18 @@ def language_rule(language: str) -> str:
         "Keep polling-unit codes, place names and party names exactly as in the data. "
         "When you mention an unverified allegation, add the English words 'unverified allegation' in brackets. "
         f"The rules above apply in {name} too: never use words that mean fraud, rigging or vote theft."
+        + STYLE_HINTS.get(language, "")
     )
+
+
+# Pidgin answers drifted into English with one Pidgin word; a short pattern (no figures) keeps the register.
+STYLE_HINTS = {
+    "pcm": (
+        " Write Pidgin the way people talk am, not English with one Pidgin word. Pattern: "
+        "'<State> na di state wey get di most flags — e get <number>. Dis na signal to check di result sheet, "
+        "no be say anybody do wrong.' Use words like na, dey, wey, di, dis, dem, don, e get."
+    ),
+}
 
 
 REPLACED = (

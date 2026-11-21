@@ -96,6 +96,19 @@ def project_overview(ctx: Ctx) -> dict[str, Any]:
     return {"project": dict(p), "dataset_versions": out}
 
 
+def _most_flags(rows: list[dict[str, Any]], level: str) -> dict[str, Any]:
+    """Which area has the most of each flag type, worked out here so the model never has to compare numbers
+    (a live check once named the second-ranked state). Ties list every area with the top count."""
+    out: dict[str, Any] = {}
+    for key, name in (("unusual_turnout", "turnout"), ("unusual_share", "share"), ("very_high", "very_high"),
+                      ("data_quality", "data_quality")):  # fmt: skip
+        counts = [(r[level], (r["findings"] or {}).get(key) or 0) for r in rows]
+        top = max((c for _, c in counts), default=0)
+        if top > 0:
+            out[name] = {"areas": sorted(str(a) for a, c in counts if c == top), "count": top}
+    return out
+
+
 def area_totals(ctx: Ctx, dataset_version_id: Any, level: Any, state: Any = None, lga: Any = None,
                 with_party_totals: Any = False) -> dict[str, Any]:  # fmt: skip
     if level not in ("state", "lga", "ward"):
@@ -133,6 +146,7 @@ def area_totals(ctx: Ctx, dataset_version_id: Any, level: Any, state: Any = None
     q += f"&lga={lga}" if lga else ""
     ctx.cite("areas", f"Area totals ({level}{': ' + (lga or state) if state else ''})", f"/versions/{v['id']}/areas{q}")
     return {"level": level, "within": lga or state, "areas": items, "total_areas": len(res["items"]),
+            "most_flags": _most_flags(res["items"], level),
             **({"note": f"only the {MAX_AREAS} areas with most flags shown"} if len(res["items"]) > MAX_AREAS else {})}  # fmt: skip
 
 
@@ -253,7 +267,7 @@ SPECS: list[dict[str, Any]] = [
      "description": "Project, its dataset versions (ids) and validation/analysis summaries.",
      "parameters": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "area_totals", "fn": area_totals,
-     "description": "USE FOR ANY COMPARISON OF AREAS (which state/LGA/ward has most/least/highest...). Per-area totals for a dataset version: units, turnout %, registered, accredited, leading party %, and flag counts (flags.turnout = unusual-turnout units, flags.share, flags.very_high, flags.data_quality). level=state for states; add state to list its LGAs; add lga to list its wards. with_party_totals adds party votes.",
+     "description": "USE FOR ANY COMPARISON OF AREAS (which state/LGA/ward has most/least/highest...). Per-area totals for a dataset version: units, turnout %, registered, accredited, leading party %, and flag counts (flags.turnout = unusual-turnout units, flags.share, flags.very_high, flags.data_quality). most_flags already names the area(s) with the most of each flag type: use it for 'which has the most' questions instead of comparing numbers yourself. level=state for states; add state to list its LGAs; add lga to list its wards. with_party_totals adds party votes.",
      "parameters": {"type": "object", "required": ["dataset_version_id", "level"], "additionalProperties": False,
                     "properties": {"dataset_version_id": _S, "level": {"type": "string", "enum": ["state", "lga", "ward"]},
                                    "state": _S, "lga": _S, "with_party_totals": {"type": "boolean"}}}},

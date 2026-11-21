@@ -1,7 +1,10 @@
 """Chat model access. Any OpenAI-compatible chat-completions endpoint with tool calling works.
 
-Configured by environment: LLM_API_KEY (required to enable the assistant), LLM_BASE_URL (default Groq),
-LLM_MODEL. The key is read on the server only and never logged or returned.
+Two free providers can be set up; when the first is busy, out of quota or down, the next one answers:
+* Groq: LLM_API_KEY (LLM_BASE_URL, LLM_MODEL optional);
+* Google Gemini: GEMINI_API_KEY (GEMINI_MODEL optional), through Gemini's OpenAI-compatible endpoint.
+AI_PROVIDER_ORDER (default "groq,gemini") sets which is tried first. Keys are read on the server only and are
+never logged or returned.
 """
 
 from __future__ import annotations
@@ -13,6 +16,12 @@ from typing import Any, Protocol
 import httpx
 
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+# Free-tier Gemini models (Flash models read images too), in order of preference.
+PREFERRED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+# Gemini 3 checks a "thought signature" on earlier tool calls. Calls it did not make itself (e.g. made by the other
+# provider before a switch) get Google's documented placeholder.
+SKIP_SIGNATURE = "skip_thought_signature_validator"
 # Used in this order when LLM_MODEL is not set: the first one the provider currently lists (all support tool calling).
 PREFERRED_MODELS = [
     "openai/gpt-oss-120b",
@@ -55,9 +64,13 @@ class OpenAICompatible:
     def chat(
         self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
     ) -> dict[str, Any]:
+        gemini = is_gemini(self.base_url)
+        if gemini:
+            messages = with_signatures(messages)
         body: dict[str, Any] = {"model": self.name, "messages": messages, "tools": tools, "tool_choice": "auto",
-                                "temperature": temperature, "max_completion_tokens": MAX_REPLY_TOKENS}  # fmt: skip
-        if "gpt-oss" in self.name:
+                                "temperature": temperature,
+                                "max_completion_tokens": MAX_REPLY_TOKENS * (4 if gemini else 1)}  # fmt: skip
+        if "gpt-oss" in self.name or gemini:
             body["reasoning_effort"] = "low"  # fewer hidden reasoning tokens against the per-minute budget
         try:
             r = httpx.post(f"{self.base_url}/chat/completions", headers=self._headers, json=body, timeout=self._timeout)
@@ -66,7 +79,7 @@ class OpenAICompatible:
         if r.status_code == 404:
             _chosen.pop(self.base_url, None)  # pick again next time
             raise LLMError(f"The assistant's model ({self.name}) is not available from the provider.")
-        if r.status_code == 429:
+        if r.status_code in (429, 503):  # 503: Gemini's "model overloaded"
             try:
                 wait = float(r.headers.get("retry-after", ""))
             except ValueError:
@@ -85,23 +98,76 @@ class OpenAICompatible:
             raise LLMError("The assistant service returned an unexpected response.") from e
 
 
+def provider_error(r: httpx.Response) -> dict[str, Any]:
+    """The provider's error object. Groq sends {"error": {...}}; Gemini may send [{"error": {...}}]."""
+    try:
+        body = r.json()
+    except ValueError:
+        return {}
+    if isinstance(body, list) and body:
+        body = body[0]
+    e = body.get("error") if isinstance(body, dict) else None
+    return e if isinstance(e, dict) else {}
+
+
 def _limit_detail(r: httpx.Response) -> str:
     """e.g. 'Limit 8000, Used 6100, Requested 2400' from the provider's 429 message (no prompt content)."""
-    try:
-        m = re.search(r"Limit \d+, Used \d+, Requested \d+", r.json().get("error", {}).get("message", ""))
-        return f": {m.group(0)}" if m else ""
-    except (ValueError, AttributeError):
-        return ""
+    m = re.search(r"Limit \d+, Used \d+, Requested \d+", str(provider_error(r).get("message", "")))
+    if m:
+        return f": {m.group(0)}"
+    status = provider_error(r).get("status")  # Gemini: RESOURCE_EXHAUSTED / UNAVAILABLE
+    return f": {str(status)[:40]}" if status else ""
 
 
 def _reason(r: httpx.Response) -> str:
     """The provider's error code (never the prompt, never the key)."""
-    try:
-        e = r.json().get("error", {})
-        code = e.get("code") or e.get("type")
-        return f": {str(code)[:60]}" if code else ""
-    except ValueError:
-        return ""
+    e = provider_error(r)
+    code = e.get("code") or e.get("type") or e.get("status")
+    return f": {str(code)[:60]}" if code else ""
+
+
+def is_gemini(base_url: str) -> bool:
+    return "generativelanguage.googleapis.com" in base_url
+
+
+def with_signatures(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A copy where every earlier tool call carries a thought signature (Gemini 3 rejects one without)."""
+    out = []
+    for m in messages:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            calls = []
+            for tc in m["tool_calls"]:
+                if not (tc.get("extra_content") or {}).get("google", {}).get("thought_signature"):
+                    tc = tc | {"extra_content": {"google": {"thought_signature": SKIP_SIGNATURE}}}
+                calls.append(tc)
+            m = m | {"tool_calls": calls}
+        out.append(m)
+    return out
+
+
+class FallbackChat:
+    """Tries each provider in order; once one fails (busy, out of quota, down), the next answers for the rest
+    of the question. Only when every provider fails is the last error raised."""
+
+    def __init__(self, models: list[ChatModel]) -> None:
+        self.models = models
+        self._i = 0
+
+    @property
+    def name(self) -> str:
+        return self.models[self._i].name
+
+    def chat(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], temperature: float = 0
+    ) -> dict[str, Any]:
+        while True:
+            try:
+                return self.models[self._i].chat(messages, tools, temperature)
+            except LLMError as e:
+                # a malformed tool call is the model's own mistake: the assistant loop corrects it on the same model
+                if e.code == "tool_use_failed" or self._i == len(self.models) - 1:
+                    raise
+                self._i += 1
 
 
 def list_models(api_key: str, base_url: str) -> list[str]:
@@ -109,25 +175,44 @@ def list_models(api_key: str, base_url: str) -> list[str]:
     try:
         r = httpx.get(f"{base_url.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=15)
         r.raise_for_status()
-        return sorted(m["id"] for m in r.json().get("data", []) if m.get("active", True))
+        # Gemini lists ids as "models/gemini-..."; requests use the bare name
+        return sorted(m["id"].removeprefix("models/") for m in r.json().get("data", []) if m.get("active", True))
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
         return []
 
 
-def choose_model(api_key: str, base_url: str) -> str:
+def choose_model(api_key: str, base_url: str, preferred: list[str] | None = None) -> str:
     if base_url in _chosen:
         return _chosen[base_url]
+    preferred = preferred or (PREFERRED_GEMINI_MODELS if is_gemini(base_url) else PREFERRED_MODELS)
     listed = set(list_models(api_key, base_url))
-    model = next((m for m in PREFERRED_MODELS if m in listed), PREFERRED_MODELS[0])
+    model = next((m for m in preferred if m in listed), preferred[0])
     if listed:
         _chosen[base_url] = model
     return model
 
 
+def providers() -> list[dict[str, str]]:
+    """The providers that have a key, in AI_PROVIDER_ORDER: {"provider", "key", "base", "model", "vision_model"}
+    (model names empty when not set by environment, to be chosen from the provider's list)."""
+    found: dict[str, dict[str, str]] = {}
+    if key := os.environ.get("LLM_API_KEY", "").strip():
+        found["groq"] = {"provider": "groq", "key": key,
+                         "base": os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL,
+                         "model": os.environ.get("LLM_MODEL", "").strip(),
+                         "vision_model": os.environ.get("LLM_VISION_MODEL", "").strip()}  # fmt: skip
+    if key := os.environ.get("GEMINI_API_KEY", "").strip():
+        found["gemini"] = {"provider": "gemini", "key": key, "base": GEMINI_BASE_URL,
+                           "model": os.environ.get("GEMINI_MODEL", "").strip(),
+                           "vision_model": os.environ.get("GEMINI_VISION_MODEL", "").strip()}  # fmt: skip
+    order = [p.strip().lower() for p in os.environ.get("AI_PROVIDER_ORDER", "groq,gemini").split(",")]
+    return [found[p] for p in dict.fromkeys(order + ["groq", "gemini"]) if p in found]
+
+
 def configured_model() -> ChatModel | None:
-    key = os.environ.get("LLM_API_KEY", "").strip()
-    if not key:
+    models: list[ChatModel] = [
+        OpenAICompatible(p["key"], p["base"], p["model"] or choose_model(p["key"], p["base"])) for p in providers()
+    ]
+    if not models:
         return None
-    base = os.environ.get("LLM_BASE_URL", "").strip() or DEFAULT_BASE_URL
-    model = os.environ.get("LLM_MODEL", "").strip() or choose_model(key, base)
-    return OpenAICompatible(key, base, model)
+    return models[0] if len(models) == 1 else FallbackChat(models)

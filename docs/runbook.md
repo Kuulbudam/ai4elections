@@ -11,7 +11,7 @@ Keep this short enough to use under pressure.
 | API | Vercel project `ai4elections` (https://ai4elections.vercel.app) | FastAPI, Python 3.13. Built only when `main` changes `services/api` or the contract. |
 | Background jobs (ingest, validate, analyse) | GitHub Actions workflow **Worker** | Started by the API for each job; a safety sweep runs every 15 minutes and re-queues any job whose worker stopped. |
 | Database, sign-in, file storage | Supabase (free plan) | Row-level security on every table; two-step sign-in required in the database itself. |
-| AI (data assistant, sheet reader) | Groq (free plan): `openai/gpt-oss-120b` for questions, `qwen/qwen3.8-27b` for sheet photos | Key `LLM_API_KEY` in Vercel (API project) and GitHub Actions secrets. Everything else works without it. |
+| AI (data assistant, sheet reader) | Groq (free plan): `openai/gpt-oss-120b` for questions, `qwen/qwen3.8-27b` for sheet photos. Backup: Google Gemini (free plan), a Flash model for both | Keys `LLM_API_KEY` (Groq) and `GEMINI_API_KEY` in Vercel (API project) and GitHub Actions secrets. When Groq is busy or out of quota, Gemini answers automatically. `AI_PROVIDER_ORDER=gemini,groq` swaps the order. Everything else works without either key. |
 
 ## Free-plan limits and what to do
 
@@ -46,7 +46,7 @@ can pick up the other's jobs and make a check report a false failure. Run them o
 
 **A page shows "This page hit a problem".** The page crashed, but your data is safe. Press **Try again** or go to the dashboard. Note the "Details" line and the page address, and report it.
 
-**Ask the data or the sheet reader says the AI service is unavailable.** Check `LLM_API_KEY` is still set in Vercel (API project → Settings → Environment Variables) and in GitHub secrets. Groq's model list changes over time; the platform picks the first available model from its preference list. If none is available, the **Database** workflow's live checks will say so.
+**Ask the data or the sheet reader says the AI service is unavailable.** Both providers failed. Check `LLM_API_KEY` and `GEMINI_API_KEY` are still set in Vercel (API project → Settings → Environment Variables) and in GitHub secrets. Model lists change over time; the platform picks the first available model from its preference list for each provider. The **Database** workflow's live checks (including "Live Gemini backup check") say which provider or model is missing. Gemini's daily quota resets at midnight Pacific time (9 am in Nigeria).
 
 **Uploads fail.** Check the file is CSV (UTF-8), under 25 MB, and that you are an admin or analyst. For result-sheet photos: JPEG, PNG or WebP under 4.5 MB.
 
@@ -59,6 +59,7 @@ can pick up the other's jobs and make a check report a false failure. Run them o
 | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_URL` | Vercel (API project), GitHub secrets | Supabase → Settings → API → roll the key, then update both places and redeploy the API. |
 | `DATABASE_URL` | Vercel (API project), GitHub secrets | Supabase → Settings → Database → reset the password, update both places. |
 | `LLM_API_KEY` | Vercel (API project), GitHub secrets | Groq console → API keys → create a new key, update both places, delete the old key. |
+| `GEMINI_API_KEY` | Vercel (API project), GitHub secrets | Google AI Studio → Get API key → create a new key, update both places, delete the old key. |
 | `GITHUB_DISPATCH_TOKEN` | Vercel (API project) | GitHub → Settings → Developer settings → fine-grained token with Actions write on this repository. |
 | `BACKUP_PASSPHRASE` (optional) | GitHub secrets | Choose a long passphrase and keep it in a password manager. Without it, backups cannot be decrypted. |
 
