@@ -60,17 +60,18 @@ def tool_round_trip(model: llm.ChatModel, messages: list[dict]) -> str:
 
 def main() -> int:
     listed = llm.list_models(KEY, llm.GEMINI_BASE_URL)
-    chat_name = llm.choose_model(KEY, llm.GEMINI_BASE_URL)
-    print("Gemini models listed:", [m for m in listed if m.startswith("gemini")][:12] or "(none)", flush=True)
-    if not check("a free-tier Gemini model is listed", chat_name in listed, f"using {chat_name}"):
+    names = llm.candidate_models(KEY, llm.GEMINI_BASE_URL, llm.PREFERRED_GEMINI_MODELS)
+    print("Gemini Flash models listed:", [m for m in listed if "flash" in m] or "(none)", flush=True)
+    if not check("free-tier Gemini models are listed", all(n in listed for n in names), f"will try {names}"):
         return report()
-    gemini = llm.OpenAICompatible(KEY, llm.GEMINI_BASE_URL, chat_name)
+    # As the app does it: each candidate in turn (the newest Flash models are often overloaded).
+    gemini = llm.FallbackChat([llm.OpenAICompatible(KEY, llm.GEMINI_BASE_URL, n) for n in names])
     q = [{"role": "system", "content": "Answer only from the tool. Copy figures exactly."},
          {"role": "user", "content": "How many valid votes were recorded in Plateau? Use the tool."}]  # fmt: skip
 
     try:
         answer = tool_round_trip(gemini, list(q))
-        check("tool calling over two rounds", "48213" in answer.replace(",", ""), answer[:120])
+        check("tool calling over two rounds", "48213" in answer.replace(",", ""), f"{gemini.name}: {answer[:120]}")
     except llm.LLMError as e:
         check("tool calling over two rounds", False, str(e))
 
@@ -96,18 +97,19 @@ def main() -> int:
         check("continues a conversation begun on another provider", False, str(e))
 
     refused = llm.OpenAICompatible("not-a-real-key", llm.DEFAULT_BASE_URL, "openai/gpt-oss-120b")
-    both = llm.FallbackChat([refused, gemini])
+    both = llm.FallbackChat([refused] + [llm.OpenAICompatible(KEY, llm.GEMINI_BASE_URL, n) for n in names])
     try:
         answer = tool_round_trip(both, list(q))
-        check("assistant switches to Gemini when Groq refuses", both.name == chat_name and "48213" in
+        check("assistant switches to Gemini when Groq refuses", both.name in names and "48213" in
               answer.replace(",", ""), f"answered by {both.name}")  # fmt: skip
     except llm.LLMError as e:
         check("assistant switches to Gemini when Groq refuses", False, str(e))
 
     fig = figures_from_csv(1)
     jpeg = clean(photo_like(render(fig))).jpeg
-    vision_name = rd.choose_vision_model(KEY, llm.GEMINI_BASE_URL) or ""
-    reading = rd.read_sheet(rd.OpenAICompatibleVision(KEY, llm.GEMINI_BASE_URL, vision_name), jpeg)
+    vision = rd.FallbackVision([rd.OpenAICompatibleVision(KEY, llm.GEMINI_BASE_URL, n) for n in names])
+    reading = rd.read_sheet(vision, jpeg)
+    vision_name = vision.name
     got = reading["figures"]
     wrong = [k for k in rd.COUNT_FIELDS if got.get(k) != fig.get(k)]
     parties = {p["party"]: p["votes"] for p in got.get("party_votes", [])}
@@ -116,11 +118,11 @@ def main() -> int:
           f"{vision_name}: status {reading['status']}" + (f", wrong: {wrong}" if wrong else "")
           + (f" ({reading['notes']})" if reading["status"] != "read" else ""))  # fmt: skip
 
-    fallback = rd.FallbackVision([rd.OpenAICompatibleVision("not-a-real-key", llm.DEFAULT_BASE_URL, "qwen/qwen3.8-27b"),
-                                  rd.OpenAICompatibleVision(KEY, llm.GEMINI_BASE_URL, vision_name)])  # fmt: skip
+    fallback = rd.FallbackVision([rd.OpenAICompatibleVision("not-a-real-key", llm.DEFAULT_BASE_URL, "qwen/qwen3.8-27b")]
+                                 + [rd.OpenAICompatibleVision(KEY, llm.GEMINI_BASE_URL, n) for n in names])  # fmt: skip
     reading = rd.read_sheet(fallback, jpeg)
     check("sheet reader switches to Gemini when Groq refuses",
-          reading["status"] == "read" and fallback.name == vision_name, f"read by {fallback.name}")  # fmt: skip
+          reading["status"] == "read" and fallback.name in names, f"read by {fallback.name}")  # fmt: skip
     return report()
 
 

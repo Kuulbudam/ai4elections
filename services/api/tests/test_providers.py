@@ -30,6 +30,7 @@ def _clean_env(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(llm, "list_models", lambda k, b: [])
     llm._chosen.clear()
+    llm._candidates.clear()
     rd._chosen.clear()
 
 
@@ -162,3 +163,30 @@ def test_sheet_reader_all_providers_failing_falls_back_to_typing(monkeypatch):
                            rd.OpenAICompatibleVision("g", llm.GEMINI_BASE_URL, "b")])  # fmt: skip
     out = read_sheet(v, b"\xff\xd8x")
     assert out["status"] == "failed"
+
+
+def test_gemini_tries_several_listed_flash_models_in_turn_when_one_is_overloaded(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setattr(llm, "list_models", lambda k, b: ["gemini-3.8-flash", "gemini-3-flash-preview",
+                                                          "gemini-2.5-flash", "gemini-2.5-flash-lite", "x"])  # fmt: skip
+    m = llm.configured_model()
+    assert isinstance(m, llm.FallbackChat)
+    assert [x.name for x in m.models] == ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]
+    v = rd.configured_vision_model()
+    assert [x.name for x in v.models] == ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]
+    tried = []
+
+    def fake_post(url, headers, json, timeout):
+        tried.append(json["model"])
+        if json["model"] == "gemini-3.8-flash":  # Gemini's "model overloaded"
+            return httpx.Response(503, json=[{"error": {"code": 503, "status": "UNAVAILABLE"}}])
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(llm.httpx, "post", fake_post)
+    assert m.chat([{"role": "user", "content": "hi"}], [])["content"] == "ok"
+    assert tried == ["gemini-3.8-flash", "gemini-3-flash-preview"] and m.name == "gemini-3-flash-preview"
+
+
+def test_gemini_candidates_fall_back_to_the_first_choice_when_the_list_cannot_be_read():
+    assert llm.candidate_models("g", llm.GEMINI_BASE_URL, llm.PREFERRED_GEMINI_MODELS) == ["gemini-3.8-flash"]
+    assert llm.GEMINI_BASE_URL not in llm._candidates
