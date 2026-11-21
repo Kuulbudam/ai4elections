@@ -71,11 +71,11 @@ export default function Projects() {
       <p>
         <Link to="/">← Organisations</Link>
       </p>
-      <h1 id="projects-heading">{orgName ? `${orgName} — projects` : 'Projects'}</h1>
+      <h1 id="projects-heading">{orgName ? `${orgName}: projects` : 'Projects'}</h1>
       {projects === null ? (
         <p className="muted">Loading…</p>
       ) : projects.length === 0 ? (
-        <p className="empty">No election monitoring projects yet.{role === 'admin' ? ' Create the first one below.' : ' An admin can create one.'}</p>
+        <p className="empty">No projects yet.{role === 'admin' ? ' Create the first one below.' : ' An admin can create one.'}</p>
       ) : (
         <table className="table">
           <thead>

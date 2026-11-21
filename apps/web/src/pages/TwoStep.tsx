@@ -6,7 +6,7 @@ import { getSupabase } from '../lib/supabase'
 function codeError(message: string | undefined): string {
   const m = (message ?? '').toLowerCase()
   if (m.includes('invalid') || m.includes('code')) return 'That code is not correct or has expired. Enter the current 6-digit code.'
-  return 'Verification failed. Please try again.'
+  return 'That didn’t work. Try again.'
 }
 
 function CodeForm({ onSubmit, busy, error }: { onSubmit: (code: string) => void; busy: boolean; error: string | null }) {
@@ -67,7 +67,7 @@ export function TwoStepChallenge() {
   }
 
   return (
-    <TwoStepShell title="Two-step verification" intro="Open your authenticator app and enter the 6-digit code for AI4Elections.">
+    <TwoStepShell title="Two-step verification" intro="Open your authenticator app and enter the 6-digit code for Election as a System.">
       <CodeForm onSubmit={(c) => void verify(c)} busy={busy} error={error} />
     </TwoStepShell>
   )
@@ -110,7 +110,7 @@ export function TwoStepEnrol() {
   return (
     <TwoStepShell
       title="Set up two-step verification"
-      intro="Two-step verification is required for every account. Scan this QR code with an authenticator app (for example Google Authenticator or Microsoft Authenticator), then enter the 6-digit code it shows."
+      intro="Every account needs two-step verification. Scan this code with an authenticator app such as Google Authenticator or Microsoft Authenticator, then type the 6-digit code it shows."
     >
       {factor ? (
         <>
@@ -126,7 +126,7 @@ export function TwoStepEnrol() {
           {error}
         </p>
       ) : (
-        <p className="muted">Preparing…</p>
+        <p className="muted">Loading…</p>
       )}
     </TwoStepShell>
   )

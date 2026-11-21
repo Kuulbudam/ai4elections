@@ -70,15 +70,15 @@ export default function Sheets() {
     <section className="page" aria-labelledby="sheets-heading">
       <h1 id="sheets-heading">Result sheets{project ? `: ${project.election_name}` : ''}</h1>
       <p className="page-intro">
-        Upload a photo of a polling-unit result sheet (Form EC8A). The AI reads the figures; you check them against the photo and confirm. The platform then
-        checks the sheet's own sums and compares it with the uploaded results. Any mismatch goes to the findings queue for review.
+        Add a photo of a polling-unit result sheet (Form EC8A). We read the figures for you to check against the photo. Once you confirm them, we
+        check the sheet’s sums and compare it with your uploaded results.
       </p>
 
       {canUpload && (
         <div className="card sheet-upload">
           <h2>Check a result sheet</h2>
           {versions.length === 0 ? (
-            <p className="muted">Upload and validate the results first. Sheets are compared with a validated dataset.</p>
+            <p className="muted">Upload and check your results file first, so there’s something to compare the sheet with.</p>
           ) : (
             <>
               {versions.length > 1 && (
@@ -94,8 +94,8 @@ export default function Sheets() {
                 </label>
               )}
               <label className="file-drop">
-                <span>{busy ? 'Reading the sheet… this takes a few seconds' : 'Take a photo or choose one'}</span>
-                <span className="small muted">JPEG, PNG or WebP. Get the whole sheet in the frame, flat and in good light. Location data is removed.</span>
+                <span>{busy ? 'Reading the sheet…' : 'Take a photo or choose one'}</span>
+                <span className="small muted">JPEG, PNG or WebP. Lay the sheet flat in good light with all four corners in view.</span>
                 <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(e) => void onPhoto(e)} />
               </label>
             </>
@@ -110,7 +110,7 @@ export default function Sheets() {
       )}
 
       <h2>
-        Uploaded sheets{sheets ? ` (${sheets.length})` : ''}
+        Sheets{sheets ? ` (${sheets.length})` : ''}
         {toConfirm > 0 && <span className="badge badge-unverified">{toConfirm} to confirm</span>}
       </h2>
       {sheets === null ? (
@@ -124,8 +124,8 @@ export default function Sheets() {
               <tr>
                 <th scope="col">Uploaded</th>
                 <th scope="col">Polling unit</th>
-                <th scope="col">AI reading</th>
-                <th scope="col">Outcome</th>
+                <th scope="col">Reading</th>
+                <th scope="col">Result</th>
               </tr>
             </thead>
             <tbody>
@@ -136,7 +136,7 @@ export default function Sheets() {
                     <td>
                       <Link to={`/projects/${projectId}/sheets/${s.id}`}>{new Date(s.created_at).toLocaleString()}</Link>
                     </td>
-                    <td>{(s.confirmed ?? s.reading.figures).pu_code ?? <span className="muted">not read</span>}</td>
+                    <td>{(s.confirmed ?? s.reading.figures).pu_code ?? <span className="muted">unknown</span>}</td>
                     <td>{readingLabel(s.reading.status)}</td>
                     <td>
                       <span className={`outcome outcome-${o.tone}`}>{o.text}</span>

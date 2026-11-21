@@ -81,7 +81,7 @@ export default function FindingDetail() {
   if (f === null)
     return (
       <p className="empty" role="alert">
-        {error ?? 'Finding not found, or you are not a member of its organisation.'}
+        {error ?? 'We couldn’t find this finding, or you’re not on its team.'}
       </p>
     )
 
@@ -104,17 +104,17 @@ export default function FindingDetail() {
       <h1 id="finding-heading">{f.title}</h1>
       <p>
         <span className={`sev sev-${f.severity}`}>{f.category === 'statistical_anomaly' ? 'How unusual: ' : 'Severity: '}{SEVERITY[f.severity]}</span>{' '}
-        <span className="badge">Confidence: {f.confidence}</span> <span className="badge">Review: {DECISION[f.review_status]}</span>
+        <span className="badge">How sure: {f.confidence}</span> <span className="badge">Review: {DECISION[f.review_status]}</span>
       </p>
       <p className="page-intro">{f.explanation}</p>
       {f.source_sheet_id && (
         <p className="notice">
-          From a result-sheet photo checked by a person. <Link to={`/projects/${f.project_id}/sheets/${f.source_sheet_id}`}>See the photo and the confirmed figures</Link>
+          From a result-sheet photo your team confirmed. <Link to={`/projects/${f.project_id}/sheets/${f.source_sheet_id}`}>See the photo and the confirmed figures</Link>
         </p>
       )}
       {f.rule_id?.startsWith('collation_') && (
         <p className="notice">
-          From a collation check of declared totals. <Link to={`/projects/${f.project_id}/collation`}>See the collation check</Link>
+          From a collation check. <Link to={`/projects/${f.project_id}/collation`}>See the declared totals</Link>
         </p>
       )}
       {error && (
@@ -125,20 +125,20 @@ export default function FindingDetail() {
 
       {f.statistics && f.peer_group && (
         <div className="card">
-          <h2>Comparison with peers</h2>
+          <h2>Compared with nearby units</h2>
           <dl className="facts">
             <dt>This unit</dt>
             <dd>{pct(f.statistics.value)}{f.statistics.leading_party ? ` (${f.statistics.leading_party})` : ''}</dd>
-            <dt>Peer median</dt>
+            <dt>Typical nearby</dt>
             <dd>{pct(f.statistics.median)}</dd>
-            <dt>Spread (MAD)</dt>
+            <dt>Usual spread</dt>
             <dd>{pct(f.statistics.mad)}</dd>
-            <dt>Robust z</dt>
+            <dt>Score</dt>
             <dd>
               {Number(f.statistics.robust_z) > 0 ? '+' : ''}
               {Number(f.statistics.robust_z).toFixed(2)} (listed at ±{f.statistics.threshold})
             </dd>
-            <dt>Peer group</dt>
+            <dt>Compared with</dt>
             <dd>
               {f.peer_group.sample_size} polling units in the same {f.peer_group.level === 'ward' ? 'ward' : 'LGA (the ward was too small)'}: {f.peer_group.key.split('|').join(' / ')}
             </dd>
@@ -160,10 +160,10 @@ export default function FindingDetail() {
       )}
 
       <div className="card">
-        <h2>Evidence: source row {ev?.source_row_number}</h2>
+        <h2>Row {ev?.source_row_number} of your file</h2>
         {ev ? (
           <>
-            <p className="small muted">The row exactly as uploaded{flagged.size ? '; the cells the check flagged are marked' : ''}.</p>
+            <p className="small muted">Exactly as uploaded{flagged.size ? '. The cells that caused the flag are highlighted' : ''}.</p>
             <table className="table compact" aria-label="Original cells">
               <tbody>
                 {Object.entries(ev.cells).map(([col, val]) => {
@@ -181,12 +181,12 @@ export default function FindingDetail() {
             </table>
           </>
         ) : (
-          <p className="empty">No source row is attached to this finding.</p>
+          <p className="empty">This finding isn’t linked to a row in your file.</p>
         )}
       </div>
 
       <div className="card">
-        <h2>Limitations</h2>
+        <h2>Things to bear in mind</h2>
         <p>{f.limitations}</p>
         <p className="small muted">
           Dataset SHA-256 <code>{f.provenance.dataset_sha256.slice(0, 16)}…</code> · engine {f.provenance.engine_version}
@@ -204,7 +204,7 @@ export default function FindingDetail() {
           {reviews.map((r, i) => (
             <li key={r.id}>
               <strong>{DECISION[r.decision]}</strong>
-              {i === 0 && <span className="badge">current</span>} — {r.reason}
+              {i === 0 && <span className="badge">current</span>} {r.reason}
               <div className="small muted">
                 {who(r.reviewer_id)}, {new Date(r.created_at).toLocaleString()}
               </div>
@@ -212,9 +212,9 @@ export default function FindingDetail() {
           ))}
         </ol>
       )}
-      <p className="small muted">Decisions are never edited or deleted. A new decision is added on top; the latest one is the current status.</p>
+      <p className="small muted">Decisions can’t be edited or deleted. A new decision is added on top, and the latest one counts.</p>
 
-      <h2>Investigation notes</h2>
+      <h2>Notes</h2>
       {notes.length === 0 ? <p className="empty">No notes yet.</p> : (
         <ul className="history">
           {notes.map((n) => (
@@ -230,17 +230,17 @@ export default function FindingDetail() {
       {canContribute && orgId && <NoteForm orgId={orgId} findingId={f.id} me={me!} onDone={load} />}
 
       <h2>Claims about this unit</h2>
-      <p className="small muted">A claim is an allegation until another admin or analyst verifies it against independent evidence.</p>
-      {claims.length === 0 ? <p className="empty">No claims recorded.</p> : (
+      <p className="small muted">Claims stay unverified until a second admin or analyst checks the evidence.</p>
+      {claims.length === 0 ? <p className="empty">No claims about this unit.</p> : (
         claims.map((c) => (
           <ClaimCard key={c.id} c={c} items={evidence.filter((e) => e.claim_id === c.id)} who={who} canReview={canReview} canContribute={canContribute} me={me!} orgId={orgId!} onDone={load} />
         ))
       )}
       {canContribute && <ClaimForm projectId={f.project_id} findingId={f.id} onDone={load} />}
 
-      <h2>Audit history</h2>
-      {audit.length === 0 ? <p className="empty">No recorded activity on this finding yet.</p> : (
-        <table className="table compact" aria-label="Audit history">
+      <h2>Activity</h2>
+      {audit.length === 0 ? <p className="empty">No activity yet.</p> : (
+        <table className="table compact" aria-label="Activity">
           <thead>
             <tr>
               <th scope="col">#</th>
@@ -261,7 +261,7 @@ export default function FindingDetail() {
           </tbody>
         </table>
       )}
-      <p className="small muted">Every event is hash-chained to the one before it, so a removed or altered event is detectable.</p>
+      <p className="small muted">This log can’t be edited, so you can always see who did what.</p>
     </section>
   )
 }
@@ -281,7 +281,7 @@ function ReviewForm({ findingId, onDone }: { findingId: string; onDone: () => Pr
       setReason('')
       await onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the decision.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t save your decision. Try again.')
     }
     setBusy(false)
   }
@@ -305,7 +305,7 @@ function ReviewForm({ findingId, onDone }: { findingId: string; onDone: () => Pr
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={10} maxLength={4000} required rows={3} placeholder="What did you check, and what did you find?" />
       </label>
       <button type="submit" className="primary" disabled={busy || !decision || reason.trim().length < 10}>
-        {busy ? 'Saving…' : 'Record decision'}
+        {busy ? 'Saving…' : 'Save decision'}
       </button>
       {error && <p role="alert" className="error">{error}</p>}
     </form>

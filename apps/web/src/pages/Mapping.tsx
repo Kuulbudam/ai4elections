@@ -137,7 +137,7 @@ export default function Mapping() {
 
   if (version === undefined) return <p className="muted">Loading…</p>
   if (version === null) return <p className="empty">Dataset version not found, or you are not a member of its organisation.</p>
-  if (version.status !== 'ingested') return <p className="empty">This version has not finished ingesting yet.</p>
+  if (version.status !== 'ingested') return <p className="empty">This file is still being read. Check back in a minute.</p>
   const readOnly = !canUpload(role)
   const partyCodeInvalid = (p: PartyRow) => p.include && !/^[A-Z0-9_]{1,16}$/.test(p.party_code.trim().toUpperCase())
 
@@ -147,12 +147,12 @@ export default function Mapping() {
         <Link to={`/projects/${version.project_id}`}>← Project</Link>
       </p>
       <h1 id="mapping-heading">
-        Map columns — {version.original_filename} (v{version.version_number})
+        Match columns: {version.original_filename} (v{version.version_number})
       </h1>
-      <p className="muted small">Tell the system which column in your file holds each standard field. Nothing in the original file changes.</p>
+      <p className="muted small">Pick the column in your file that holds each item. Your file itself isn’t changed.</p>
       {templates.length > 0 && !readOnly && (
         <label className="inline-label">
-          Apply a saved template
+          Use a saved layout
           <select defaultValue="" onChange={(e) => {
             const t = templates.find((x) => x.id === e.target.value)
             if (t) applyMapping(t.mapping, columns)
@@ -170,13 +170,13 @@ export default function Mapping() {
       )}
       <form onSubmit={save} className="form" aria-label="Column mapping">
         <fieldset className="card" disabled={readOnly || busy}>
-          <legend>Standard fields</legend>
+          <legend>Results columns</legend>
           <div className="grid2">
             {[...REQUIRED, ...OPTIONAL].map((f) => (
               <label key={f}>
                 {LABELS[f]}
                 <select value={fields[f] ?? ''} onChange={(e) => setFields({ ...fields, [f]: e.target.value || undefined })}>
-                  <option value="">— not mapped —</option>
+                  <option value="">— none —</option>
                   {columns.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -188,7 +188,7 @@ export default function Mapping() {
           </div>
         </fieldset>
         <fieldset className="card" disabled={readOnly || busy}>
-          <legend>Party vote columns (at least two)</legend>
+          <legend>Party columns (at least two)</legend>
           <table className="table compact">
             <thead>
               <tr>
@@ -213,35 +213,35 @@ export default function Mapping() {
           </table>
           <label className="check">
             <input type="checkbox" checked={allParties} onChange={(e) => setAllParties(e.target.checked)} />
-            These columns cover every party on the result sheet
+            This file has every party on the ballot
           </label>
           <p className="muted small">
             {allParties
-              ? 'Party votes must add up exactly to valid votes.'
-              : 'Some parties are not in this file, so the listed parties’ votes only need to stay within valid votes.'}
+              ? 'Party votes should add up exactly to valid votes.'
+              : 'Some parties are missing, so party votes only need to stay below valid votes.'}
           </p>
         </fieldset>
         {!readOnly && (
           <div className="grid2">
             <label>
-              Save as template (optional)
-              <input value={templateName} maxLength={120} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. Standard results layout" />
+              Save this layout for next time (optional)
+              <input value={templateName} maxLength={120} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. IReV export" />
             </label>
             <button type="submit" className="primary" disabled={busy || parties.some(partyCodeInvalid)}>
-              {busy ? 'Saving…' : 'Save mapping'}
+              {busy ? 'Saving…' : 'Save columns'}
             </button>
           </div>
         )}
-        {readOnly && <p className="muted small">Only admins and analysts can change the mapping.</p>}
+        {readOnly && <p className="muted small">Only admins and analysts can change this.</p>}
       </form>
       {issues && issues.length === 0 && (
         <p className="notice">
-          Mapping saved. All required fields are mapped. <Link to={`/versions/${versionId}/validation`}>Go to validation</Link>
+          Saved. <Link to={`/versions/${versionId}/validation`}>Next: check the data</Link>
         </p>
       )}
       {issues && issues.length > 0 && (
         <div className="card" role="alert">
-          <p>Mapping saved, but it is not complete yet:</p>
+          <p>Saved, but some columns still need picking:</p>
           <ul>
             {issues.map((i, n) => (
               <li key={n}>

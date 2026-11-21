@@ -110,7 +110,7 @@ describe('collation check', () => {
     window.history.pushState({}, '', '/projects/p1/collation')
     render(<App />)
     const input = (await screen.findByLabelText(/Choose the declared totals/)) as HTMLInputElement
-    expect(screen.getByRole('link', { name: 'Download a sample file' }).getAttribute('href')).toBe('/samples/SYNTHETIC_declared_totals.csv')
+    expect(screen.getByRole('link', { name: 'Download a sample file' }).getAttribute('href')).toBe('/samples/sample_declared_totals.csv')
     const file = new File(['State,LGA,Ward,Valid Votes\nSynthia,Amber North,Amber Ward 1,10\n'], 'declared.csv', { type: 'text/csv' })
     fireEvent.change(input, { target: { files: [file] } })
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST https://api.test/collation-checks') && c.includes('"filename":"declared.csv"') && c.includes('Amber Ward 1,10'))).toBe(true))

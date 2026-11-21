@@ -67,7 +67,7 @@ describe('data assistant page', () => {
     expect(screen.getByText('31/04/01/003: 91.0% vs 35.0%').tagName).toBe('LI')
     expect(screen.getByText('<script>alert(1)</script>')).toBeTruthy() // shown as text, never run
     expect(screen.getByRole('link', { name: /Turnout unusually above peers/ }).getAttribute('href')).toBe('/findings/f1')
-    expect(screen.getByText(/AI-drafted \(llama\); not a finding/)).toBeTruthy()
+    expect(screen.getByText(/Written by AI\./)).toBeTruthy()
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST https://api.test/assistant/ask') && c.includes('"project_id":"p1"'))).toBe(true))
   })
 
@@ -86,7 +86,7 @@ describe('data assistant page', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
       await waitFor(() => expect(screen.getAllByRole('article', { name: 'Answer' })).toHaveLength(2))
       expect(screen.getByRole('heading', { name: /Ask the data/ })).toBeTruthy()
-      expect(screen.queryByText('This page hit a problem')).toBeNull()
+      expect(screen.queryByText('Something went wrong')).toBeNull()
     } finally {
       Element.prototype.scrollIntoView = original
     }
@@ -108,12 +108,12 @@ describe('data assistant page', () => {
     stub(true)
     setSupabaseForTests(client('researcher') as never)
     render(<App />)
-    expect(await screen.findByText('The data assistant is available to admins and analysts.')).toBeTruthy()
+    expect(await screen.findByText('Ask the data is for admins and analysts.')).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Ask a question' })).toBeNull()
     cleanup()
     stub(false)
     setSupabaseForTests(client('admin') as never)
     render(<App />)
-    expect(await screen.findByText(/not set up yet/)).toBeTruthy()
+    expect(await screen.findByText(/isn’t switched on/)).toBeTruthy()
   })
 })

@@ -1,6 +1,6 @@
 """Synthetic result-sheet images for tests, live checks and the demo. Not a real INEC form.
 
-Draws a sheet laid out like Form EC8A with the figures typed in, stamped SYNTHETIC on every image so it can
+Draws a sheet laid out like Form EC8A with the figures typed in, stamped SAMPLE on every image so it can
 never be mistaken for a real result sheet. `python -m app.sheets.synthetic --row 1 --out sheet.png` writes one
 from the synthetic results file.
 """
@@ -32,9 +32,9 @@ def render(fig: dict[str, Any], width: int = 1240) -> bytes:
     big, mid, small = _font(44), _font(30), _font(24)
     ink, grey = (20, 30, 60), (110, 110, 110)
 
-    d.text((60, 40), "FORM EC8A (SYNTHETIC TEST SHEET)", font=big, fill=ink)
+    d.text((60, 40), "FORM EC8A (SAMPLE SHEET)", font=big, fill=ink)
     d.text((60, 100), "STATEMENT OF RESULT OF POLL FROM POLLING UNIT", font=mid, fill=ink)
-    d.text((60, 140), "Not a real INEC document. Generated for software testing only.", font=small, fill=grey)
+    d.text((60, 140), "Sample for practice and testing. Not an INEC document.", font=small, fill=grey)
     y = 200
     for label, key in (("State", "state"), ("LGA", "lga"), ("Registration Area / Ward", "ward"),
                        ("Polling Unit", "polling_unit_name"), ("Polling Unit Code", "pu_code")):  # fmt: skip
@@ -65,7 +65,7 @@ def render(fig: dict[str, Any], width: int = 1240) -> bytes:
         d.text((width - 300, y + 2), str(p["votes"]), font=big, fill=(10, 40, 140))
         y += 60
     stamp = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    ImageDraw.Draw(stamp).text((width // 2 - 330, height // 2 - 60), "SYNTHETIC", font=_font(150),
+    ImageDraw.Draw(stamp).text((width // 2 - 270, height // 2 - 60), "SAMPLE", font=_font(150),
                                fill=(200, 40, 40, 60))  # fmt: skip
     im = Image.alpha_composite(im.convert("RGBA"), stamp).convert("RGB")
     out = io.BytesIO()

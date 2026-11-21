@@ -22,11 +22,11 @@ export const TEXT_FIELDS: { key: 'pu_code' | 'state' | 'lga' | 'ward' | 'polling
 
 /** One-line outcome of a sheet for lists. */
 export function sheetOutcome(s: Sheet): { text: string; tone: 'todo' | 'ok' | 'flag' | 'muted' } {
-  if (s.status === 'read') return { text: 'Needs a person to confirm', tone: 'todo' }
+  if (s.status === 'read') return { text: 'Waiting for you to confirm', tone: 'todo' }
   const failed = (s.checks ?? []).filter((c) => c.ok === false).length
-  if (failed) return { text: `${failed} check${failed > 1 ? 's' : ''} need a look`, tone: 'flag' }
+  if (failed) return { text: `${failed} problem${failed > 1 ? 's' : ''} found`, tone: 'flag' }
   const skipped = (s.checks ?? []).filter((c) => c.ok === null).length
-  return skipped ? { text: `Passed (${skipped} not checked)`, tone: 'muted' } : { text: 'All checks passed', tone: 'ok' }
+  return skipped ? { text: `No problems (${skipped} not checked)`, tone: 'muted' } : { text: 'No problems', tone: 'ok' }
 }
 
 /**
@@ -60,5 +60,5 @@ export async function photoToBase64(file: File, max = 1600): Promise<string> {
 export const sumParties = (f: Figures) => (f.party_votes ?? []).reduce((a, p) => a + (Number.isFinite(p.votes) ? p.votes : 0), 0)
 
 export function readingLabel(status: Sheet['reading']['status']): string {
-  return { read: 'Read by AI', unreadable: 'AI could not read it', no_model: 'Typed in (no AI set up)', failed: 'AI unavailable, typed in' }[status]
+  return { read: 'Read automatically', unreadable: 'Couldn’t read the photo', no_model: 'Typed in', failed: 'Typed in' }[status]
 }

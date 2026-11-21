@@ -3,6 +3,8 @@ import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-
 import type { components } from './api/schema'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import AuthLayout from './components/AuthLayout'
+import Logo from './components/Logo'
+import { ThemeProvider, ThemeToggle } from './lib/theme'
 import { getSupabase } from './lib/supabase'
 import Mapping from './pages/Mapping'
 import Members from './pages/Members'
@@ -37,19 +39,19 @@ function apiBaseUrl(): string | undefined {
 
 export function ApiStatus() {
   const base = apiBaseUrl()
-  const [text, setText] = useState(base ? 'Checking API…' : 'API address not configured for this deployment.')
+  const [text, setText] = useState(base ? 'Connecting…' : 'Server address not set.')
 
   useEffect(() => {
     if (!base) return
     const ctrl = new AbortController()
     fetch(`${base}/health`, { signal: ctrl.signal })
       .then(async (r) => {
-        if (!r.ok) return setText('API unreachable. Try again shortly.')
+        if (!r.ok) return setText('Can’t reach the server. Try again shortly.')
         const h = (await r.json()) as Health
-        setText(`API online (version ${h.version}).`)
+        setText(`Connected · v${h.version}`)
       })
       .catch(() => {
-        if (!ctrl.signal.aborted) setText('API unreachable. Try again shortly.')
+        if (!ctrl.signal.aborted) setText('Can’t reach the server. Try again shortly.')
       })
     return () => ctrl.abort()
   }, [base])
@@ -63,7 +65,7 @@ function Shell() {
   if (!getSupabase()) {
     return (
       <AuthLayout>
-        <p role="alert">This deployment is not configured: the Supabase URL and public key are missing.</p>
+        <p role="alert">The app is not set up yet: the database address and public key are missing. Contact your administrator.</p>
       </AuthLayout>
     )
   }
@@ -77,10 +79,14 @@ function Shell() {
         <header className="topbar">
           <div className="masthead">
             <Link to="/" className="brand">
-              AI4Elections
-              <span className="brand-sub">Electoral results validation and evidence review</span>
+              <Logo size={40} />
+              <span>
+                Election as a System
+                <span className="brand-sub">EaaS · election results checking</span>
+              </span>
             </Link>
             <div className="account">
+              <ThemeToggle />
               <span>{session.user.email}</span>
               <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
                 Sign out
@@ -127,7 +133,7 @@ function Shell() {
         </main>
         <footer className="footer">
           <div className="footer-inner">
-            <p>Findings are signals for human review, not verdicts of wrongdoing. Every figure links back to its source row.</p>
+            <p>A flag means a figure needs checking. It is not proof that anyone did anything wrong.</p>
             <p>
               <ApiStatus />
             </p>
@@ -140,9 +146,11 @@ function Shell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Shell />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

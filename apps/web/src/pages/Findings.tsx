@@ -62,20 +62,20 @@ export default function Findings() {
   return (
     <section className="page" aria-labelledby="findings-heading">
       <p>
-        <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/claims`}>Claims register</Link>
+        <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/claims`}>Claims</Link>
       </p>
-      <h1 id="findings-heading">Findings{project ? ` — ${project.election_name}` : ''}</h1>
+      <h1 id="findings-heading">Findings{project ? `: ${project.election_name}` : ''}</h1>
       <p className="page-intro">
-        Findings from the latest analysis of each dataset version. Statistical outliers and data quality issues are signals to check against the
-        result sheet. They are kept apart from claims, which are allegations until someone verifies them with evidence.
+        Everything flagged in your latest analysis: unusual results, data problems, and mismatches with result sheets or collation totals. Open
+        one to see why it was flagged and record what you found.
       </p>
 
       <form className="filters card" aria-label="Filter findings" onSubmit={(e) => e.preventDefault()}>
-        <Select label="Category" value={filters.category} onChange={(v) => set('category', v)} options={CATEGORY} />
-        <Select label="Indicator" value={filters.indicator} onChange={(v) => set('indicator', v)} options={INDICATOR} disabled={filters.category === 'data_quality_issue' || filters.category === 'cross_check'} />
+        <Select label="Type" value={filters.category} onChange={(v) => set('category', v)} options={CATEGORY} />
+        <Select label="Measure" value={filters.indicator} onChange={(v) => set('indicator', v)} options={INDICATOR} disabled={filters.category === 'data_quality_issue' || filters.category === 'cross_check'} />
         <Select label="How unusual" value={filters.severity} onChange={(v) => set('severity', v)} options={SEVERITY} />
-        <Select label="Confidence" value={filters.confidence} onChange={(v) => set('confidence', v)} options={{ high: 'High', medium: 'Medium', low: 'Low' }} />
-        <Select label="Review status" value={filters.review_status} onChange={(v) => set('review_status', v)} options={DECISION} />
+        <Select label="How sure" value={filters.confidence} onChange={(v) => set('confidence', v)} options={{ high: 'High', medium: 'Medium', low: 'Low' }} />
+        <Select label="Review" value={filters.review_status} onChange={(v) => set('review_status', v)} options={DECISION} />
         {states.length > 0 ? (
           <>
             <Select label="State" value={filters.state} onChange={(v) => set('state', v)} options={Object.fromEntries(states.map((s) => [s, s]))} />
@@ -101,18 +101,18 @@ export default function Findings() {
       {items === null ? (
         <p className="muted">Loading…</p>
       ) : items.length === 0 ? (
-        <p className="empty">No findings match these filters. Run an analysis from a dataset version if none exist yet.</p>
+        <p className="empty">Nothing matches these filters. If you haven’t analysed a file yet, do that first.</p>
       ) : (
         <>
           <table className="table compact">
             <thead>
               <tr>
                 <th scope="col">Finding</th>
-                <th scope="col">Category</th>
+                <th scope="col">Type</th>
                 <th scope="col">Where</th>
-                <th scope="col">Value / peers</th>
+                <th scope="col">This unit / nearby</th>
                 <th scope="col">How unusual</th>
-                <th scope="col">Confidence</th>
+                <th scope="col">How sure</th>
                 <th scope="col">Review</th>
               </tr>
             </thead>
@@ -151,7 +151,7 @@ export default function Findings() {
             </tbody>
           </table>
           <div className="row-between small">
-            <span>Page {cursors.length}. Most unusual first.</span>
+            <span>Page {cursors.length} · most unusual first</span>
             <span>
               <button type="button" disabled={cursors.length === 1} onClick={() => setCursors(cursors.slice(0, -1))}>
                 Previous

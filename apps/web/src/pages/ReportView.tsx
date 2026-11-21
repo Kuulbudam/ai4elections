@@ -73,12 +73,12 @@ export default function ReportView() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Download failed.')
+      setError(err instanceof ApiError ? err.message : 'The download didn’t work. Try again.')
     }
   }
 
   if (r === undefined) return <p className="muted">Loading…</p>
-  if (r === null) return <p className="empty">{error ?? 'Report not found, or you are not a member of its organisation.'}</p>
+  if (r === null) return <p className="empty">{error ?? 'We couldn’t find this report, or you’re not on its team.'}</p>
   const b = r.body
   const stat = b.findings.filter((f) => f.category === 'statistical_anomaly').sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity] || Math.abs(Number(y.statistics?.robust_z ?? 0)) - Math.abs(Number(x.statistics?.robust_z ?? 0)))
   const dq = b.findings.filter((f) => f.category === 'data_quality_issue')
@@ -122,28 +122,28 @@ export default function ReportView() {
       <aside className="notice warn">{b.limitations}</aside>
 
       <dl className="facts card">
-        <dt>Generated</dt>
+        <dt>Made</dt>
         <dd>
           {new Date(r.generated_at).toLocaleString()}
           {by ? ` by ${by}` : ''}
         </dd>
-        <dt>Report content hash</dt>
+        <dt>Report ID</dt>
         <dd>
           <code className="hash">{r.content_hash}</code>
         </dd>
-        <dt>Audit checkpoint</dt>
+        <dt>Activity log entry</dt>
         <dd>
           event <code className="hash">{r.audit_event_id}</code>, hash <code className="hash">{r.audit_event_hash}</code>
         </dd>
       </dl>
 
-      <h2>Dataset and provenance</h2>
+      <h2>Data used</h2>
       <dl className="facts">
         <dt>Dataset</dt>
         <dd>
           {b.dataset.name}, version {b.dataset.version} ({b.dataset.file}), {b.dataset.rows.toLocaleString()} rows
         </dd>
-        <dt>SHA-256</dt>
+        <dt>File ID (SHA-256)</dt>
         <dd>
           <code className="hash">{b.dataset.sha256}</code>
         </dd>
@@ -167,16 +167,16 @@ export default function ReportView() {
         <dd>
           peers ≥ {b.analysis.parameters.min_peers}, listed when |robust z| ≥ {b.analysis.parameters.threshold}
         </dd>
-        <dt>Run hash</dt>
+        <dt>Run ID</dt>
         <dd>
           <code className="hash">{b.analysis.run_content_hash}</code>
         </dd>
       </dl>
 
-      <h2>Methodology</h2>
+      <h2>How the analysis works</h2>
       <p>{b.methodology}</p>
 
-      <h2>Validation summary</h2>
+      <h2>Data checks</h2>
       <p>
         {b.validation.rows.toLocaleString()} rows checked with rule set {b.validation.ruleset_version}.{' '}
         {Object.entries(b.validation.row_status ?? {})
@@ -188,7 +188,7 @@ export default function ReportView() {
         <thead>
           <tr>
             <th scope="col">Rule</th>
-            <th scope="col">Issues</th>
+            <th scope="col">Problems</th>
             <th scope="col">Rows</th>
           </tr>
         </thead>
@@ -203,18 +203,18 @@ export default function ReportView() {
         </tbody>
       </table>
 
-      <h2>Statistical outliers ({stat.length})</h2>
+      <h2>Unusual results ({stat.length})</h2>
       <table className="table compact">
         <thead>
           <tr>
             <th scope="col">Polling unit</th>
             <th scope="col">LGA / ward</th>
-            <th scope="col">Indicator</th>
-            <th scope="col">Value</th>
-            <th scope="col">Peer median</th>
-            <th scope="col">Robust z</th>
+            <th scope="col">Measure</th>
+            <th scope="col">This unit</th>
+            <th scope="col">Typical nearby</th>
+            <th scope="col">Score</th>
             <th scope="col">How unusual</th>
-            <th scope="col">Confidence</th>
+            <th scope="col">How sure</th>
             <th scope="col">Review</th>
             <th scope="col">Row</th>
           </tr>
@@ -258,7 +258,7 @@ export default function ReportView() {
 
       <h2>Review decisions</h2>
       {reviewed.length === 0 ? (
-        <p>No review decisions have been recorded.</p>
+        <p>No review decisions yet.</p>
       ) : (
         reviewed.map((f) => (
           <div key={f.finding_id} className="review-block">
@@ -278,7 +278,7 @@ export default function ReportView() {
 
       <h2>Claims</h2>
       {b.claims.length === 0 ? (
-        <p>No claims have been recorded.</p>
+        <p>No claims.</p>
       ) : (
         <ul>
           {b.claims.map((c) => (
@@ -293,9 +293,9 @@ export default function ReportView() {
         </ul>
       )}
 
-      <h2>Limitations</h2>
+      <h2>Things to bear in mind</h2>
       <p>{b.limitations}</p>
-      <p className="small muted">This report is a fixed snapshot. Reports are never edited; generate a new one to include later reviews.</p>
+      <p className="small muted">This report can’t be changed. Make a new one to include later reviews.</p>
     </article>
   )
 }

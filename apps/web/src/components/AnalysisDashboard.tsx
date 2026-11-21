@@ -5,7 +5,7 @@ import { ChartCard, Histogram, Kpi, RankedBars, Scatter, SegmentedBar } from './
 
 type Data = Schemas['VersionDashboard']
 type Ind = 'turnout_rate' | 'leading_party_share'
-const IND_LABEL: Record<Ind, string> = { turnout_rate: 'Turnout', leading_party_share: 'Leading-party share' }
+const IND_LABEL: Record<Ind, string> = { turnout_rate: 'Turnout', leading_party_share: 'Winning share' }
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`
 
 /** Power-BI-style dashboard: KPI row, then charts that all follow one filter bar (indicator + LGA). */
@@ -61,14 +61,14 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
       <div className="kpis" role="list" aria-label="Analysis summary">
         <Kpi label="Polling units" value={k.units ?? 0} note={`${(k.turnout_counted ?? 0).toLocaleString()} usable for turnout`} />
         <Kpi label="Unusual turnout" value={k.unusual_turnout ?? 0} tone="alert" />
-        <Kpi label="Unusual leading-party share" value={k.unusual_share ?? 0} tone="alert" />
-        <Kpi label="Very high" value={k.very_high ?? 0} note="|robust z| ≥ 7" tone="alert" />
-        <Kpi label="High or very high not reviewed" value={k.to_review ?? 0} tone={k.to_review ? 'alert' : 'ok'} />
-        <Kpi label="Data quality findings" value={k.data_quality ?? 0} />
+        <Kpi label="Unusual winning share" value={k.unusual_share ?? 0} tone="alert" />
+        <Kpi label="Very unusual" value={k.very_high ?? 0} note="score 7 or more" tone="alert" />
+        <Kpi label="Still to review" value={k.to_review ?? 0} tone={k.to_review ? 'alert' : 'ok'} />
+        <Kpi label="Data problems" value={k.data_quality ?? 0} />
       </div>
 
       <div className="filterbar" role="group" aria-label="Dashboard filters">
-        <div className="seg" role="radiogroup" aria-label="Indicator">
+        <div className="seg" role="radiogroup" aria-label="Measure">
           {(Object.keys(IND_LABEL) as Ind[]).map((x) => (
             <button key={x} type="button" role="radio" aria-checked={ind === x} className={ind === x ? 'on' : ''} onClick={() => setInd(x)}>
               {IND_LABEL[x]}
@@ -88,10 +88,10 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
         </label>
         {lga !== null && (
           <button type="button" className="link" onClick={() => setLga(null)}>
-            Clear area filter
+            Show all areas
           </button>
         )}
-        <span className="muted small">All charts follow these filters. Click a bar in “Unusual units by area” to filter.</span>
+        <span className="muted small">Tip: click a bar under “Unusual units by area” to focus on that area.</span>
       </div>
 
       <div className="dash-grid">
@@ -102,8 +102,8 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
           <Histogram values={view.values} marks={view.flagged.map((f) => ({ value: f.value, severity: f.severity }))} label={IND_LABEL[ind]} />
         </ChartCard>
         <ChartCard
-          title="Unusual units against their peers"
-          subtitle="Each dot is a polling unit; distance from the diagonal is how far it is from its peer median. Click to open."
+          title="Unusual units compared with nearby units"
+          subtitle="Each dot is a polling unit. The further from the line, the more it differs. Click a dot to open it."
         >
           <Scatter
             points={view.flagged.map((f) => ({
@@ -112,10 +112,10 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
               y: f.value,
               severity: f.severity,
               label: f.pu_code ?? 'unit',
-              detail: `${pct(f.value)} vs peers ${pct(f.median)} · z ${f.robust_z > 0 ? '+' : ''}${f.robust_z.toFixed(1)}${f.ward ? ` · ${f.ward}` : ''}`,
+              detail: `${pct(f.value)} vs ${pct(f.median)} nearby · score ${f.robust_z > 0 ? '+' : ''}${f.robust_z.toFixed(1)}${f.ward ? ` · ${f.ward}` : ''}`,
             }))}
             onPick={(id) => navigate(`/findings/${id}`)}
-            xLabel="Peer group median"
+            xLabel="Typical for nearby units"
             yLabel={`This unit's ${IND_LABEL[ind].toLowerCase()}`}
           />
         </ChartCard>
@@ -128,18 +128,18 @@ export default function AnalysisDashboard({ versionId, runId, ruleCounts }: { ve
               unit="unusual units"
             />
           ) : (
-            <p className="muted small">No unusual units for this indicator.</p>
+            <p className="muted small">Nothing unusual for this measure.</p>
           )}
         </ChartCard>
         <div className="dash-stack">
           <ChartCard title="How unusual" subtitle={`${view.flagged.length} unusual units${lga !== null ? ' in this area' : ''}`}>
             <SegmentedBar parts={['medium', 'high', 'very_high'].map((s) => ({ key: s, value: view.sev[s] ?? 0 }))} label="How unusual" />
             <p className="small muted">
-              Medium: |z| 3.5–5 · High: 5–7 · Very high: 7 or more. How unusual is not the same as how sure: see confidence on each finding.
+              Score 3.5–5 is medium, 5–7 high, 7 or more very high. Each finding also shows how sure we are.
             </p>
           </ChartCard>
-          <ChartCard title="Data quality findings by rule" subtitle="Whole dataset (not filtered)">
-            {dq.length ? <RankedBars rows={dq} unit="polling units" /> : <p className="muted small">No data quality findings.</p>}
+          <ChartCard title="Data problems by rule" subtitle="Whole file">
+            {dq.length ? <RankedBars rows={dq} unit="polling units" /> : <p className="muted small">No data problems.</p>}
           </ChartCard>
         </div>
       </div>

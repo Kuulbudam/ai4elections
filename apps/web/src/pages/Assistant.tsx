@@ -70,7 +70,7 @@ export default function Assistant() {
       const answer = await api<Answer>('POST', '/assistant/ask', { project_id: projectId, question: q, history, language }, { 'Idempotency-Key': crypto.randomUUID() })
       setTurns((t) => [...t, { role: 'assistant', content: answer.answer, answer }])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'The assistant could not answer. Try again.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t get an answer. Try again.')
     }
     setBusy(false)
   }
@@ -81,15 +81,15 @@ export default function Assistant() {
       <p>
         <Link to={`/projects/${projectId}`}>← Project</Link> · <Link to={`/projects/${projectId}/findings`}>Findings</Link>
       </p>
-      <h1 id="assistant-heading">Ask the data{project ? ` — ${project.election_name}` : ''}</h1>
+      <h1 id="assistant-heading">Ask the data{project ? `: ${project.election_name}` : ''}</h1>
       <p className="page-intro">
-        Ask in plain language about this project's results, findings and claims. The assistant can only look things up in this project's data, and
-        every figure links to the page where you can check it. It never decides what happened; findings are reasons to check the result sheet.
+        Ask about this project’s results, flags and claims. Answers only use this project’s data, and each one links to where the figures came
+        from.
       </p>
 
-      {role !== null && !allowed && <p className="empty">The data assistant is available to admins and analysts.</p>}
+      {role !== null && !allowed && <p className="empty">Ask the data is for admins and analysts.</p>}
       {allowed && enabled === false && (
-        <p className="notice warn">The data assistant is not set up yet. An administrator needs to add an AI provider key to the API settings.</p>
+        <p className="notice warn">Ask the data isn’t switched on for this workspace yet. Contact your administrator.</p>
       )}
 
       {allowed && enabled && (
@@ -97,7 +97,7 @@ export default function Assistant() {
           <div className="chat" aria-live="polite">
             {turns.length === 0 && (
               <div className="examples">
-                <p className="small muted">Try one of these:</p>
+                <p className="small muted">For example:</p>
                 {EXAMPLES.map((x) => (
                   <button key={x} type="button" className="chip" onClick={() => void send(undefined, x)}>
                     {x}
@@ -116,7 +116,7 @@ export default function Assistant() {
                   <Formatted text={t.content} />
                   {t.answer.citations.length > 0 && (
                     <div className="sources">
-                      <span className="small muted">Check it: </span>
+                      <span className="small muted">Sources: </span>
                       {t.answer.citations.slice(0, 8).map((c) => (
                         <Link key={c.href} to={c.href} className="small">
                           {c.label}
@@ -124,14 +124,19 @@ export default function Assistant() {
                       ))}
                     </div>
                   )}
-                  <p className="small muted">
-                    {t.answer.grounded ? 'Figures matched to the data looked up.' : t.answer.note === 'no_lookup' ? 'This reply did not look anything up in the data.' : 'Some figures could not be matched — check before using.'}{' '}
-                    AI-drafted ({t.answer.model}){t.answer.language && t.answer.language !== 'en' ? `, in ${LANGUAGES.find((l) => l.code === t.answer.language)?.label}: check the wording before sharing` : ''}; not a finding.
+                  <p className="small muted" title={`Model: ${t.answer.model}`}>
+                    Written by AI.{' '}
+                    {t.answer.grounded
+                      ? 'Figures checked against your data.'
+                      : t.answer.note === 'no_lookup'
+                        ? 'This answer didn’t use your data.'
+                        : 'Some figures couldn’t be checked. Open the sources before using them.'}
+                    {t.answer.language && t.answer.language !== 'en' ? ' Translations can contain mistakes, so check the wording before sharing.' : ''}
                   </p>
                 </article>
               ),
             )}
-            {busy && <p className="muted">Looking it up…</p>}
+            {busy && <p className="muted">Thinking…</p>}
             <div ref={end} />
           </div>
           {error && (
@@ -148,7 +153,7 @@ export default function Assistant() {
               rows={2}
               maxLength={2000}
               value={question}
-              placeholder="e.g. Which wards in Jos North have turnout far above their peers?"
+              placeholder="e.g. Which wards in Jos North have unusually high turnout?"
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) void send(e as unknown as FormEvent)
@@ -179,7 +184,7 @@ export default function Assistant() {
               Ask
             </button>
           </form>
-          <p className="small muted">Questions and answers are saved to the project's log. Do not paste personal data.</p>
+          <p className="small muted">Questions are saved in the project history, so don’t include personal details.</p>
         </>
       )}
     </section>

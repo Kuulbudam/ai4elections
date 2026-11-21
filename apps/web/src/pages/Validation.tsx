@@ -83,9 +83,9 @@ export default function Validation() {
   async function run() {
     setError(null)
     try {
-      setRunning('Queuing validation…')
+      setRunning('Starting…')
       let job = await api<Job>('POST', '/jobs', { job_type: 'validate', dataset_version_id: versionId }, { 'Idempotency-Key': crypto.randomUUID() })
-      setRunning('Validating (a worker picks this up, usually within a minute)…')
+      setRunning('Checking every row. This usually takes under a minute…')
       const deadline = Date.now() + 10 * 60 * 1000
       while ((job.status === 'queued' || job.status === 'running') && Date.now() < deadline) {
         await sleep(3000)
@@ -95,16 +95,16 @@ export default function Validation() {
         setPage(0)
         await loadVersion()
         await loadIssues()
-      } else if (job.status === 'failed') setError('Validation failed. Check the column mapping and try again.')
-      else setError('Validation is taking longer than expected. It continues in the background; refresh later.')
+      } else if (job.status === 'failed') setError('The check didn’t finish. Make sure the columns are matched correctly, then try again.')
+      else setError('This is taking longer than usual. It will keep running; refresh the page in a few minutes.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not start validation. Please try again.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t start the check. Try again.')
     }
     setRunning(null)
   }
 
   if (version === undefined) return <p className="muted">Loading…</p>
-  if (version === null) return <p className="empty">Dataset version not found, or you are not a member of its organisation.</p>
+  if (version === null) return <p className="empty">We couldn’t find this file, or you’re not on its team.</p>
   const s = version.validation_summary
   const canRun = role !== null && RUNNERS.includes(role)
 
@@ -115,17 +115,17 @@ export default function Validation() {
       </p>
       <div className="row-between">
         <h1 id="validation-heading">
-          Validation — {version.original_filename} (v{version.version_number})
+          Data check: {version.original_filename} (v{version.version_number})
         </h1>
         {canRun && (
           <button type="button" className="primary" onClick={() => void run()} disabled={!!running || !version.mapping_saved_at}>
-            {s ? 'Re-run validation' : 'Run validation'}
+            {s ? 'Check again' : 'Check data'}
           </button>
         )}
       </div>
       {!version.mapping_saved_at && (
         <p className="empty">
-          Map the columns first. <Link to={`/versions/${versionId}/mapping`}>Open column mapping</Link>
+          Match the columns first. <Link to={`/versions/${versionId}/mapping`}>Match columns</Link>
         </p>
       )}
       {running && (
@@ -140,27 +140,27 @@ export default function Validation() {
       )}
 
       {!s ? (
-        version.mapping_saved_at && !running && <p className="empty">This version has not been validated yet.</p>
+        version.mapping_saved_at && !running && <p className="empty">This file hasn’t been checked yet.</p>
       ) : (
         <>
           <div className="stats" role="list" aria-label="Validation summary">
             <Stat label="Rows checked" value={s.rows} />
-            <Stat label="Eligible" value={s.row_status.eligible} tone="good" />
-            <Stat label="Eligible with warnings" value={s.row_status.eligible_with_warnings} tone="warn" />
-            <Stat label="Quarantined from some analysis" value={s.row_status.quarantined_from_specific_analysis} tone="bad" />
+            <Stat label="No problems" value={s.row_status.eligible} tone="good" />
+            <Stat label="Minor problems" value={s.row_status.eligible_with_warnings} tone="warn" />
+            <Stat label="Left out of some results" value={s.row_status.quarantined_from_specific_analysis} tone="bad" />
           </div>
           <p className="muted small">
-            Excluded from turnout analysis: {s.excluded_from.turnout_rate.toLocaleString()} rows. Excluded from vote-share analysis:{' '}
-            {s.excluded_from.leading_party_share.toLocaleString()} rows. Rows are only excluded from the calculations their problem affects. Rule set{' '}
-            {s.ruleset_version}, validated {version.validated_at ? new Date(version.validated_at).toLocaleString() : ''}.
+            Left out of turnout: {s.excluded_from.turnout_rate.toLocaleString()} rows. Left out of vote share:{' '}
+            {s.excluded_from.leading_party_share.toLocaleString()} rows. A row is only left out where its problem matters. Checked{' '}
+            {version.validated_at ? new Date(version.validated_at).toLocaleString() : ''} (rules {s.ruleset_version}).
           </p>
           <p>
-            <Link to={`/versions/${versionId}/analysis`}>Go to analysis</Link>
+            <Link to={`/versions/${versionId}/analysis`}>Next: analyse</Link>
           </p>
           {!s.reference_list_used && (
             <p className="notice warn">
-              No reference list of administrative units is loaded for this project, so rule V011 (unmatched state / LGA / ward labels) was not
-              checked. Load one on the project page, then re-run validation.
+              State, LGA and ward names weren’t checked against an official list (rule V011), because this project doesn’t have one yet. Add it on
+              the project page, then check again.
             </p>
           )}
 
@@ -169,9 +169,9 @@ export default function Validation() {
             <thead>
               <tr>
                 <th scope="col">Rule</th>
-                <th scope="col">Severity</th>
+                <th scope="col">Type</th>
                 <th scope="col">What it checks</th>
-                <th scope="col">Issues</th>
+                <th scope="col">Problems</th>
                 <th scope="col">Rows</th>
                 <th scope="col">How to fix</th>
               </tr>
@@ -205,7 +205,7 @@ export default function Validation() {
           </table>
 
           <div className="row-between">
-            <h3>Issues{ruleFilter ? ` — ${ruleFilter}` : ''}</h3>
+            <h3>Problems{ruleFilter ? `: ${ruleFilter}` : ''}</h3>
             <label className="inline-label">
               Filter by rule
               <select value={ruleFilter} onChange={(e) => { setRuleFilter(e.target.value); setPage(0) }}>
@@ -221,16 +221,16 @@ export default function Validation() {
           {issues === null ? (
             <p className="muted">Loading…</p>
           ) : issues.length === 0 ? (
-            <p className="empty">No issues{ruleFilter ? ' for this rule' : ''}.</p>
+            <p className="empty">No problems{ruleFilter ? ' for this rule' : ''}.</p>
           ) : (
             <>
               <table className="table compact">
                 <thead>
                   <tr>
-                    <th scope="col">Source row</th>
+                    <th scope="col">Row</th>
                     <th scope="col">Rule</th>
                     <th scope="col">Column</th>
-                    <th scope="col">Original cell</th>
+                    <th scope="col">Value in file</th>
                     <th scope="col">Problem</th>
                   </tr>
                 </thead>
@@ -263,7 +263,7 @@ export default function Validation() {
               </div>
             </>
           )}
-          <p className="muted small">Source row numbers count the header as row 1, as in a spreadsheet. Original cells are shown exactly as uploaded.</p>
+          <p className="muted small">Row numbers match your spreadsheet (the header is row 1). Values are shown exactly as in your file.</p>
         </>
       )}
     </section>

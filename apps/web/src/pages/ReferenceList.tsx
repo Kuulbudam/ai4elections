@@ -33,13 +33,13 @@ export default function ReferenceList({ projectId, orgId, canEdit }: { projectId
       const rows = parseSimpleCsv(await file.text())
       const header = rows[0]?.map((h) => h.trim().toLowerCase()) ?? []
       const [si, li, wi] = ['state', 'lga', 'ward'].map((h) => header.indexOf(h))
-      if (si < 0 || li < 0 || wi < 0) throw new Error('The file needs columns named state, lga and ward.')
+      if (si < 0 || li < 0 || wi < 0) throw new Error('The file needs columns called state, lga and ward.')
       const units = rows
         .slice(1)
         .map((r) => ({ state: (r[si] ?? '').trim(), lga: (r[li] ?? '').trim(), ward: (r[wi] ?? '').trim() }))
         .filter((u) => u.state && u.lga && u.ward)
-      if (units.length === 0) throw new Error('No complete state / LGA / ward rows were found.')
-      if (units.length > 50000) throw new Error('The reference list is too large (over 50,000 units).')
+      if (units.length === 0) throw new Error('No rows had all three of state, LGA and ward.')
+      if (units.length > 50000) throw new Error('That list is too long (over 50,000 rows).')
       // Insert only units not already present (plain INSERT; no UPDATE privilege needed).
       // The Data API returns at most 1,000 rows per request, so read existing units page by page.
       const existing: { state: string; lga: string; ward: string }[] = []
@@ -64,7 +64,7 @@ export default function ReferenceList({ projectId, orgId, canEdit }: { projectId
           .insert(fresh.slice(i, i + 500).map((u) => ({ ...u, org_id: orgId, project_id: projectId, created_by: session.user.id })))
         if (error) throw error
       }
-      setMessage(`Added ${fresh.length.toLocaleString()} new units (${(units.length - fresh.length).toLocaleString()} already present). Re-run validation to apply rule V011.`)
+      setMessage(`Added ${fresh.length.toLocaleString()} new units (${(units.length - fresh.length).toLocaleString()} already present). Check the data again to use them.`)
       await load()
     } catch (err) {
       setError(err instanceof Error && !('code' in err) ? err.message : friendlyError(err as { message?: string; code?: string }))
@@ -74,13 +74,13 @@ export default function ReferenceList({ projectId, orgId, canEdit }: { projectId
 
   return (
     <div className="card">
-      <h4>Reference list of administrative units</h4>
+      <h4>Official list of states, LGAs and wards</h4>
       <p className="small">
-        {count === null ? 'Loading…' : count === 0 ? 'None loaded. Rule V011 (unmatched labels) is skipped until a list is loaded.' : `${count.toLocaleString()} state / LGA / ward units loaded.`}
+        {count === null ? 'Loading…' : count === 0 ? 'None added yet. Without it, place names in your results can’t be checked for spelling.' : `${count.toLocaleString()} wards on the list.`}
       </p>
       {canEdit && (
         <label>
-          Add units from a CSV with columns state, lga, ward
+          Add from a CSV with columns state, lga and ward
           <input type="file" accept=".csv,text/csv" disabled={busy} onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
         </label>
       )}
