@@ -238,6 +238,42 @@ paths:
         "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
+  /assistant/transcribe:
+    post:
+      operationId: transcribeSpeech
+      summary: Turn a short recording into text (voice questions, spoken notes). The audio is not stored
+      x-required-roles: [admin, analyst, coordinator, field_agent]
+      x-idempotent: true
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SpeechClip" }
+      responses:
+        "200":
+          description: What was said
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transcript" }
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502":
+          description: The speech service could not be used
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: Voice is not set up (no AI provider key)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /assistant/ask:
     post:
       operationId: assistantAsk
@@ -2164,3 +2200,22 @@ components:
           oneOf:
             - { $ref: "#/components/schemas/PackCounts" }
             - { type: "null" }
+
+    SpeechClip:
+      type: object
+      additionalProperties: false
+      required: [project_id, audio_base64, mime_type]
+      properties:
+        project_id: { type: string, format: uuid }
+        audio_base64: { type: string, minLength: 4, maxLength: 4200000 }
+        mime_type: { type: string, pattern: "^audio/[a-z0-9.+-]+(;.*)?$", maxLength: 100 }
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
+
+    Transcript:
+      type: object
+      additionalProperties: false
+      required: [text, language, model]
+      properties:
+        text: { type: string, maxLength: 2000 }
+        language: { $ref: "#/components/schemas/AnswerLanguage" }
+        model: { type: string }

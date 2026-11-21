@@ -6,6 +6,8 @@ import { photoToBase64 } from '../lib/sheets'
 import { useRole } from '../lib/useRole'
 import { CATEGORY, KIND_LABEL } from '../lib/field'
 import { getSupabase } from '../lib/supabase'
+import { MicButton } from '../components/Voice'
+import type { Lang } from '../lib/voice'
 
 type Report = Schemas['FieldReport']
 type Unit = Schemas['FieldAssignment']
@@ -155,7 +157,7 @@ export default function Field() {
 
       {kind === 'arrival' && <ArrivalForm busy={busy} onCancel={() => setKind(null)} onSubmit={submit} />}
       {kind === 'accreditation' && <AccreditationForm busy={busy} onCancel={() => setKind(null)} onSubmit={submit} />}
-      {kind === 'incident' && <IncidentForm busy={busy} onCancel={() => setKind(null)} onSubmit={submit} />}
+      {kind === 'incident' && <IncidentForm projectId={projectId} busy={busy} onCancel={() => setKind(null)} onSubmit={submit} />}
       {kind === 'closing' && <ClosingForm busy={busy} onCancel={() => setKind(null)} onSubmit={submit} />}
 
       {notice && <p className="notice">{notice}</p>}
@@ -288,10 +290,28 @@ function AccreditationForm({ busy, onCancel, onSubmit }: FormProps) {
   )
 }
 
-function IncidentForm({ busy, onCancel, onSubmit }: FormProps) {
+const SPEECH_LANGS: { code: Lang; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'pcm', label: 'Pidgin' },
+  { code: 'ha', label: 'Hausa' },
+  { code: 'yo', label: 'Yoruba' },
+  { code: 'ig', label: 'Igbo' },
+]
+function savedSpeech(): Lang {
+  try {
+    const v = localStorage.getItem('ai4e.answerLanguage')
+    return SPEECH_LANGS.some((l) => l.code === v) ? (v as Lang) : 'en'
+  } catch {
+    return 'en'
+  }
+}
+
+function IncidentForm({ projectId, busy, onCancel, onSubmit }: FormProps & { projectId: string }) {
   const [category, setCategory] = useState('')
   const [severity, setSeverity] = useState('')
   const [text, setText] = useState('')
+  const [speech, setSpeech] = useState<Lang>(savedSpeech)
+  const [micError, setMicError] = useState<string | null>(null)
   const [ongoing, setOngoing] = useState<boolean | null>(null)
   return (
     <Shell title="Incident" busy={busy} ready={!!category && !!severity && text.trim().length >= 5 && ongoing !== null} onCancel={onCancel}
@@ -324,6 +344,29 @@ function IncidentForm({ busy, onCancel, onSubmit }: FormProps) {
         What happened?
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={2000} required />
       </label>
+      <div className="speak-row">
+        <MicButton
+          projectId={projectId}
+          language={speech}
+          label="Say it instead"
+          onError={setMicError}
+          onText={(t) => {
+            setMicError(null)
+            setText((x) => (x.trim() ? `${x.trim()} ${t}` : t).slice(0, 2000))
+          }}
+        />
+        <label className="small">
+          in{' '}
+          <select value={speech} onChange={(e) => setSpeech(e.target.value as Lang)} aria-label="Language you will speak">
+            {SPEECH_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {micError && <span className="small error">{micError}</span>}
+      </div>
       <YesNo label="Is it still happening?" value={ongoing} onChange={setOngoing} />
     </Shell>
   )

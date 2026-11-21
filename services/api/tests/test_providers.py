@@ -171,9 +171,10 @@ def test_gemini_tries_several_listed_flash_models_in_turn_when_one_is_overloaded
                                                           "gemini-2.5-flash", "gemini-2.5-flash-lite", "x"])  # fmt: skip
     m = llm.configured_model()
     assert isinstance(m, llm.FallbackChat)
-    assert [x.name for x in m.models] == ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]
+    names = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    assert [x.name for x in m.models] == names
     v = rd.configured_vision_model()
-    assert [x.name for x in v.models] == ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"]
+    assert [x.name for x in v.models] == names
     tried = []
 
     def fake_post(url, headers, json, timeout):
@@ -185,6 +186,20 @@ def test_gemini_tries_several_listed_flash_models_in_turn_when_one_is_overloaded
     monkeypatch.setattr(llm.httpx, "post", fake_post)
     assert m.chat([{"role": "user", "content": "hi"}], [])["content"] == "ok"
     assert tried == ["gemini-3.8-flash", "gemini-3-flash-preview"] and m.name == "gemini-3-flash-preview"
+
+
+def test_when_the_newest_models_are_used_up_for_the_day_older_flash_models_still_answer(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setattr(llm, "list_models", lambda k, b: list(llm.PREFERRED_GEMINI_MODELS))
+    m = llm.configured_model()
+
+    def fake_post(url, headers, json, timeout):
+        if json["model"].startswith("gemini-3"):  # daily free quota of the newest models used up
+            return httpx.Response(429, json=[{"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}}])
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(llm.httpx, "post", fake_post)
+    assert m.chat([{"role": "user", "content": "hi"}], [])["content"] == "ok" and m.name == "gemini-2.5-flash"
 
 
 def test_gemini_candidates_fall_back_to_the_first_choice_when_the_list_cannot_be_read():

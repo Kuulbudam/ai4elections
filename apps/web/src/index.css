@@ -590,3 +590,12 @@ a.step-link:hover { background: var(--panel); }
 .file-button { position: relative; }
 .checks li.pass strong { color: var(--ink); }
 .checks li.fail strong { color: var(--bad); }
+
+/* Phase 18: voice */
+.mic { display: inline-flex; align-items: center; gap: 6px; }
+.mic-on { border-color: var(--bad); color: var(--bad); }
+.mic-on .icon { animation: mic-pulse 1.2s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .mic-on .icon { animation: none; } }
+.speak-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -4px 0 8px; }
+.turn-assistant > .link { margin: 4px 0; }

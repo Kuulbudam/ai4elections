@@ -1244,6 +1244,25 @@ class PackCheck(BaseModel):
     counts: PackCounts | None = None
 
 
+class SpeechClip(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    audio_base64: str = Field(..., max_length=4200000, min_length=4)
+    mime_type: str = Field(..., max_length=100, pattern="^audio/[a-z0-9.+-]+(;.*)?$")
+    language: AnswerLanguage | None = "en"
+
+
+class Transcript(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    text: str = Field(..., max_length=2000)
+    language: AnswerLanguage
+    model: str
+
+
 class FinalizeResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

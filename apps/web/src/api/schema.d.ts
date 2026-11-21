@@ -170,6 +170,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a short recording into text (voice questions, spoken notes). The audio is not stored */
+        post: operations["transcribeSpeech"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/ask": {
         parameters: {
             query?: never;
@@ -1505,6 +1522,18 @@ export interface components {
             key_id: string | null;
             counts: components["schemas"]["PackCounts"] | null;
         };
+        SpeechClip: {
+            /** Format: uuid */
+            project_id: string;
+            audio_base64: string;
+            mime_type: string;
+            language?: components["schemas"]["AnswerLanguage"];
+        };
+        Transcript: {
+            text: string;
+            language: components["schemas"]["AnswerLanguage"];
+            model: string;
+        };
     };
     responses: {
         /** @description Request is invalid */
@@ -1861,6 +1890,56 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
+        };
+    };
+    transcribeSpeech: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechClip"];
+            };
+        };
+        responses: {
+            /** @description What was said */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description The speech service could not be used */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Voice is not set up (no AI provider key) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     assistantAsk: {
