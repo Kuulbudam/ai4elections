@@ -15,7 +15,7 @@
   --brand-dark: #3457b1;
   --brand-tint: #e8eefc;
   --on-brand: #ffffff;
-  --accent: #3e6ae1;
+  --accent: #3457b1;
   --accent-tint: #e8eefc;
   --link: #171a20;
   --good: #1d7a35;
@@ -429,7 +429,7 @@ a.step-link:hover { background: var(--panel); }
 .kpi-value { font-family: var(--serif); font-size: 2rem; font-weight: 500; line-height: 1.05; font-variant-numeric: lining-nums tabular-nums; }
 .kpi-label { font-size: 0.9rem; font-weight: 500; color: var(--ink); }
 .kpi-note { font-size: 0.8rem; color: var(--granite); }
-.kpi.alert .kpi-value { color: var(--brand); }
+.kpi.alert .kpi-value { color: var(--accent); }
 .kpi.ok .kpi-value { color: var(--good); }
 .filterbar { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: end; padding: 12px 14px; background: var(--panel); border-radius: 4px; }
 .filterbar .inline-label { max-width: 320px; }
@@ -477,7 +477,7 @@ a.step-link:hover { background: var(--panel); }
   --brand-dark: #3457b1;
   --brand-tint: #e8eefc;
   --on-brand: #ffffff;
-  --accent: #3e6ae1;
+  --accent: #3457b1;
   --accent-tint: #e8eefc;
   --link: #171a20;
   --good: #1d7a35;
