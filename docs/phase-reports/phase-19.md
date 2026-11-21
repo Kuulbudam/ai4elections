@@ -1,6 +1,6 @@
 # Phase 19 — AI summary at the end of Findings: completion report
 
-**Date:** 21 Nov 2026 **Result:** see below. **Branch:** `phase-19-summary`.
+**Date:** 21 Nov 2026 **Result:** PASS. **Branch:** `phase-19-summary`.
 
 | Area | What was done | Evidence |
 |---|---|---|
@@ -10,3 +10,6 @@
 | Wording guard | No fraud or rigging wording (all five languages); otherwise a fixed, safe sentence | DB test |
 | Kept and dated | Each summary is stored with the counts it was written from; it shows "The findings have changed since this was written" when they change | DB test |
 | Who | Admins, analysts, researchers and coordinators write; viewers read; field agents do not see it | DB test |
+
+Live check with the real model: 16/16. The English and Hausa summaries quoted the real counts (208 findings: 38 very
+high, 9 high, 161 medium) with every number checked. All other live checks passed in the same run.

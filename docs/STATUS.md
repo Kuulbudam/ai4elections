@@ -2,7 +2,7 @@
 
 Read this first in every session. Update it last.
 
-**Last updated:** 20 Nov 2026
+**Last updated:** 21 Nov 2026
 **Current phase:** 13 — Release candidate (in progress). Phases 9–12 PASSED (reports `docs/phase-reports/phase-9.md` … `phase-12.md`).
 **Supabase project (since 20 Nov):** `enusesjccqsvuqkxkjsz` (new free project; the old one filled up, see phase-12 report and `docs/runbook.md`).
 **Demo:** Rise Networks #AI4Elections Hackathon, **8 December 2026** (20 days from 18 Nov).
@@ -19,6 +19,21 @@ Read this first in every session. Update it last.
   only**. Design: fixed, tested lookup tools through the API with the user's own permissions (no free-form SQL);
   every number cited and linked; never says fraud; questions and answers audited; platform works if it is off.
 
+
+## Field network (founder, 21 Nov): phases 14–19 — all PASS, branch `phase-19-summary` (stacked)
+
+| Phase | What | Live |
+|---|---|---|
+| 14 | Escalate: review decision sends the item up; resolve or send up; inbox | 24/24 |
+| 15 | Hierarchy: coordinator and field agent roles, areas, PU → ward → LGA → state → admin | 27/27 |
+| 16 | Field app: polling-unit reports from a phone, works offline, critical incidents escalate | 32/32 |
+| 17 | Live view; Ed25519-signed submission pack with offline check | 35/35 |
+| 18 | Voice: speak questions (Whisper, Gemini backup), answers read aloud | 3/3 voice |
+| 19 | AI summary at the end of Findings, every number checked | 16/16 assistant |
+
+Design: `docs/design/field-network-and-escalation.md`. Reports: `docs/phase-reports/phase-14.md` … `phase-19.md`.
+Not in scope: voter biometrics (INEC's BVAS role) and pushing data into INEC systems; the organisation hands over the pack.
+Next: founder says "merge it" for the PR, then check the deployed site and update the user guide.
 
 ## Plan to win (founder, 20 Nov): phases 9–13
 
