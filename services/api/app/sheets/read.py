@@ -14,7 +14,16 @@ from typing import Any, Protocol
 
 import httpx
 
-from app.assistant.llm import PREFERRED_GEMINI_MODELS, LLMError, is_gemini, list_models, provider_error, providers
+from app.assistant.llm import (
+    PREFERRED_GEMINI_MODELS,
+    LLMError,
+    _candidates,
+    candidate_models,
+    is_gemini,
+    list_models,
+    provider_error,
+    providers,
+)
 from app.assistant.llm import _limit_detail as _llm_limit_detail
 
 # Vision-capable models, in order of preference, used when LLM_VISION_MODEL is not set.
@@ -109,6 +118,7 @@ class OpenAICompatibleVision:
             raise LLMError("The sheet reader could not reach the AI service. Type the figures in instead.") from e
         if r.status_code == 404:
             _chosen.pop(self.base_url, None)
+            _candidates.pop(self.base_url, None)
             raise LLMError(f"The sheet reader's model ({self.name}) is not available from the provider.")
         if r.status_code in (429, 503):
             raise LLMError(f"The sheet reader is busy (free-tier limit reached{_limit_detail(r)}). Try again in a "
@@ -183,9 +193,13 @@ class FallbackVision:
 def configured_vision_model() -> VisionModel | None:
     models = []
     for p in providers():
-        model = p["vision_model"] or choose_vision_model(p["key"], p["base"])
-        if model:
-            models.append(OpenAICompatibleVision(p["key"], p["base"], model))
+        if p["vision_model"]:
+            names = [p["vision_model"]]
+        elif is_gemini(p["base"]):  # several Flash models in turn: the newest are often overloaded
+            names = candidate_models(p["key"], p["base"], PREFERRED_GEMINI_MODELS)
+        else:
+            names = [n for n in [choose_vision_model(p["key"], p["base"])] if n]
+        models += [OpenAICompatibleVision(p["key"], p["base"], n) for n in names]
     if not models:
         return None
     return models[0] if len(models) == 1 else FallbackVision(models)

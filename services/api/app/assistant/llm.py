@@ -18,7 +18,11 @@ import httpx
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 # Free-tier Gemini models (Flash models read images too), in order of preference.
-PREFERRED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+# The newest Flash models are often "UNAVAILABLE" (overloaded) on the free tier, so up to GEMINI_TRIES of the listed
+# ones are tried in turn, ending with the older, steadier 2.5 Flash.
+PREFERRED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-flash",
+                           "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]  # fmt: skip
+GEMINI_TRIES = 3
 # Gemini 3 checks a "thought signature" on earlier tool calls. Calls it did not make itself (e.g. made by the other
 # provider before a switch) get Google's documented placeholder.
 SKIP_SIGNATURE = "skip_thought_signature_validator"
@@ -78,6 +82,7 @@ class OpenAICompatible:
             raise LLMError("The assistant service could not be reached. Try again shortly.") from e
         if r.status_code == 404:
             _chosen.pop(self.base_url, None)  # pick again next time
+            _candidates.pop(self.base_url, None)
             raise LLMError(f"The assistant's model ({self.name}) is not available from the provider.")
         if r.status_code in (429, 503):  # 503: Gemini's "model overloaded"
             try:
@@ -192,6 +197,32 @@ def choose_model(api_key: str, base_url: str, preferred: list[str] | None = None
     return model
 
 
+_candidates: dict[str, list[str]] = {}
+
+
+def candidate_models(api_key: str, base_url: str, preferred: list[str], limit: int = GEMINI_TRIES) -> list[str]:
+    """Up to `limit` preferred models the provider lists, in order, to be tried one after another.
+    If the list cannot be read: the first preference only (not cached, so the list is read again next time)."""
+    if base_url in _candidates:
+        return _candidates[base_url]
+    listed = set(list_models(api_key, base_url))
+    if not listed:
+        return preferred[:1]
+    found = [m for m in preferred if m in listed][:limit] or preferred[:1]
+    _candidates[base_url] = found
+    return found
+
+
+def provider_models(p: dict[str, str]) -> list[str]:
+    """The chat models to try for one provider: the one set by environment, else Gemini's candidates, else the
+    first preferred model the provider lists."""
+    if p["model"]:
+        return [p["model"]]
+    if is_gemini(p["base"]):
+        return candidate_models(p["key"], p["base"], PREFERRED_GEMINI_MODELS)
+    return [choose_model(p["key"], p["base"])]
+
+
 def providers() -> list[dict[str, str]]:
     """The providers that have a key, in AI_PROVIDER_ORDER: {"provider", "key", "base", "model", "vision_model"}
     (model names empty when not set by environment, to be chosen from the provider's list)."""
@@ -211,7 +242,7 @@ def providers() -> list[dict[str, str]]:
 
 def configured_model() -> ChatModel | None:
     models: list[ChatModel] = [
-        OpenAICompatible(p["key"], p["base"], p["model"] or choose_model(p["key"], p["base"])) for p in providers()
+        OpenAICompatible(p["key"], p["base"], m) for p in providers() for m in provider_models(p)
     ]
     if not models:
         return None
