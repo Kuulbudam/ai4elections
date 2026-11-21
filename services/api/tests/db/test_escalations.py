@@ -16,7 +16,7 @@ from .conftest import as_service, as_user
 from .test_ingestion import H
 
 
-def new_finding(world, org=None, title="Unusual turnout at SY-9", area=("S1", "L1", "W1", "SY-9")) -> str:
+def new_finding(world, org=None, title="Unusual turnout at SY-9", area=("SX", "LX", "WX", "SY-9")) -> str:
     o = org or world.a
     with psycopg.connect(world.dsn, row_factory=dict_row, autocommit=True) as c, as_service(c, o.users["admin"]) as s:
         vid = s.execute("SELECT dataset_version_id FROM public.findings WHERE id = %s",

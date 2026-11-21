@@ -134,3 +134,32 @@ describe('inbox', () => {
     expect(await screen.findByText(/Open · with Admins/)).toBeTruthy()
   })
 })
+
+describe('members and areas', () => {
+  it('admins give a coordinator an LGA and a field agent a polling unit', async () => {
+    const calls: string[][] = []
+    stubApi([])
+    setSupabaseForTests(
+      client('admin', calls, {
+        organisations: { data: { name: 'Plateau Observers' }, error: null },
+        memberships: { data: [{ user_id: 'u-admin', role: 'admin' }, { user_id: 'u-c', role: 'coordinator' }, { user_id: 'u-f', role: 'field_agent' }], error: null },
+        profiles: { data: [{ id: 'u-c', email: 'coord@example.test', display_name: null }, { id: 'u-f', email: 'agent@example.test', display_name: null }], error: null },
+        area_assignments: { data: [{ id: 'a1', user_id: 'u-f', level: 'polling_unit', state: 'Plateau', lga: 'Jos North', ward: 'Jenta', pu_code: '31/05/13/130' }], error: null },
+      }) as never,
+    )
+    window.history.pushState({}, '', '/orgs/o1/members')
+    render(<App />)
+    expect(await screen.findByText('Polling unit: Plateau / Jos North / Jenta / 31/05/13/130')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add an area' }))
+    const form = screen.getByRole('form', { name: 'Add an area for coord@example.test' })
+    fireEvent.change(screen.getByLabelText('Level'), { target: { value: 'lga' } })
+    fireEvent.change(screen.getByLabelText('State'), { target: { value: 'Plateau' } })
+    fireEvent.change(screen.getByLabelText('LGA'), { target: { value: 'Jos North' } })
+    expect(screen.queryByLabelText('Ward')).toBeNull()
+    fireEvent.submit(form)
+    await waitFor(() =>
+      expect(calls.some((c) => c[0] === 'area_assignments' && c[1] === 'insert' && c[2].includes('"level":"lga"') && c[2].includes('"lga":"Jos North"') && c[2].includes('"ward":null'))).toBe(true),
+    )
+    expect(screen.getAllByRole('option', { name: 'Field agent' }).length).toBeGreaterThan(0)
+  })
+})

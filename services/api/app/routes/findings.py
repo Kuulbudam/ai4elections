@@ -38,7 +38,7 @@ router = APIRouter()
 
 REVIEWERS = {"admin", "analyst"}
 CONTRIBUTORS = {"admin", "analyst", "researcher"}
-ALL_ROLES = {"admin", "analyst", "researcher", "viewer"}
+ALL_ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 SEV_RANK = {"very_high": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
 _SELECT = """

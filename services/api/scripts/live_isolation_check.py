@@ -359,6 +359,46 @@ def main() -> int:
                       headers=user_headers(users[("a", "admin")]["token"]), json={"note": "rewritten"})  # fmt: skip
     check("escalation history cannot be edited", edit.status_code in (401, 403), f"HTTP {edit.status_code}")
 
+    # --- 6c. hierarchy (Phase 15): an LGA coordinator gets the escalation first and sends it up to the admins
+    admin_a, coord = users[("a", "admin")], users[("a", "researcher")]
+    r = http.post(f"{URL}/rest/v1/rpc/change_member_role", headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": coord["id"], "p_role": "coordinator"})  # fmt: skip
+    area = {"org_id": orgs["a"], "user_id": coord["id"], "level": "lga", "state": "CI State", "lga": "CI LGA"}
+    denied = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(users[("a", "analyst")]["token"]),
+                       json={**area, "created_by": users[("a", "analyst")]["id"]})  # fmt: skip
+    made = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(admin_a["token"]),
+                     json={**area, "created_by": admin_a["id"]})  # fmt: skip
+    check("only admins assign areas (role changed to coordinator, LGA assigned)",
+          r.status_code in (200, 204) and made.status_code == 201 and denied.status_code in (401, 403),
+          f"role {r.status_code}, admin {made.status_code}, analyst {denied.status_code}")  # fmt: skip
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as db:
+        f2 = str(db.execute(
+            """INSERT INTO public.findings (org_id, project_id, dataset_version_id, analytical_run_id, category,
+               indicator, severity, confidence, title, explanation, limitations, provenance, state, lga, ward, pu_code)
+               SELECT org_id, project_id, dataset_version_id, analytical_run_id, category, indicator, severity,
+                      confidence, 'CI: unusual turnout in CI LGA', explanation, limitations, provenance,
+                      'CI State', 'CI LGA', 'CI Ward', 'CI-PU-1'
+               FROM public.findings WHERE id = %s RETURNING id""",
+            (findings["a"],),
+        ).fetchone()[0])  # fmt: skip
+    r = api.post(f"/findings/{f2}/reviews", headers=bearer("a", "analyst"),
+                 json={"decision": "escalated", "reason": "CI: turnout needs the LGA coordinator."})  # fmt: skip
+    e2 = r.json().get("escalation_id") if r.status_code == 201 else None
+    got = api.get(f"/escalations/{e2}", headers=bearer("a", "researcher")).json() if e2 else {}
+    seen = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{e2}",
+                    headers=user_headers(coord["token"])).json()  # fmt: skip
+    check("escalation goes to the LGA coordinator first, who is notified",
+          got.get("current_level") == "lga" and got.get("can_send_up") is True and len(seen) == 1, str(got)[:160])  # fmt: skip
+    up = api.post(f"/escalations/{e2}/send-up", headers=bearer("a", "researcher"),
+                  json={"note": "CI: needs the admins."})  # fmt: skip
+    told = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{e2}",
+                    headers=user_headers(admin_a["token"])).json()  # fmt: skip
+    fin = api.post(f"/escalations/{e2}/resolve", headers=bearer("a", "admin"), json={"note": "CI: resolved by admin."})
+    check("coordinator sends it up; admins are notified and resolve it",
+          up.status_code == 200 and up.json().get("current_level") == "admin"
+          and [x["kind"] for x in told] == ["escalation_sent_up"] and fin.json().get("status") == "resolved",
+          f"up {up.status_code}, admin inbox {told}, resolve {fin.status_code}")  # fmt: skip
+
     # --- 7. storage
     def download(tag: str, role: str, path: str) -> int:
         return http.get(

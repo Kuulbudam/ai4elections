@@ -147,7 +147,7 @@ paths:
     get:
       operationId: getJob
       summary: Get job status
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -166,7 +166,7 @@ paths:
     get:
       operationId: listFindings
       summary: List and filter findings for one project
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: analytical_run_id, in: query, required: false, schema: { type: string, format: uuid } }
@@ -202,7 +202,7 @@ paths:
         vote share and all its party counts are present. Finding counts come from the version's latest
         analysis run. Labels are shown exactly as in the data; `in_reference_list` says whether the project's
         reference list contains the area.
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - { name: dataset_version_id, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: level, in: query, required: true, schema: { type: string, enum: [state, lga, ward] } }
@@ -226,7 +226,7 @@ paths:
     get:
       operationId: assistantStatus
       summary: Whether the data assistant is switched on (an LLM key is configured)
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       responses:
         "200":
           description: Status
@@ -278,7 +278,7 @@ paths:
         Compact arrays so the browser can draw and cross-filter charts: one entry per polling unit with its LGA
         index, turnout and leading-party share (null when the analysis could not use it), the flagged units from the
         latest analysis run, and summary counts. Values use the analysis's own counting rules.
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -298,7 +298,7 @@ paths:
     get:
       operationId: getFinding
       summary: One finding with its evidence (original cells of the source row)
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -490,7 +490,7 @@ paths:
     get:
       operationId: listSheets
       summary: Result sheets uploaded to a project, newest first
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -510,7 +510,7 @@ paths:
     get:
       operationId: getSheet
       summary: One result sheet with a short-lived link to its photo
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -593,7 +593,7 @@ paths:
     get:
       operationId: listCollationChecks
       summary: Collation checks of a project, newest first
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - { name: project_id, in: query, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -613,7 +613,7 @@ paths:
     get:
       operationId: getCollationCheck
       summary: One collation check with every area compared
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -652,7 +652,7 @@ paths:
     get:
       operationId: getEscalation
       summary: One escalation with its full history
-      x-required-roles: [admin, analyst, researcher, viewer]
+      x-required-roles: [admin, analyst, researcher, viewer, coordinator]
       parameters:
         - $ref: "#/components/parameters/IdPath"
       responses:
@@ -813,7 +813,7 @@ components:
 
     Role:
       type: string
-      enum: [admin, analyst, researcher, viewer]
+      enum: [admin, analyst, researcher, viewer, coordinator, field_agent]
 
     SourceType:
       type: string

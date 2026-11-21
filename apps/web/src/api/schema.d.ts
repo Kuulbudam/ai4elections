@@ -521,7 +521,7 @@ export interface components {
             }[];
         };
         /** @enum {string} */
-        Role: "admin" | "analyst" | "researcher" | "viewer";
+        Role: "admin" | "analyst" | "researcher" | "viewer" | "coordinator" | "field_agent";
         /** @enum {string} */
         SourceType: "synthetic" | "official_publication" | "observer_collation" | "other";
         UploadRequest: {

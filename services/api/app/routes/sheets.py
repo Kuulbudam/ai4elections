@@ -27,7 +27,7 @@ from app.storage import Storage
 router = APIRouter()
 BUCKET = "sheets"
 WRITERS = {"admin", "analyst", "researcher"}
-READERS = {"admin", "analyst", "researcher", "viewer"}
+READERS = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 CHECK_VERSION = "1.0.0"
 
 LIMITATIONS = (

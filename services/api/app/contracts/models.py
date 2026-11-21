@@ -53,6 +53,8 @@ class Role(Enum):
     analyst = "analyst"
     researcher = "researcher"
     viewer = "viewer"
+    coordinator = "coordinator"
+    field_agent = "field_agent"
 
 
 class SourceType(Enum):
