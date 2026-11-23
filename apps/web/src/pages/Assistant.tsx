@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, type Schemas } from '../lib/api'
 import { getSupabase } from '../lib/supabase'
 import { useRole } from '../lib/useRole'
+import { hasVoice, speak, stopSpeaking } from '../lib/voice'
+import { MicButton, ReadAloud } from '../components/Voice'
 
 type Answer = Schemas['AssistantAnswer']
 type Turn = { role: 'user'; content: string } | { role: 'assistant'; content: string; answer: Answer }
@@ -57,7 +59,7 @@ export default function Assistant() {
     end.current?.scrollIntoView?.({ block: 'end' })
   }, [turns, busy])
 
-  async function send(e?: FormEvent, text?: string) {
+  async function send(e?: FormEvent, text?: string, spoken = false) {
     e?.preventDefault()
     const q = (text ?? question).trim()
     if (!q || busy) return
@@ -69,6 +71,8 @@ export default function Assistant() {
     try {
       const answer = await api<Answer>('POST', '/assistant/ask', { project_id: projectId, question: q, history, language }, { 'Idempotency-Key': crypto.randomUUID() })
       setTurns((t) => [...t, { role: 'assistant', content: answer.answer, answer }])
+      // Asked by voice: answer by voice too, when the phone has a voice for the language.
+      if (spoken && hasVoice(language)) void speak(answer.answer, language)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Couldn’t get an answer. Try again.')
     }
@@ -120,6 +124,7 @@ export default function Assistant() {
                       ))}
                     </div>
                   )}
+                  <ReadAloud text={t.content} language={(t.answer.language ?? 'en') as Lang} />
                   <p className="small muted" title={`Model: ${t.answer.model}`}>
                     Written by AI.{' '}
                     {t.answer.grounded
@@ -176,11 +181,21 @@ export default function Assistant() {
                 ))}
               </select>
             </label>
+            <MicButton
+              projectId={projectId}
+              language={language}
+              disabled={busy}
+              onError={setError}
+              onText={(text) => {
+                stopSpeaking()
+                void send(undefined, text, true)
+              }}
+            />
             <button type="submit" className="primary" disabled={busy || !question.trim()}>
               Ask
             </button>
           </form>
-          <p className="small muted">Questions are saved in the project history, so don’t include personal details.</p>
+          <p className="small muted">Questions are saved in the project history, so don’t include personal details. Recordings are turned into text and not kept.</p>
         </>
       )}
     </section>

@@ -32,7 +32,7 @@ class StoredObject:
 class Storage(Protocol):
     def create_signed_upload(self, path: str) -> SignedUpload: ...
     def inspect(self, path: str) -> StoredObject | None: ...
-    def download(self, path: str) -> bytes | None: ...
+    def download(self, path: str, bucket: str = BUCKET) -> bytes | None: ...
     def put(self, path: str, data: bytes, content_type: str, bucket: str = BUCKET) -> None: ...
     def signed_read_url(self, path: str, bucket: str = BUCKET, ttl_seconds: int = 600) -> str | None: ...
 
@@ -70,8 +70,8 @@ class SupabaseStorage:
                 size += len(chunk)
         return StoredObject(size=size, sha256=h.hexdigest(), head=head)
 
-    def download(self, path: str) -> bytes | None:
-        r = httpx.get(f"{self.base}/object/{self._obj(path)}", headers=self.headers, timeout=120)
+    def download(self, path: str, bucket: str = BUCKET) -> bytes | None:
+        r = httpx.get(f"{self.base}/object/{self._obj(path, bucket)}", headers=self.headers, timeout=120)
         if r.status_code in (400, 404):
             return None
         r.raise_for_status()
@@ -130,5 +130,5 @@ class MemoryStorage:
             return None
         return StoredObject(size=len(data), sha256=hashlib.sha256(data).hexdigest(), head=data[:65536])
 
-    def download(self, path: str) -> bytes | None:
-        return self.objects.get(path)
+    def download(self, path: str, bucket: str = BUCKET) -> bytes | None:
+        return self.objects.get(path if bucket == BUCKET else f"{bucket}:{path}")

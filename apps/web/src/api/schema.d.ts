@@ -170,6 +170,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a short recording into text (voice questions, spoken notes). The audio is not stored */
+        post: operations["transcribeSpeech"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assistant/ask": {
         parameters: {
             query?: never;
@@ -425,6 +442,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/escalations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Escalations in a project, open first */
+        get: operations["listEscalations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One escalation with its full history */
+        get: operations["getEscalation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve an escalation (reason required); the person who raised it is notified
+         * @description Admins, or a coordinator it was escalated to (current level and area).
+         */
+        post: operations["resolveEscalation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/escalations/{id}/send-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pass an escalation to the next level up (note required)
+         * @description A coordinator it was escalated to (current level and area).
+         */
+        post: operations["sendUpEscalation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/field/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The polling units the caller reports from (field agents), in one project's organisation */
+        get: operations["myFieldAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/field-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Field reports in a project, newest first (field agents see only their own) */
+        get: operations["listFieldReports"];
+        put?: never;
+        /**
+         * Send one report from a polling unit (safe to resend with the same client_id)
+         * @description Field agents report only from their assigned polling units. A critical incident is escalated at once.
+         */
+        post: operations["createFieldReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signing-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public key that signs submission packs (no sign-in needed, so anyone given a pack can check it) */
+        get: operations["getSigningKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Election-day view. Counts of what observers reported and sums of confirmed result sheets; no estimates */
+        get: operations["getLiveSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/submission-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Signed submission packs made for this election */
+        get: operations["listSubmissionPacks"];
+        put?: never;
+        /**
+         * Make a signed submission pack (zip with a manifest of SHA-256 hashes and an Ed25519 signature)
+         * @description The organisation hands the pack over itself. Nothing is sent into any INEC system.
+         */
+        post: operations["createSubmissionPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/submission-packs/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The pack's zip file, base64 */
+        get: operations["downloadSubmissionPack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/submission-packs/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a pack (signature, signing key, file hashes, and whether this platform made it)
+         * @description Any signed-in user may check a pack. The same checks can be made offline with VERIFY.txt.
+         */
+        post: operations["verifySubmissionPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/findings-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The latest AI summary of the findings in one language, and whether the counts have changed since */
+        get: operations["getFindingsSummary"];
+        put?: never;
+        /** Write a new AI summary from counts the server makes. Every number is checked against those counts */
+        post: operations["writeFindingsSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -447,7 +686,7 @@ export interface components {
             }[];
         };
         /** @enum {string} */
-        Role: "admin" | "analyst" | "researcher" | "viewer";
+        Role: "admin" | "analyst" | "researcher" | "viewer" | "coordinator" | "field_agent";
         /** @enum {string} */
         SourceType: "synthetic" | "official_publication" | "observer_collation" | "other";
         UploadRequest: {
@@ -791,6 +1030,122 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** @enum {string} */
+        FieldReportKind: "arrival" | "accreditation" | "incident" | "result" | "closing";
+        /** @enum {string} */
+        IncidentCategory: "bvas_failure" | "late_opening" | "materials_missing" | "violence" | "intimidation" | "vote_buying" | "ballot_snatching" | "agents_denied" | "observers_denied" | "other";
+        FieldLocation: {
+            lat: number;
+            lng: number;
+            accuracy_m?: number | null;
+        };
+        FieldReportCreate: {
+            /** Format: uuid */
+            project_id: string;
+            /** @description made on the phone; the same id twice is the same report */
+            client_id: string;
+            kind: components["schemas"]["FieldReportKind"];
+            pu_code: string;
+            /**
+             * Format: date-time
+             * @description when the agent made the report (phone time)
+             */
+            captured_at: string;
+            location?: components["schemas"]["FieldLocation"] | null;
+            /** @description arrival {opened, opened_at (HH:MM), officials_present, bvas_working, materials_complete, security_present}; accreditation {accredited_on_bvas, bvas_working, voters_waiting}; incident {category, severity (low|medium|critical), description, ongoing}; result {sheet_id}; closing {counting_done, result_posted_publicly, bvas_upload_seen, agents_signed} */
+            payload: Record<string, never>;
+        };
+        FieldReport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            client_id: string;
+            kind: components["schemas"]["FieldReportKind"];
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+            payload: Record<string, never>;
+            /** @enum {string|null} */
+            severity?: "low" | "medium" | "critical" | null;
+            /** Format: uuid */
+            sheet_id?: string | null;
+            /** Format: date-time */
+            captured_at: string;
+            /** Format: date-time */
+            received_at: string;
+            location?: components["schemas"]["FieldLocation"] | null;
+            /** Format: uuid */
+            agent_id: string;
+            agent_name?: string | null;
+            /** Format: uuid */
+            escalation_id?: string | null;
+        };
+        FieldReportList: {
+            items: components["schemas"]["FieldReport"][];
+        };
+        FieldAssignment: {
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+        };
+        FieldAssignmentList: {
+            items: components["schemas"]["FieldAssignment"][];
+        };
+        /** @enum {string} */
+        EscalationLevel: "ward" | "lga" | "state" | "admin";
+        EscalationNote: {
+            note: string;
+        };
+        EscalationEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "raised" | "sent_up" | "resolved" | "comment";
+            level: components["schemas"]["EscalationLevel"];
+            /** Format: uuid */
+            actor_id: string;
+            actor_name?: string | null;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        Escalation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** @enum {string} */
+            source_kind: "finding" | "field_report" | "result_sheet";
+            /** Format: uuid */
+            source_id: string;
+            title: string;
+            area: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            raised_by: string;
+            raised_by_name?: string | null;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            current_level: components["schemas"]["EscalationLevel"];
+            /** @enum {string} */
+            status: "open" | "resolved";
+            /** Format: date-time */
+            resolved_at?: string | null;
+            resolution?: string | null;
+            /** @description the caller may resolve it now */
+            can_resolve: boolean;
+            /** @description the caller may pass it to the next level */
+            can_send_up: boolean;
+            events: components["schemas"]["EscalationEvent"][];
+        };
+        EscalationList: {
+            items: components["schemas"]["Escalation"][];
+        };
         ReviewRequest: {
             decision: components["schemas"]["ReviewDecision"];
             reason: string;
@@ -806,6 +1161,11 @@ export interface components {
             reviewer_id: string;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: uuid
+             * @description set when the decision raised an escalation
+             */
+            escalation_id?: string | null;
         };
         /** @enum {string} */
         ClaimStatus: "unverified_allegation" | "verified_fact";
@@ -940,7 +1300,12 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /** Format: uuid */
-            dataset_version_id: string;
+            dataset_version_id: string | null;
+            /**
+             * Format: uuid
+             * @description set when a problem on a sheet with no results file to compare was escalated
+             */
+            escalation_id?: string | null;
             /** @enum {string} */
             status: "read" | "confirmed";
             model?: string | null;
@@ -966,9 +1331,9 @@ export interface components {
             project_id: string;
             /**
              * Format: uuid
-             * @description The results the sheet will be compared with
+             * @description The results the sheet will be compared with; leave out on election day when there are none yet (the sheet's own sums are still checked)
              */
-            dataset_version_id: string;
+            dataset_version_id?: string | null;
             /** @description JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first) */
             image_base64: string;
         };
@@ -1048,6 +1413,169 @@ export interface components {
         };
         CollationList: {
             items: components["schemas"]["CollationCheck"][];
+        };
+        SigningKey: {
+            /** @enum {string} */
+            algorithm: "Ed25519";
+            key_id: string;
+            /** @description Raw 32-byte public key, base64 */
+            public_key: string;
+        };
+        LiveCoverage: {
+            assigned_units: number;
+            reporting_units: number;
+            opened: number;
+            accreditation: number;
+            results: number;
+            closing: number;
+        };
+        LiveIncident: {
+            /** Format: uuid */
+            id: string;
+            pu_code: string;
+            state: string;
+            lga: string;
+            ward: string;
+            category: components["schemas"]["IncidentCategory"];
+            label: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "critical";
+            description: string;
+            /** Format: date-time */
+            captured_at: string;
+            /** Format: uuid */
+            escalation_id: string | null;
+            /** @enum {string|null} */
+            escalation_status: "open" | "resolved" | null;
+        };
+        LiveCategoryCount: {
+            category: string;
+            label: string;
+            count: number;
+        };
+        LiveIncidents: {
+            total: number;
+            critical: number;
+            open_escalations: number;
+            by_category: components["schemas"]["LiveCategoryCount"][];
+            recent: components["schemas"]["LiveIncident"][];
+        };
+        LiveResults: {
+            /** @description Polling units with a confirmed result sheet */
+            units: number;
+            with_failed_checks: number;
+            party_totals: components["schemas"]["PartyVotes"][];
+            registered_voters: number;
+            accredited_voters: number;
+            valid_votes: number;
+            rejected_votes: number;
+            total_cast: number;
+        };
+        LiveArea: {
+            state: string;
+            lga: string;
+            assigned: number;
+            reporting: number;
+            incidents: number;
+            critical: number;
+            results: number;
+        };
+        LiveSummary: {
+            /** Format: date-time */
+            generated_at: string;
+            coverage: components["schemas"]["LiveCoverage"];
+            incidents: components["schemas"]["LiveIncidents"];
+            results: components["schemas"]["LiveResults"];
+            areas: components["schemas"]["LiveArea"][];
+            /** Format: date-time */
+            last_report_at: string | null;
+        };
+        PackCounts: {
+            polling_units_with_results: number;
+            field_reports: number;
+            incidents: number;
+            critical_incidents: number;
+            escalations: number;
+            open_escalations: number;
+        };
+        SubmissionPack: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by_name: string | null;
+            manifest_sha256: string;
+            zip_sha256: string;
+            zip_bytes: number;
+            key_id: string;
+            counts: components["schemas"]["PackCounts"];
+        };
+        SubmissionPackList: {
+            items: components["schemas"]["SubmissionPack"][];
+        };
+        PackDownload: {
+            filename: string;
+            zip_sha256: string;
+            zip_base64: string;
+        };
+        PackVerify: {
+            zip_base64: string;
+        };
+        PackCheckItem: {
+            id: string;
+            ok: boolean;
+            title: string;
+            detail: string;
+        };
+        PackCheck: {
+            valid: boolean;
+            checks: components["schemas"]["PackCheckItem"][];
+            manifest_sha256: string | null;
+            pack_id: string | null;
+            generated_at: string | null;
+            organisation: string | null;
+            election: string | null;
+            key_id: string | null;
+            counts: components["schemas"]["PackCounts"] | null;
+        };
+        SpeechClip: {
+            /** Format: uuid */
+            project_id: string;
+            audio_base64: string;
+            mime_type: string;
+            language?: components["schemas"]["AnswerLanguage"];
+        };
+        Transcript: {
+            text: string;
+            language: components["schemas"]["AnswerLanguage"];
+            model: string;
+        };
+        FindingsSummaryRequest: {
+            language?: components["schemas"]["AnswerLanguage"];
+        };
+        FindingsSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by_name: string | null;
+            language: components["schemas"]["AnswerLanguage"];
+            /** @description The counts the summary was written from (made by the server, not the AI) */
+            facts: {
+                [key: string]: unknown;
+            };
+            summary: string;
+            /** @description Every number in the summary was found in the counts */
+            grounded: boolean;
+            /** @enum {string|null} */
+            note: "ungrounded" | "wording" | "empty" | null;
+            model: string | null;
+            /** @description The findings changed after this summary was written */
+            stale: boolean;
         };
     };
     responses: {
@@ -1405,6 +1933,56 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
+        };
+    };
+    transcribeSpeech: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechClip"];
+            };
+        };
+        responses: {
+            /** @description What was said */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description The speech service could not be used */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Voice is not set up (no AI provider key) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     assistantAsk: {
@@ -1889,6 +2467,491 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["Internal"];
+        };
+    };
+    listEscalations: {
+        parameters: {
+            query: {
+                project_id: string;
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Escalations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EscalationList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getEscalation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The escalation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    resolveEscalation: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EscalationNote"];
+            };
+        };
+        responses: {
+            /** @description Resolved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    sendUpEscalation: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EscalationNote"];
+            };
+        };
+        responses: {
+            /** @description Sent up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Escalation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    myFieldAssignments: {
+        parameters: {
+            query: {
+                project_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Assigned polling units */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldAssignmentList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listFieldReports: {
+        parameters: {
+            query: {
+                project_id: string;
+                since?: string;
+                kind?: components["schemas"]["FieldReportKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createFieldReport: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldReportCreate"];
+            };
+        };
+        responses: {
+            /** @description Already recorded earlier (same client_id) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReport"];
+                };
+            };
+            /** @description Recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReport"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKey"];
+                };
+            };
+            /** @description Signing is not set up on this server */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLiveSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSummary"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    listSubmissionPacks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Packs, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionPackList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    createSubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Made and recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionPack"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description Signing is not set up on this server */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    downloadSubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Zip */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackDownload"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    verifySubmissionPack: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackVerify"];
+            };
+        };
+        responses: {
+            /** @description Result of each check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackCheck"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    getFindingsSummary: {
+        parameters: {
+            query?: {
+                language?: components["schemas"]["AnswerLanguage"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsSummary"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+        };
+    };
+    writeFindingsSummary: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingsSummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Written and kept */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsSummary"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["Internal"];
+            /** @description The AI service could not be used */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description No AI provider key */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

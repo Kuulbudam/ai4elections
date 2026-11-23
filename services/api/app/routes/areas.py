@@ -20,7 +20,7 @@ from app.contracts.models import AreaList
 from app.deps import authorize, get_db, rate_limited_user, row_or_404
 
 router = APIRouter()
-ALL_ROLES = {"admin", "analyst", "researcher", "viewer"}
+ALL_ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 KEYS = {"state": ["state"], "lga": ["state", "lga"], "ward": ["state", "lga", "ward"]}
 
 # Fixed SQL fragments only; every value is passed as a parameter.

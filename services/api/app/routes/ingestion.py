@@ -49,7 +49,7 @@ log = logging.getLogger("ai4e.api")
 router = APIRouter()
 
 UPLOADERS = {"admin", "analyst"}
-ALL_ROLES = {"admin", "analyst", "researcher", "viewer"}
+ALL_ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 REQUIRED_FIELDS = [
     "pu_code", "state", "lga", "ward", "registered_voters", "accredited_voters", "valid_votes",
 ]  # fmt: skip

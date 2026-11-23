@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { api, ApiError } from '../lib/api'
 import { ClaimCard, ClaimForm, type ClaimRow, type EvidenceRow } from '../components/Claims'
-import { CATEGORY, DECISION, INDICATOR, SEVERITY, pct, type Finding } from '../lib/findings'
+import { CATEGORY, DECISION, DECISION_ACTION, INDICATOR, LEVEL, SEVERITY, pct, type Finding } from '../lib/findings'
 import { friendlyError, getSupabase } from '../lib/supabase'
 import { useRole } from '../lib/useRole'
 
@@ -196,6 +196,7 @@ export default function FindingDetail() {
       </div>
 
       <h2>Review</h2>
+      <OpenEscalation key={reviews.length} findingId={f.id} />
       {canReview && <ReviewForm findingId={f.id} onDone={load} />}
       {reviews.length === 0 ? (
         <p className="empty">No review decision yet.</p>
@@ -268,12 +269,15 @@ function ReviewForm({ findingId, onDone }: { findingId: string; onDone: () => Pr
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [escalated, setEscalated] = useState<string | null>(null)
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
+    setEscalated(null)
     setError(null)
     try {
-      await api('POST', `/findings/${findingId}/reviews`, { decision, reason }, { 'Idempotency-Key': crypto.randomUUID() })
+      const saved = await api<{ escalation_id?: string | null }>('POST', `/findings/${findingId}/reviews`, { decision, reason }, { 'Idempotency-Key': crypto.randomUUID() })
+      setEscalated(saved.escalation_id ?? null)
       setDecision('')
       setReason('')
       await onDone()
@@ -290,7 +294,7 @@ function ReviewForm({ findingId, onDone }: { findingId: string; onDone: () => Pr
           <option value="" disabled>
             Choose…
           </option>
-          {Object.entries(DECISION).filter(([k]) => k !== 'unreviewed').map(([k, v]) => (
+          {Object.entries(DECISION_ACTION).map(([k, v]) => (
             <option key={k} value={k}>
               {v}
             </option>
@@ -304,6 +308,12 @@ function ReviewForm({ findingId, onDone }: { findingId: string; onDone: () => Pr
       <button type="submit" className="primary" disabled={busy || !decision || reason.trim().length < 10}>
         {busy ? 'Saving…' : 'Save decision'}
       </button>
+      {decision === 'escalated' && <p className="small muted">This goes to the people above you to resolve. They’ll be notified.</p>}
+      {escalated && (
+        <p className="notice" role="status">
+          Escalated. <Link to={`/escalations/${escalated}`}>Follow it here</Link>
+        </p>
+      )}
       {error && <p role="alert" className="error">{error}</p>}
     </form>
   )
@@ -334,3 +344,26 @@ function NoteForm({ orgId, findingId, me, onDone }: { orgId: string; findingId: 
   )
 }
 
+
+function OpenEscalation({ findingId }: { findingId: string }) {
+  const [open, setOpen] = useState<{ id: string; current_level: string } | null>(null)
+  useEffect(() => {
+    let live = true
+    void getSupabase()!
+      .from('escalation_overview')
+      .select('id, current_level')
+      .eq('source_id', findingId)
+      .eq('status', 'open')
+      .limit(1)
+      .then(({ data }) => live && setOpen((data?.[0] as { id: string; current_level: string }) ?? null))
+    return () => {
+      live = false
+    }
+  }, [findingId])
+  if (!open) return null
+  return (
+    <p className="notice warn">
+      Escalated and waiting for {LEVEL[open.current_level].toLowerCase()}. <Link to={`/escalations/${open.id}`}>See the escalation</Link>
+    </p>
+  )
+}

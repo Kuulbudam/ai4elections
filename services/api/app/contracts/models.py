@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, RootModel
@@ -53,6 +53,8 @@ class Role(Enum):
     analyst = "analyst"
     researcher = "researcher"
     viewer = "viewer"
+    coordinator = "coordinator"
+    field_agent = "field_agent"
 
 
 class SourceType(Enum):
@@ -512,6 +514,185 @@ class VersionDashboard(BaseModel):
     data_quality_by_rule: dict[str, int]
 
 
+class FieldReportKind(Enum):
+    arrival = "arrival"
+    accreditation = "accreditation"
+    incident = "incident"
+    result = "result"
+    closing = "closing"
+
+
+class IncidentCategory(Enum):
+    bvas_failure = "bvas_failure"
+    late_opening = "late_opening"
+    materials_missing = "materials_missing"
+    violence = "violence"
+    intimidation = "intimidation"
+    vote_buying = "vote_buying"
+    ballot_snatching = "ballot_snatching"
+    agents_denied = "agents_denied"
+    observers_denied = "observers_denied"
+    other = "other"
+
+
+class FieldLocation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lng: float = Field(..., ge=-180.0, le=180.0)
+    accuracy_m: float | None = Field(None, ge=0.0)
+
+
+class FieldReportCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    client_id: str = Field(
+        ...,
+        description="made on the phone; the same id twice is the same report",
+        pattern="^[A-Za-z0-9_-]{8,64}$",
+    )
+    kind: FieldReportKind
+    pu_code: str = Field(..., max_length=60, min_length=1)
+    captured_at: AwareDatetime = Field(..., description="when the agent made the report (phone time)")
+    location: FieldLocation | None = None
+    payload: dict[str, Any] = Field(
+        ...,
+        description="arrival {opened, opened_at (HH:MM), officials_present, bvas_working, materials_complete, security_present}; accreditation {accredited_on_bvas, bvas_working, voters_waiting}; incident {category, severity (low|medium|critical), description, ongoing}; result {sheet_id}; closing {counting_done, result_posted_publicly, bvas_upload_seen, agents_signed}",
+    )
+
+
+class Severity1(Enum):
+    low = "low"
+    medium = "medium"
+    critical = "critical"
+    NoneType_None = None
+
+
+class FieldReport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    client_id: str
+    kind: FieldReportKind
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+    payload: dict[str, Any]
+    severity: Severity1 | None = None
+    sheet_id: UUID | None = None
+    captured_at: AwareDatetime
+    received_at: AwareDatetime
+    location: FieldLocation | None = None
+    agent_id: UUID
+    agent_name: str | None = None
+    escalation_id: UUID | None = None
+
+
+class FieldReportList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[FieldReport]
+
+
+class FieldAssignment(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+
+
+class FieldAssignmentList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[FieldAssignment]
+
+
+class EscalationLevel(Enum):
+    ward = "ward"
+    lga = "lga"
+    state = "state"
+    admin = "admin"
+
+
+class EscalationNote(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    note: str = Field(..., max_length=4000, min_length=5)
+
+
+class Kind(Enum):
+    raised = "raised"
+    sent_up = "sent_up"
+    resolved = "resolved"
+    comment = "comment"
+
+
+class EscalationEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    kind: Kind
+    level: EscalationLevel
+    actor_id: UUID
+    actor_name: str | None = None
+    note: str
+    created_at: AwareDatetime
+
+
+class SourceKind(Enum):
+    finding = "finding"
+    field_report = "field_report"
+    result_sheet = "result_sheet"
+
+
+class Status(Enum):
+    open = "open"
+    resolved = "resolved"
+
+
+class Escalation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    source_kind: SourceKind
+    source_id: UUID
+    title: str
+    area: dict[str, str]
+    raised_by: UUID
+    raised_by_name: str | None = None
+    reason: str
+    created_at: AwareDatetime
+    current_level: EscalationLevel
+    status: Status
+    resolved_at: AwareDatetime | None = None
+    resolution: str | None = None
+    can_resolve: bool = Field(..., description="the caller may resolve it now")
+    can_send_up: bool = Field(..., description="the caller may pass it to the next level")
+    events: list[EscalationEvent]
+
+
+class EscalationList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[Escalation]
+
+
 class ReviewRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -530,6 +711,7 @@ class Review(BaseModel):
     reason: str
     reviewer_id: UUID
     created_at: AwareDatetime
+    escalation_id: UUID | None = Field(None, description="set when the decision raised an escalation")
 
 
 class ClaimStatus(Enum):
@@ -537,7 +719,7 @@ class ClaimStatus(Enum):
     verified_fact = "verified_fact"
 
 
-class Kind(Enum):
+class Kind1(Enum):
     document_reference = "document_reference"
     link = "link"
     file = "file"
@@ -547,7 +729,7 @@ class ClaimEvidenceInput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    kind: Kind
+    kind: Kind1
     description: str = Field(..., max_length=2000, min_length=1)
     url: AnyUrl | None = None
     file_sha256: str | None = Field(None, pattern="^[a-f0-9]{64}$")
@@ -652,7 +834,7 @@ class SheetFigures(BaseModel):
     party_votes: list[PartyVotes] = Field(..., max_length=40)
 
 
-class Status(Enum):
+class Status1(Enum):
     """
     no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)
     """
@@ -677,7 +859,7 @@ class SheetReading(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    status: Status = Field(
+    status: Status1 = Field(
         ...,
         description="no_model: no AI provider configured; failed: the AI service could not be used (type the figures in)",
     )
@@ -723,7 +905,7 @@ class SheetComparison(BaseModel):
     rows: list[SheetComparisonRow]
 
 
-class Status1(Enum):
+class Status2(Enum):
     read = "read"
     confirmed = "confirmed"
 
@@ -734,8 +916,12 @@ class ResultSheet(BaseModel):
     )
     id: UUID
     project_id: UUID
-    dataset_version_id: UUID
-    status: Status1
+    dataset_version_id: UUID | None = None
+    escalation_id: UUID | None = Field(
+        None,
+        description="set when a problem on a sheet with no results file to compare was escalated",
+    )
+    status: Status2
     model: str | None = None
     reading: SheetReading
     confirmed: SheetFigures | None = None
@@ -755,7 +941,10 @@ class SheetUpload(BaseModel):
         extra="forbid",
     )
     project_id: UUID
-    dataset_version_id: UUID = Field(..., description="The results the sheet will be compared with")
+    dataset_version_id: UUID | None = Field(
+        None,
+        description="The results the sheet will be compared with; leave out on election day when there are none yet (the sheet's own sums are still checked)",
+    )
     image_base64: str = Field(
         ...,
         description="JPEG, PNG or WebP photo, base64 (the web app shrinks photos to about 1600 px first)",
@@ -801,7 +990,7 @@ class CollationFigure(BaseModel):
     missing_units: int = Field(..., ge=0)
 
 
-class Status2(Enum):
+class Status3(Enum):
     match = "match"
     mismatch = "mismatch"
     incomplete = "incomplete"
@@ -817,7 +1006,7 @@ class CollationArea(BaseModel):
     lga: str | None = None
     ward: str | None = None
     row: int = Field(..., description="Row of the declared-totals file")
-    status: Status2
+    status: Status3
     units: int = Field(..., ge=0)
     duplicate_units: int = Field(..., ge=0)
     figures: list[CollationFigure]
@@ -868,6 +1057,244 @@ class CollationList(BaseModel):
         extra="forbid",
     )
     items: list[CollationCheck]
+
+
+class SigningKey(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    algorithm: Literal["Ed25519"]
+    key_id: str = Field(..., pattern="^[a-f0-9]{16}$")
+    public_key: str = Field(..., description="Raw 32-byte public key, base64")
+
+
+class LiveCoverage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    assigned_units: int = Field(..., ge=0)
+    reporting_units: int = Field(..., ge=0)
+    opened: int = Field(..., ge=0)
+    accreditation: int = Field(..., ge=0)
+    results: int = Field(..., ge=0)
+    closing: int = Field(..., ge=0)
+
+
+class Severity2(Enum):
+    low = "low"
+    medium = "medium"
+    critical = "critical"
+
+
+class EscalationStatus(Enum):
+    open = "open"
+    resolved = "resolved"
+    NoneType_None = None
+
+
+class LiveIncident(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    pu_code: str
+    state: str
+    lga: str
+    ward: str
+    category: IncidentCategory
+    label: str
+    severity: Severity2
+    description: str
+    captured_at: AwareDatetime
+    escalation_id: UUID | None = None
+    escalation_status: EscalationStatus | None
+
+
+class LiveCategoryCount(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    category: str
+    label: str
+    count: int = Field(..., ge=0)
+
+
+class LiveIncidents(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    total: int = Field(..., ge=0)
+    critical: int = Field(..., ge=0)
+    open_escalations: int = Field(..., ge=0)
+    by_category: list[LiveCategoryCount]
+    recent: list[LiveIncident] = Field(..., max_length=25)
+
+
+class LiveResults(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    units: int = Field(..., description="Polling units with a confirmed result sheet", ge=0)
+    with_failed_checks: int = Field(..., ge=0)
+    party_totals: list[PartyVotes]
+    registered_voters: int = Field(..., ge=0)
+    accredited_voters: int = Field(..., ge=0)
+    valid_votes: int = Field(..., ge=0)
+    rejected_votes: int = Field(..., ge=0)
+    total_cast: int = Field(..., ge=0)
+
+
+class LiveArea(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    state: str
+    lga: str
+    assigned: int = Field(..., ge=0)
+    reporting: int = Field(..., ge=0)
+    incidents: int = Field(..., ge=0)
+    critical: int = Field(..., ge=0)
+    results: int = Field(..., ge=0)
+
+
+class LiveSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    generated_at: AwareDatetime
+    coverage: LiveCoverage
+    incidents: LiveIncidents
+    results: LiveResults
+    areas: list[LiveArea] = Field(..., max_length=200)
+    last_report_at: AwareDatetime | None = None
+
+
+class PackCounts(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    polling_units_with_results: int = Field(..., ge=0)
+    field_reports: int = Field(..., ge=0)
+    incidents: int = Field(..., ge=0)
+    critical_incidents: int = Field(..., ge=0)
+    escalations: int = Field(..., ge=0)
+    open_escalations: int = Field(..., ge=0)
+
+
+class SubmissionPack(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    created_at: AwareDatetime
+    created_by_name: str | None = None
+    manifest_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_bytes: int = Field(..., ge=1)
+    key_id: str = Field(..., pattern="^[a-f0-9]{16}$")
+    counts: PackCounts
+
+
+class SubmissionPackList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    items: list[SubmissionPack]
+
+
+class PackDownload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: str
+    zip_sha256: str = Field(..., pattern="^[a-f0-9]{64}$")
+    zip_base64: str
+
+
+class PackVerify(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    zip_base64: str = Field(..., max_length=28000000, min_length=4)
+
+
+class PackCheckItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    ok: bool
+    title: str
+    detail: str
+
+
+class PackCheck(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    valid: bool
+    checks: list[PackCheckItem]
+    manifest_sha256: str | None = None
+    pack_id: str | None = None
+    generated_at: str | None = None
+    organisation: str | None = None
+    election: str | None = None
+    key_id: str | None = None
+    counts: PackCounts | None = None
+
+
+class SpeechClip(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    project_id: UUID
+    audio_base64: str = Field(..., max_length=4200000, min_length=4)
+    mime_type: str = Field(..., max_length=100, pattern="^audio/[a-z0-9.+-]+(;.*)?$")
+    language: AnswerLanguage | None = "en"
+
+
+class Transcript(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    text: str = Field(..., max_length=2000)
+    language: AnswerLanguage
+    model: str
+
+
+class FindingsSummaryRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    language: AnswerLanguage | None = "en"
+
+
+class Note1(Enum):
+    ungrounded = "ungrounded"
+    wording = "wording"
+    empty = "empty"
+    NoneType_None = None
+
+
+class FindingsSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID
+    project_id: UUID
+    created_at: AwareDatetime
+    created_by_name: str | None = None
+    language: AnswerLanguage
+    facts: dict[str, Any] = Field(
+        ...,
+        description="The counts the summary was written from (made by the server, not the AI)",
+    )
+    summary: str = Field(..., max_length=4000)
+    grounded: bool = Field(..., description="Every number in the summary was found in the counts")
+    note: Note1 | None
+    model: str | None = None
+    stale: bool = Field(..., description="The findings changed after this summary was written")
 
 
 class FinalizeResponse(BaseModel):

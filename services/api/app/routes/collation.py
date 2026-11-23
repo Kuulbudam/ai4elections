@@ -23,7 +23,7 @@ from app.deps import act_as, authorize, get_db, rate_limited_user, row_or_404
 
 router = APIRouter()
 RUNNERS = {"admin", "analyst"}
-READERS = {"admin", "analyst", "researcher", "viewer"}
+READERS = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 _COLS = """id, project_id, dataset_version_id, filename, sha256, summary, skipped, areas, finding_ids, created_at,
            created_by, org_id"""
 

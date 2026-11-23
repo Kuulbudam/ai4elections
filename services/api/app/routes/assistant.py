@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from typing import Any
 
 import psycopg
@@ -10,19 +12,53 @@ from fastapi.responses import JSONResponse
 from psycopg.types.json import Jsonb
 
 from app import idempotency
-from app.assistant import service
+from app.assistant import service, speech
 from app.assistant.llm import ChatModel, LLMError, configured_model
 from app.assistant.tools import Ctx
 from app.auth import CurrentUser
-from app.contracts.models import AssistantAnswer, AssistantQuestion, AssistantStatus
+from app.contracts.models import AssistantAnswer, AssistantQuestion, AssistantStatus, SpeechClip, Transcript
 from app.deps import act_as, authorize, get_db, rate_limited_user, row_or_404
 
 router = APIRouter()
 ASKERS = {"admin", "analyst"}
+SPEAKERS = {"admin", "analyst", "coordinator", "field_agent"}  # voice questions, and spoken notes in the field app
 
 
 def get_model() -> ChatModel | None:
     return configured_model()
+
+
+def get_transcriber() -> speech.Transcriber | None:
+    return speech.configured()
+
+
+@router.post("/assistant/transcribe", response_model=Transcript)
+def transcribe(
+    body: SpeechClip,
+    user: CurrentUser = Depends(rate_limited_user),
+    db: psycopg.Connection = Depends(get_db),
+    stt: speech.Transcriber | None = Depends(get_transcriber),
+) -> Any:
+    """Turn a short recording into text. The audio is not stored; the person checks the text before it is used."""
+    p = row_or_404(db.execute("SELECT org_id FROM public.projects WHERE id = %s", (str(body.project_id),)).fetchone())
+    authorize(db, str(p["org_id"]), user, SPEAKERS)
+    try:
+        audio = base64.b64decode(body.audio_base64, validate=True)
+    except (binascii.Error, ValueError) as e:
+        raise HTTPException(status_code=400, detail="The recording could not be read.") from e
+    if not audio or len(audio) > speech.MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=400, detail="Keep recordings under about three minutes.")
+    if stt is None:
+        raise HTTPException(status_code=503, detail="Voice is not set up yet (no AI provider key).")
+    mime = body.mime_type.split(";")[0].strip().lower()
+    language = getattr(body.language, "value", body.language) or "en"
+    try:
+        text = stt.transcribe(audio, mime, language)
+    except LLMError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    if not text:
+        raise HTTPException(status_code=400, detail="Nothing was heard. Try again a little closer to the phone.")
+    return {"text": text[:2000], "language": language, "model": stt.name}
 
 
 @router.get("/assistant/status", response_model=AssistantStatus)

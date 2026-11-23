@@ -16,10 +16,15 @@ append-only by design, so they remain; RLS keeps them invisible to every other o
 
 from __future__ import annotations
 
+import base64
+import io
 import os
 import secrets
 import sys
 import uuid
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 import psycopg
@@ -314,6 +319,165 @@ def main() -> int:
         json={"reason": "Rewriting history attempt."},
     )
     check("reviews cannot be edited via API", r.status_code in (401, 403), f"HTTP {r.status_code}")
+
+    # --- 6b. escalation (Phase 14): real tokens through the API, notifications read through the Data API
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    api = TestClient(app, raise_server_exceptions=False)
+
+    def bearer(tag: str, role: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {users[(tag, role)]['token']}", "Idempotency-Key": str(uuid.uuid4())}
+
+    r = api.post(f"/findings/{findings['a']}/reviews", headers=bearer("a", "analyst"),
+                 json={"decision": "escalated", "reason": "CI: needs a senior decision."})  # fmt: skip
+    eid = r.json().get("escalation_id") if r.status_code == 201 else None
+    check("analyst escalates a finding; it goes to the admins", bool(eid), f"HTTP {r.status_code} {r.text[:120]}")
+    note = http.get(f"{URL}/rest/v1/notifications?select=kind,link&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "admin")]["token"]))  # fmt: skip
+    check("the admin gets a notification", note.status_code == 200 and len(note.json()) == 1, note.text[:120])
+    peek = http.get(f"{URL}/rest/v1/notifications?select=id&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "viewer")]["token"]))  # fmt: skip
+    check(
+        "nobody else can read the admin's notification", peek.status_code == 200 and peek.json() == [], peek.text[:80]
+    )
+    codes = {
+        role: api.post(
+            f"/escalations/{eid}/resolve", headers=bearer("a", role), json={"note": "CI: resolve attempt."}
+        ).status_code  # fmt: skip
+        for role in ("viewer", "researcher", "analyst")
+    }
+    cross = api.get(f"/escalations/{eid}", headers=bearer("b", "admin")).status_code
+    check("only admins can resolve; other organisations get 404",
+          all(c == 403 for c in codes.values()) and cross == 404, f"{codes}, org B {cross}")  # fmt: skip
+    r = api.post(f"/escalations/{eid}/resolve", headers=bearer("a", "admin"),
+                 json={"note": "CI: checked the result sheet; resolved."})  # fmt: skip
+    told = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{eid}",
+                    headers=user_headers(users[("a", "analyst")]["token"]))  # fmt: skip
+    check("admin resolves; the analyst who raised it is told",
+          r.status_code == 200 and r.json().get("status") == "resolved"
+          and [x["kind"] for x in told.json()] == ["escalation_resolved"], f"HTTP {r.status_code} {told.text[:120]}")  # fmt: skip
+    edit = http.patch(f"{URL}/rest/v1/escalation_events?escalation_id=eq.{eid}",
+                      headers=user_headers(users[("a", "admin")]["token"]), json={"note": "rewritten"})  # fmt: skip
+    check("escalation history cannot be edited", edit.status_code in (401, 403), f"HTTP {edit.status_code}")
+
+    # --- 6c. hierarchy (Phase 15): an LGA coordinator gets the escalation first and sends it up to the admins
+    admin_a, coord = users[("a", "admin")], users[("a", "researcher")]
+    r = http.post(f"{URL}/rest/v1/rpc/change_member_role", headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": coord["id"], "p_role": "coordinator"})  # fmt: skip
+    area = {"org_id": orgs["a"], "user_id": coord["id"], "level": "lga", "state": "CI State", "lga": "CI LGA"}
+    denied = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(users[("a", "analyst")]["token"]),
+                       json={**area, "created_by": users[("a", "analyst")]["id"]})  # fmt: skip
+    made = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(admin_a["token"]),
+                     json={**area, "created_by": admin_a["id"]})  # fmt: skip
+    check("only admins assign areas (role changed to coordinator, LGA assigned)",
+          r.status_code in (200, 204) and made.status_code == 201 and denied.status_code in (401, 403),
+          f"role {r.status_code}, admin {made.status_code}, analyst {denied.status_code}")  # fmt: skip
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as db:
+        f2 = str(db.execute(
+            """INSERT INTO public.findings (org_id, project_id, dataset_version_id, analytical_run_id, category,
+               indicator, severity, confidence, title, explanation, limitations, provenance, state, lga, ward, pu_code)
+               SELECT org_id, project_id, dataset_version_id, analytical_run_id, category, indicator, severity,
+                      confidence, 'CI: unusual turnout in CI LGA', explanation, limitations, provenance,
+                      'CI State', 'CI LGA', 'CI Ward', 'CI-PU-1'
+               FROM public.findings WHERE id = %s RETURNING id""",
+            (findings["a"],),
+        ).fetchone()[0])  # fmt: skip
+    r = api.post(f"/findings/{f2}/reviews", headers=bearer("a", "analyst"),
+                 json={"decision": "escalated", "reason": "CI: turnout needs the LGA coordinator."})  # fmt: skip
+    e2 = r.json().get("escalation_id") if r.status_code == 201 else None
+    got = api.get(f"/escalations/{e2}", headers=bearer("a", "researcher")).json() if e2 else {}
+    seen = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{e2}",
+                    headers=user_headers(coord["token"])).json()  # fmt: skip
+    check("escalation goes to the LGA coordinator first, who is notified",
+          got.get("current_level") == "lga" and got.get("can_send_up") is True and len(seen) == 1, str(got)[:160])  # fmt: skip
+    up = api.post(f"/escalations/{e2}/send-up", headers=bearer("a", "researcher"),
+                  json={"note": "CI: needs the admins."})  # fmt: skip
+    told = http.get(f"{URL}/rest/v1/notifications?select=kind&link=eq./escalations/{e2}",
+                    headers=user_headers(admin_a["token"])).json()  # fmt: skip
+    fin = api.post(f"/escalations/{e2}/resolve", headers=bearer("a", "admin"), json={"note": "CI: resolved by admin."})
+    check("coordinator sends it up; admins are notified and resolve it",
+          up.status_code == 200 and up.json().get("current_level") == "admin"
+          and [x["kind"] for x in told] == ["escalation_sent_up"] and fin.json().get("status") == "resolved",
+          f"up {up.status_code}, admin inbox {told}, resolve {fin.status_code}")  # fmt: skip
+
+    # --- 6d. field reports (Phase 16): an agent reports only for their own polling unit; critical incidents escalate
+    agent = users[("a", "viewer")]
+    rpc = f"{URL}/rest/v1/rpc/change_member_role"
+    r = http.post(rpc, headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": agent["id"], "p_role": "field_agent"})  # fmt: skip
+    pu = {"org_id": orgs["a"], "user_id": agent["id"], "level": "polling_unit", "state": "CI State", "lga": "CI LGA",
+          "ward": "CI Ward", "pu_code": "CI-PU-1", "created_by": admin_a["id"]}  # fmt: skip
+    made = http.post(f"{URL}/rest/v1/area_assignments", headers=user_headers(admin_a["token"]), json=pu)
+    check("admin makes a member a field agent with one polling unit",
+          r.status_code in (200, 204) and made.status_code == 201, f"role {r.status_code}, assign {made.status_code}")  # fmt: skip
+    agent_h = {"Authorization": f"Bearer {agent['token']}"}
+    cid = uuid.uuid4().hex
+    rep = {"client_id": cid, "project_id": projects["a"], "kind": "incident", "pu_code": "CI-PU-1",
+              "captured_at": datetime.now(UTC).isoformat(), "location": None,
+              "payload": {"category": "ballot_snatching", "severity": "critical",
+                          "description": "CI: box taken at the unit.", "ongoing": False}}  # fmt: skip
+    first = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid}, json=rep)
+    again = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid}, json=rep)
+    other = api.post("/field-reports", headers={**agent_h, "Idempotency-Key": cid + "x"},
+                     json={**rep, "client_id": cid + "x", "pu_code": "CI-PU-2"})  # fmt: skip
+    body = first.json() if first.status_code == 201 else {}
+    check("agent sends a report once (repeat returns the same one) and only for their own unit",
+          first.status_code == 201 and again.status_code == 200 and again.json().get("id") == body.get("id")
+          and other.status_code == 403, f"first {first.status_code}, again {again.status_code}, other {other.status_code}")  # fmt: skip
+    eid = body.get("escalation_id")
+    esc = api.get(f"/escalations/{eid}", headers=bearer("a", "researcher")).json() if eid else {}
+    check("a critical incident goes straight to the area coordinator",
+          esc.get("current_level") == "lga" and esc.get("source_kind") == "field_report", str(esc)[:160])  # fmt: skip
+    mine = api.get(f"/field-reports?project_id={projects['a']}", headers=agent_h).json().get("items", [])
+    seen_b = api.get(f"/field-reports?project_id={projects['a']}", headers=bearer("b", "admin")).status_code
+    check("agent sees their own report; another organisation cannot list them",
+          [x["id"] for x in mine] == [body.get("id")] and seen_b in (403, 404), f"mine {len(mine)}, org B {seen_b}")  # fmt: skip
+    if esc.get("id"):
+        api.post(f"/escalations/{esc['id']}/resolve", headers=bearer("a", "admin"), json={"note": "CI: closed."})
+    r = http.post(rpc, headers=user_headers(admin_a["token"]),
+                  json={"p_org": orgs["a"], "p_user": agent["id"], "p_role": "viewer"})  # fmt: skip
+    gone = http.get(f"{URL}/rest/v1/area_assignments?select=id&user_id=eq.{agent['id']}",
+                    headers=user_headers(admin_a["token"])).json()  # fmt: skip
+    check("changing the role back removes the polling unit", r.status_code in (200, 204) and gone == [], str(gone)[:80])
+
+    # --- 6e. live view and signed submission pack (Phase 17)
+    lv = api.get(f"/projects/{projects['a']}/live", headers=bearer("a", "viewer"))
+    row = next((x for x in lv.json().get("areas", []) if x["lga"] == "CI LGA"), {}) if lv.status_code == 200 else {}
+    check("live view counts the field report and its critical incident",
+          row.get("incidents", 0) >= 1 and row.get("critical", 0) >= 1, f"HTTP {lv.status_code} {row}")  # fmt: skip
+    made = api.post(f"/projects/{projects['a']}/submission-packs",
+                    headers={**bearer("a", "admin"), "Idempotency-Key": uuid.uuid4().hex})  # fmt: skip
+    pid = made.json().get("id") if made.status_code == 201 else None
+    dl = api.get(f"/submission-packs/{pid}/download", headers=bearer("a", "viewer")) if pid else None
+    other_org = api.get(f"/submission-packs/{pid}/download", headers=bearer("b", "admin")).status_code if pid else 0
+    check("admin makes a signed pack; it is stored and only the organisation can download it",
+          dl is not None and dl.status_code == 200 and other_org == 404,
+          f"make {made.status_code} {made.text[:120] if made.status_code != 201 else ''}, "
+          f"download {dl.status_code if dl else '-'}, org B {other_org}")  # fmt: skip
+    blob = base64.b64decode(dl.json()["zip_base64"]) if dl is not None and dl.status_code == 200 else b""
+
+    def verify_blob(b: bytes) -> dict:
+        r = api.post("/submission-packs/verify", headers=bearer("b", "viewer"),
+                     json={"zip_base64": base64.b64encode(b).decode()})  # fmt: skip
+        return r.json() if r.status_code == 200 else {"valid": None, "status": r.status_code}
+
+    good = verify_blob(blob) if blob else {}
+    tampered = b""
+    if blob:
+        src, out = zipfile.ZipFile(io.BytesIO(blob)), io.BytesIO()
+        with zipfile.ZipFile(out, "w") as z:
+            for n in src.namelist():
+                z.writestr(n, src.read(n) + (b"CI-PU-9,1\n" if n == "results_by_polling_unit.csv" else b""))
+        tampered = out.getvalue()
+    bad = verify_blob(tampered) if tampered else {}
+    key = api.get("/signing-key")
+    check("pack checks out (signature, key, files, recorded); a changed file is caught",
+          good.get("valid") is True and bad.get("valid") is False and key.status_code == 200
+          and key.json().get("key_id") == good.get("key_id"),
+          f"good {good.get('valid')}, tampered {bad.get('valid')}, key {key.status_code}")  # fmt: skip
 
     # --- 7. storage
     def download(tag: str, role: str, path: str) -> int:

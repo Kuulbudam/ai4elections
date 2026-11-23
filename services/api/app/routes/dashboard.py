@@ -13,7 +13,7 @@ from app.contracts.models import VersionDashboard
 from app.deps import authorize, get_db, rate_limited_user, row_or_404
 
 router = APIRouter()
-ALL_ROLES = {"admin", "analyst", "researcher", "viewer"}
+ALL_ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator"}
 
 # Same counting rules as the analysis engine and GET /areas.
 _UNITS = """

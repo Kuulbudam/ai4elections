@@ -19,10 +19,11 @@ DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 # Free-tier Gemini models (Flash models read images too), in order of preference.
 # The newest Flash models are often "UNAVAILABLE" (overloaded) on the free tier, so up to GEMINI_TRIES of the listed
-# ones are tried in turn, ending with the older, steadier 2.5 Flash.
+# ones are tried in turn. Each model has its own daily free quota, so the list reaches the older, steadier 2.5 Flash
+# and the Flash-Lite models, which still answer when the newest ones are used up for the day.
 PREFERRED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-flash",
                            "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]  # fmt: skip
-GEMINI_TRIES = 3
+GEMINI_TRIES = 5
 # Gemini 3 checks a "thought signature" on earlier tool calls. Calls it did not make itself (e.g. made by the other
 # provider before a switch) get Google's documented placeholder.
 SKIP_SIGNATURE = "skip_thought_signature_validator"

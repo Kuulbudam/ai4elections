@@ -29,6 +29,13 @@ import Collation from './pages/Collation'
 import Claims from './pages/Claims'
 import FindingDetail from './pages/FindingDetail'
 import Findings from './pages/Findings'
+import Inbox from './pages/Inbox'
+import Live from './pages/Live'
+import VerifyPack from './pages/VerifyPack'
+import Field from './pages/Field'
+import Escalations from './pages/Escalations'
+import EscalationDetail from './pages/EscalationDetail'
+import NotificationBell from './components/NotificationBell'
 
 type Health = components['schemas']['Health']
 
@@ -82,6 +89,7 @@ function Shell() {
               <Wordmark size={30} />
             </Link>
             <div className="account">
+              <NotificationBell />
               <ThemeToggle />
               <span className="account-email">{session.user.email}</span>
               <button type="button" className="link" onClick={() => void getSupabase()!.auth.signOut()}>
@@ -121,6 +129,12 @@ function Shell() {
                   <Route path="/reports/:reportId" element={<ReportView />} />
                   <Route path="/findings/:findingId" element={<FindingDetail />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/projects/:projectId/field" element={<Field />} />
+                  <Route path="/projects/:projectId/live" element={<Live />} />
+                  <Route path="/verify" element={<VerifyPack />} />
+                  <Route path="/projects/:projectId/escalations" element={<Escalations />} />
+                  <Route path="/escalations/:escalationId" element={<EscalationDetail />} />
                   <Route path="*" element={<p className="empty">Page not found.</p>} />
                 </Routes>
               </PageGuard>

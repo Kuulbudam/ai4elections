@@ -10,7 +10,7 @@ from openapi_spec_validator import validate
 
 CONTRACTS = Path(__file__).resolve().parents[3] / "packages" / "contracts"
 SPEC = yaml.safe_load((CONTRACTS / "openapi.yaml").read_text())
-ROLES = {"admin", "analyst", "researcher", "viewer"}
+ROLES = {"admin", "analyst", "researcher", "viewer", "coordinator", "field_agent"}
 REQUIRED_PATHS = {
     ("post", "/uploads"),
     ("post", "/dataset-versions/{id}/finalize"),
@@ -43,7 +43,7 @@ def test_all_required_endpoints_present():
 @pytest.mark.parametrize("method,path,op", list(_operations()), ids=lambda x: str(x)[:40])
 def test_operation_conventions(method, path, op):
     assert op.get("operationId")
-    if path == "/health":
+    if path in ("/health", "/signing-key"):
         assert op.get("security") == []
         return
     roles = op.get("x-required-roles")

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { friendlyError, getSupabase, ROLES, type Role } from '../lib/supabase'
+import { friendlyError, getSupabase, ROLE_LABEL, ROLES, type Role } from '../lib/supabase'
+import AreaCell from '../components/AreaCell'
+import type { Assignment } from '../lib/areas'
 
 type Member = { user_id: string; role: Role; email: string | null; display_name: string | null }
 
@@ -10,6 +12,7 @@ export default function Members() {
   const { session } = useAuth()
   const [orgName, setOrgName] = useState('')
   const [members, setMembers] = useState<Member[] | null>(null)
+  const [areas, setAreas] = useState<Assignment[]>([])
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('viewer')
   const [error, setError] = useState<string | null>(null)
@@ -18,10 +21,12 @@ export default function Members() {
   const load = useCallback(async () => {
     const sb = getSupabase()
     if (!sb) return
-    const [org, ms] = await Promise.all([
+    const [org, ms, as] = await Promise.all([
       sb.from('organisations').select('name').eq('id', orgId).maybeSingle(),
       sb.from('memberships').select('user_id, role').eq('org_id', orgId).order('created_at'),
+      sb.from('area_assignments').select('id, user_id, level, state, lga, ward, pu_code').eq('org_id', orgId).order('created_at'),
     ])
+    setAreas(Array.isArray(as.data) ? (as.data as Assignment[]) : [])
     if (org.error || ms.error) {
       setError(friendlyError(org.error ?? ms.error))
       setMembers([])
@@ -90,6 +95,7 @@ export default function Members() {
             <tr>
               <th scope="col">Member</th>
               <th scope="col">Role</th>
+              <th scope="col">Area</th>
               {isAdmin && <th scope="col">Actions</th>}
             </tr>
           </thead>
@@ -116,13 +122,16 @@ export default function Members() {
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
-                            {r}
+                            {ROLE_LABEL[r]}
                           </option>
                         ))}
                       </select>
                     ) : (
-                      <span className={`role role-${m.role}`}>{m.role}</span>
+                      <span className={`role role-${m.role}`}>{ROLE_LABEL[m.role]}</span>
                     )}
+                  </td>
+                  <td>
+                    <AreaCell orgId={orgId} me={session?.user.id ?? ''} member={m} areas={areas.filter((a) => a.user_id === m.user_id)} canEdit={isAdmin} onChange={load} />
                   </td>
                   {isAdmin && (
                     <td>
@@ -154,7 +163,7 @@ export default function Members() {
             <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {ROLE_LABEL[r]}
                 </option>
               ))}
             </select>

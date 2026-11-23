@@ -20,6 +20,15 @@ export const DECISION: Record<string, string> = {
   explained_by_context: 'Explained by events on the day',
   escalated: 'Escalated',
 }
+/** Wording for the decision menu: what the reviewer does (stored as the same values). */
+export const DECISION_ACTION: Record<string, string> = {
+  acknowledged: 'Acknowledge',
+  needs_more_evidence: 'Needs more evidence',
+  explained_by_data_error: 'Explained by a data error',
+  explained_by_context: 'Explained by events on the day',
+  escalated: 'Escalate',
+}
+export const LEVEL: Record<string, string> = { ward: 'Ward coordinators', lga: 'LGA coordinators', state: 'State coordinators', admin: 'Admins' }
 export const CLAIM_STATUS: Record<string, string> = {
   unverified_allegation: 'Unverified allegation',
   verified_fact: 'Verified fact',

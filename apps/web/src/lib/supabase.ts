@@ -16,8 +16,16 @@ export function setSupabaseForTests(c: SupabaseClient | null | undefined): void 
   client = c
 }
 
-export type Role = 'admin' | 'analyst' | 'researcher' | 'viewer'
-export const ROLES: Role[] = ['admin', 'analyst', 'researcher', 'viewer']
+export type Role = 'admin' | 'analyst' | 'researcher' | 'viewer' | 'coordinator' | 'field_agent'
+export const ROLES: Role[] = ['admin', 'analyst', 'researcher', 'viewer', 'coordinator', 'field_agent']
+export const ROLE_LABEL: Record<Role, string> = {
+  admin: 'Admin',
+  analyst: 'Analyst',
+  researcher: 'Researcher',
+  viewer: 'Viewer',
+  coordinator: 'Coordinator',
+  field_agent: 'Field agent',
+}
 
 /** Turn database/API errors into short messages that never expose internals. */
 export function friendlyError(err: { message?: string; code?: string } | null | undefined): string {
