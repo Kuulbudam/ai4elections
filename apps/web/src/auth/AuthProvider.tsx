@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
     sb.auth.getSession().then(({ data }) => void apply(data.session))
-    const { data } = sb.auth.onAuthStateChange((_event, s) => {
+    const { data } = sb.auth.onAuthStateChange((event, s) => {
+      // Opened from a "reset your password" email: after two-step verification, go to the new-password page.
+      if (event === 'PASSWORD_RECOVERY') markRecovery()
       // Defer: calling Supabase from inside this callback can deadlock its auth lock.
       setTimeout(() => void apply(s), 0)
     })
@@ -42,6 +44,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshAal])
 
   return <AuthContext.Provider value={{ session, loading, aal, refreshAal }}>{children}</AuthContext.Provider>
+}
+
+const RECOVERY = 'eaas.recovery'
+// eslint-disable-next-line react-refresh/only-export-components
+export function markRecovery(): void {
+  try {
+    sessionStorage.setItem(RECOVERY, '1')
+  } catch {
+    /* storage blocked: the person can still change the password from Profile */
+  }
+}
+// eslint-disable-next-line react-refresh/only-export-components
+export function takeRecovery(): boolean {
+  try {
+    const v = sessionStorage.getItem(RECOVERY) === '1'
+    sessionStorage.removeItem(RECOVERY)
+    return v
+  } catch {
+    return false
+  }
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

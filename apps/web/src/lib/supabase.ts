@@ -33,6 +33,10 @@ export function friendlyError(err: { message?: string; code?: string } | null | 
   if (m.includes('invalid login credentials')) return 'Email or password is incorrect.'
   if (m.includes('user already registered')) return 'An account with this email already exists. Sign in instead.'
   if (m.includes('password should be')) return 'Password is too weak. Use at least 8 characters.'
+  if (m.includes('email not confirmed')) return 'Confirm your email first: open the link we sent you, then sign in.'
+  if (m.includes('should be different from the old password')) return 'Choose a password you have not used for this account before.'
+  if (m.includes('rate limit') || m.includes('security purposes')) return 'Too many emails were sent. Wait a few minutes, then try again.'
+  if (m.includes('aal2') || m.includes('reauthentication')) return 'Enter your two-step code first, then set the new password.'
   if (m.startsWith('not_found')) return err!.message!.replace(/^not_found:\s*/i, '')
   if (m.startsWith('conflict')) return err!.message!.replace(/^conflict:\s*/i, '')
   if (m.startsWith('last_admin')) return 'An organisation must keep at least one admin.'

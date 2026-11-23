@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { friendlyError, getSupabase } from '../lib/supabase'
 
@@ -59,6 +60,9 @@ export default function Profile() {
           </p>
         )}
       </form>
+      <p>
+        <Link to="/reset-password">Change password</Link>
+      </p>
     </section>
   )
 }
