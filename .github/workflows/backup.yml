@@ -64,7 +64,7 @@ jobs:
           ls -la
       - name: Keep the encrypted backup for 30 days
         if: env.BACKUP_PASSPHRASE != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ai4e-backup-${{ github.run_id }}
           path: backup/ai4e-backup.tgz.gpg
