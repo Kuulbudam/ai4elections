@@ -92,7 +92,7 @@ describe('configuration and sign-in', () => {
     const sb = fakeClient()
     setSupabaseForTests(sb as never)
     render(<App />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Create account' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
     fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Ada' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.test' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-enough-pw' } })

@@ -249,7 +249,7 @@ label.check input { width: auto; margin: 0; }
 .wide { width: 100%; padding: 11px 18px; }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--granite); font-size: 0.9rem; max-width: none; }
 .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--rule); }
-.auth-card form button[type='submit'] { justify-self: start; }
+.auth-card form button[type='submit'] { margin-top: 4px; }
 .qr { display: block; background: #fff; padding: 8px; border: 1px solid var(--rule); }
 .secret { display: block; word-break: break-all; margin-top: 6px; }
 
@@ -606,3 +606,26 @@ a.step-link:hover { background: var(--panel); }
 .summary-text { font-size: 1.05rem; line-height: 1.6; max-width: 72ch; }
 .link.forgot { justify-self: start; margin-top: -6px; font-size: 0.9rem; }
 .page.narrow { max-width: 460px; }
+
+/* ---------- sign-in polish ---------- */
+.auth-aside .wordmark { gap: 20px; }
+.auth-aside .wordmark-letters { font-size: 1.9rem; }
+.auth-aside .wordmark-name { font-size: 1.05rem; }
+.auth-card-logo .wordmark-letters { font-size: 1.5rem; }
+.auth-pitch { display: grid; gap: 18px; }
+.auth-aside .auth-sub { font-size: 1.1rem; line-height: 1.5; margin: 0; max-width: 34ch; }
+.field { display: grid; gap: 5px; }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.field-head label { font-size: 0.95rem; font-weight: 500; }
+.text-link { background: none; border: none; padding: 0; color: var(--brand); font: inherit; font-size: 0.88rem; font-weight: 500; text-decoration: none; cursor: pointer; }
+.text-link:hover { text-decoration: underline; }
+.text-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+.password-box { position: relative; }
+.password-box input { width: 100%; padding-right: 64px; }
+.password-box .reveal { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--granite); }
+button.google { display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--paper); color: var(--ink); border: 1px solid var(--rule); }
+button.google:hover { background: var(--wash, rgba(0,0,0,0.03)); }
+.auth-switch { margin: 4px 0 0; text-align: center; color: var(--granite); font-size: 0.92rem; max-width: none; }
+.auth-switch .text-link { font-size: inherit; }
+.field-head .text-link { justify-self: end; }
+.field-hint { margin: 2px 0 0; font-size: 0.85rem; color: var(--granite); }

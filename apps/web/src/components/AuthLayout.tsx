@@ -8,14 +8,17 @@ export default function AuthLayout({ children, labelledBy }: { children: ReactNo
     <div className="auth-shell">
       <ThemeToggle className="auth-theme" />
       <aside className="auth-aside">
-        <Wordmark size={34} />
-        <p className="auth-statement">Check election results, polling unit by polling unit.</p>
+        <Wordmark size={64} />
+        <div className="auth-pitch">
+          <p className="auth-statement">Every result checked. Every flag explained.</p>
+          <p className="auth-sub">Find the polling units that need a second look, and keep the proof.</p>
+        </div>
         <span />
       </aside>
       <main className="auth-main">
         <section className="auth-card" aria-labelledby={labelledBy}>
           <div className="auth-card-logo">
-            <Wordmark size={30} />
+            <Wordmark size={44} />
           </div>
           {children}
         </section>
