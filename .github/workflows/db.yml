@@ -47,7 +47,7 @@ jobs:
             echo "Supabase API secrets not set; live check skipped." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
