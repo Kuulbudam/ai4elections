@@ -54,4 +54,4 @@ def test_converted_file_validates_with_partial_mapping():
     by_row = {}
     for i in res.issues:
         by_row.setdefault(i.source_row_number, set()).add(i.rule_id)
-    assert by_row == {3: {"V003"}, 4: {"V007"}}  # blank sheet; 100 valid votes > 99 accredited
+    assert by_row == {3: {"V003"}, 4: {"V007", "V013"}}  # blank sheet; 100 valid votes > 99 accredited, all round

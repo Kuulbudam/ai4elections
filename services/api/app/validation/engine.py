@@ -252,6 +252,15 @@ def validate(
                 add("V011", f"'{values['state']} / {values['lga']} / {values['ward']}' is not in the reference list.",
                     fields["ward"], cell(cells, fields["ward"]))  # fmt: skip
 
+        # V013: three or more parties with votes, and every one of them a round number.
+        if ok("party_votes"):
+            p13 = RULES["V013"]["parameters"]
+            nonzero = [v for v in party_votes.values() if v]
+            if len(nonzero) >= p13["min_parties"] and all(v % p13["multiple"] == 0 for v in nonzero):
+                shown = ", ".join(f"{c} {v}" for c, v in party_votes.items() if v)
+                add("V013", f"Every party with votes has a round number: {shown}.", fields["valid_votes"],
+                    cell(cells, fields["valid_votes"]))  # fmt: skip
+
         records.append(Record(raw_id, row_no, values, party_votes))
         issues.extend(row_issues)
         records[-1].exclusion_reasons = [{"rule_id": i.rule_id, "column": i.source_column} for i in row_issues]
@@ -271,6 +280,25 @@ def validate(
                               r.source_row_number, r.raw_row_id, fields["pu_code"], r.values["pu_code"])  # fmt: skip
                 issues.append(issue)
                 r.exclusion_reasons.append({"rule_id": "V010", "column": fields["pu_code"]})
+
+    # V014: party scores identical to an earlier row (the later copies are flagged, not the first).
+    first_with: dict[tuple, Record] = {}
+    p14 = RULES["V014"]["parameters"]
+    for r in records:
+        votes = tuple(r.party_votes.get(c) for c, _ in parties)
+        if any(v is None for v in votes) or sum(votes) < p14["min_total_votes"]:  # type: ignore[arg-type]
+            continue
+        if sum(1 for v in votes if v) < p14["min_parties"]:
+            continue
+        if votes in first_with:
+            o = first_with[votes]
+            where = o.values.get("pu_code") or f"row {o.source_row_number}"
+            msg = f"Party scores are the same as at {where} (row {o.source_row_number})."
+            issues.append(Issue("V014", "warning", msg,
+                                r.source_row_number, r.raw_row_id, fields["valid_votes"], None))  # fmt: skip
+            r.exclusion_reasons.append({"rule_id": "V014", "column": fields["valid_votes"]})
+        else:
+            first_with[votes] = r
 
     # Row status and scoped quarantine
     issues_by_row: dict[str, list[Issue]] = {}

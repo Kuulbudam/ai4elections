@@ -66,7 +66,7 @@ def test_report_contents(api, world, run_id):
     assert ev[0] == cp_hash, "checkpoint is a real event in the org's chain"
     assert body["dataset"]["sha256"] == ds[0]
     assert body["analysis"]["engine_version"] and body["analysis"]["parameters"]["threshold"] == 3.5
-    assert len(body["findings"]) == 140 + 79 and body["validation"]["rows"] == 12_023
+    assert len(body["findings"]) == 140 + 105 and body["validation"]["rows"] == 12_023
     assert "not evidence of fraud" in body["limitations"]
     assert all(f["evidence"]["source_row_number"] for f in body["findings"])
     ids = [f["finding_id"] for f in body["findings"]]
@@ -124,7 +124,7 @@ def test_csv_export_is_formula_safe_and_numbers_are_numbers(api, world, run_id):
     assert rows[0] == ["# report", '\'=HYPERLINK("http://evil")']
     head = rows.index(build.CSV_COLUMNS)
     data = rows[head + 1 :]
-    assert len(data) == 140 + 79
+    assert len(data) == 140 + 105
     zcol = build.CSV_COLUMNS.index("robust_z")
     negs = [d[zcol] for d in data if d[zcol].startswith("-")]
     assert negs and all(float(x) < 0 for x in negs), "negative numbers stay numeric, not quoted text"

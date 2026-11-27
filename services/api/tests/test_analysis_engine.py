@@ -205,7 +205,7 @@ def test_false_positives_on_normal_rows_are_measured(demo_run):
     _, _, res, truth = demo_run
     normal = {n for n, t in truth.items() if t["scenario"] == "normal"}
     fp = [f for f in res.findings if f["indicator"] and f["evidence"][0]["source_row_number"] in normal]
-    assert len(normal) == 11_893
+    assert len(normal) == 11_890  # 3 rows repeat another unit's scores by chance (V014)
     assert Counter(f["severity"] for f in fp) == {"medium": 93, "high": 9}  # 102 of 23,786 unit-indicators (0.43%)
     assert all(f["severity"] != "very_high" for f in fp)
 
@@ -227,7 +227,7 @@ def test_data_quality_findings_cover_every_validation_issue(demo_run):
     _, issues, res, _ = demo_run
     dq = {(f["raw_row_id"], f["rule_id"]) for f in res.findings if f["category"] == "data_quality_issue"}
     assert dq == {(i["raw_row_id"], i["rule_id"]) for i in issues}
-    assert res.summary["data_quality_findings"] == 79
+    assert res.summary["data_quality_findings"] == 105  # 79 + 12 round-score + 14 repeated-score rows
 
 
 def test_two_runs_give_identical_content_hash(demo_run):

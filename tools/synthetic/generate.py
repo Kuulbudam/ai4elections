@@ -143,7 +143,32 @@ def build(seed: int) -> tuple[list[Row], list[tuple[str, str, str]]]:
         rows.append(r)
 
     plant(rng, rows)
+    expect_patterns(rows)
     return rows, units
+
+
+def expect_patterns(rows: list[Row]) -> None:
+    """Pattern rules V013 / V014 are exact, so the truth lists every row they must find (rules 1.2.0): rows where 3+
+    parties have votes and all are multiples of 10, and rows whose party scores repeat an earlier row
+    (100+ votes, 3+ parties with votes). The zero-MAD ward's 12 identical units are such a case; a few normal
+    rows match by chance."""
+    idx = [HEADER.index(f"Votes {p}") for p in PARTIES]
+    seen: set[tuple[int, ...]] = set()
+    for r in rows:
+        cells = r.cells()
+        raw = [cells[i].strip() for i in idx]
+        if not all(x.isdigit() for x in raw):
+            continue
+        votes = tuple(int(x) for x in raw)
+        nonzero = [v for v in votes if v]
+        if len(nonzero) >= 3 and all(v % 10 == 0 for v in nonzero):
+            r.expected_rules.add("V013")
+            r.scenario = "round_scores" if r.scenario == "normal" else r.scenario
+        if len(nonzero) >= 3 and sum(votes) >= 100:
+            if votes in seen:
+                r.expected_rules.add("V014")
+                r.scenario = "repeated_scores" if r.scenario == "normal" else r.scenario
+            seen.add(votes)
 
 
 def plant(rng: random.Random, rows: list[Row]) -> None:

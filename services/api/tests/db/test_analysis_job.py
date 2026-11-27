@@ -43,11 +43,11 @@ def test_analysis_end_to_end(api, world, ingested):  # noqa: F811
     run = q(world, "SELECT * FROM public.analytical_runs WHERE id=%s", view["analytical_run_id"])[0]
     assert run["status"] == "complete" and run["method_version"] == "1.0.0"
     s = run["summary"]
-    assert s["statistical_findings"] == 140 and s["data_quality_findings"] == 79
+    assert s["statistical_findings"] == 140 and s["data_quality_findings"] == 105
     assert s["indicators"]["turnout_rate"]["not_scored"] == {"excluded_by_validation": 33, "insufficient_peers": 8,
                                                              "zero_mad": 12}  # fmt: skip
     n = q(world, "SELECT category, count(*) AS n FROM public.findings WHERE analytical_run_id=%s GROUP BY 1", run["id"])
-    assert {r["category"]: r["n"] for r in n} == {"statistical_anomaly": 140, "data_quality_issue": 79}
+    assert {r["category"]: r["n"] for r in n} == {"statistical_anomaly": 140, "data_quality_issue": 105}
     v = q(world, "SELECT latest_analysis_run_id::text AS r FROM public.dataset_versions WHERE id=%s", ingested)[0]
     assert v["r"] == view["analytical_run_id"]
 

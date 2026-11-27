@@ -47,7 +47,7 @@ def demo():
 
 def test_catalogue_is_complete_and_well_formed():
     ids = [d["rule_id"] for d in definitions()]
-    assert ids == [f"V{n:03d}" for n in range(1, 13)]
+    assert ids == [f"V{n:03d}" for n in range(1, 15)]
     for d in definitions():
         for key in (
             "rule_id",
