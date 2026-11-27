@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import type { components } from './api/schema'
-import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { AuthProvider, takeRecovery, useAuth } from './auth/AuthProvider'
+import SetPassword from './pages/SetPassword'
 import AuthLayout from './components/AuthLayout'
 import { Wordmark } from './components/Logo'
 import { ThemeProvider, ThemeToggle } from './lib/theme'
@@ -66,6 +67,15 @@ export function ApiStatus() {
   return <span data-testid="api-status">{text}</span>
 }
 
+/** After a "reset your password" link and two-step verification, open the new-password page. */
+function RecoveryRedirect() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (takeRecovery() && window.location.pathname !== '/reset-password') navigate('/reset-password', { replace: true })
+  }, [navigate])
+  return null
+}
+
 function Shell() {
   const { session, loading, aal } = useAuth()
 
@@ -82,6 +92,7 @@ function Shell() {
 
   return (
     <BrowserRouter>
+      <RecoveryRedirect />
       <div className="layout">
         <header className="topbar">
           <div className="masthead">
@@ -129,6 +140,7 @@ function Shell() {
                   <Route path="/reports/:reportId" element={<ReportView />} />
                   <Route path="/findings/:findingId" element={<FindingDetail />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/reset-password" element={<SetPassword />} />
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/projects/:projectId/field" element={<Field />} />
                   <Route path="/projects/:projectId/live" element={<Live />} />
