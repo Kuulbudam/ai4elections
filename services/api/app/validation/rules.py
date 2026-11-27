@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-RULESET_VERSION = "1.1.0"  # 1.1.0: optional rejected/total cast; partial party lists (ADR 0007)
+RULESET_VERSION = "1.2.0"  # 1.1.0: optional rejected/total cast; partial party lists (ADR 0007). 1.2.0: V013, V014
 TURNOUT = "turnout_rate"
 SHARE = "leading_party_share"
 ALL = "all"
@@ -153,6 +153,24 @@ RULES: dict[str, dict[str, Any]] = {
         "affected_fields": ["latitude", "longitude"],
         "remediation": "Supply both coordinates as decimal degrees, or leave both blank.",
         "excludes_from": [],
+    },
+    "V013": {
+        "severity": "warning",
+        "classification": "pattern",
+        "description": "Every party with votes has a round number (a multiple of 10), for three or more parties. Real counts are rarely all round.",
+        "affected_fields": ["party_votes"],
+        "remediation": "Compare the party scores with the result sheet; round figures can be estimates written in place of a count.",
+        "excludes_from": [],
+        "parameters": {"multiple": 10, "min_parties": 3},
+    },
+    "V014": {
+        "severity": "warning",
+        "classification": "pattern",
+        "description": "The party scores are exactly the same as on an earlier row (another polling unit) in the same file (3 or more parties with votes, 100 or more votes).",
+        "affected_fields": ["party_votes"],
+        "remediation": "Check both units' result sheets; the figures may have been copied from one unit to the other.",
+        "excludes_from": [],
+        "parameters": {"min_total_votes": 100, "min_parties": 3},
     },
 }
 

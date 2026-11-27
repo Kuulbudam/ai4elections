@@ -48,7 +48,9 @@ def test_normal_rows_break_no_rule(built):
         assert 0 <= r.total_cast <= r.accredited <= r.registered
         assert r.total_cast == r.valid + r.rejected
         assert sum(r.votes) == r.valid and all(v >= 0 for v in r.votes)
-        assert not r.expected_rules and not r.expected_flags
+        # The zero-MAD ward is 12 identical units with round scores: the pattern rules (1.2.0) find it.
+        allowed = {"V013", "V014"} if r.scenario == "zero_mad_peer_group" else set()
+        assert r.expected_rules <= allowed and not r.expected_flags
 
 
 def test_every_planted_scenario_present(built):

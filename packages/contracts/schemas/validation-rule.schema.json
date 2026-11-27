@@ -37,7 +37,8 @@
         "arithmetic",
         "consistency",
         "identity",
-        "geography"
+        "geography",
+        "pattern"
       ]
     },
     "description": {

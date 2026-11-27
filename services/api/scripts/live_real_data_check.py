@@ -167,7 +167,7 @@ def main() -> int:
     same = {k: s.get(k) for k in expected} == expected
     check(
         "deployed validation matches the engine exactly",
-        same and s.get("ruleset_version") == "1.1.0",
+        same and s.get("ruleset_version") == "1.2.0",
         f"{took:.1f}s; issues {s.get('issues_by_rule')}; rows {s.get('rows_by_rule')}; status {s.get('row_status')}",
     )
     ja = api.post("/jobs", headers=auth, json={"job_type": "analyse", "dataset_version_id": up["dataset_version_id"]})

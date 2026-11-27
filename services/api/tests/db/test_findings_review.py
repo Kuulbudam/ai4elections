@@ -229,7 +229,7 @@ def test_list_filter_paginate_and_inspect(api, world, ingested):  # noqa: F811
         page = api.get("/findings", params={**base, "limit": 200, "cursor": page["next_cursor"]},
                        headers=hv).json()  # fmt: skip
     seen = {i["id"] for i in items}
-    assert len(items) == len(seen) == 140 + 79, "cursor pages cover every finding of the latest run exactly once"
+    assert len(items) == len(seen) == 140 + 105, "cursor pages cover every finding of the latest run exactly once"
     ranks = [{"very_high": 5, "high": 4, "medium": 3, "low": 2}[i["severity"]] for i in items]
     assert ranks == sorted(ranks, reverse=True)
 

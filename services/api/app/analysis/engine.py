@@ -57,6 +57,8 @@ RULE_TITLES = {
     "V010": "Duplicate polling unit code",
     "V011": "Ward not in the reference list",
     "V012": "Invalid coordinates",
+    "V013": "All party scores are round numbers",
+    "V014": "Same party scores as another polling unit",
 }
 
 STAT_LIMITATIONS = (
@@ -66,6 +68,7 @@ STAT_LIMITATIONS = (
     "the ward is too small), so neighbouring units across a boundary are not compared. The unit itself is "
     "included in its peer group's median. Only the parties present in the file are counted."
 )
+PATTERN_RULES = {"V013", "V014"}
 DQ_LIMITATIONS = (
     "This is a data check on the figures as received, not a statistical finding. The cause may be a reading or "
     "transcription error, a damaged or unreadable result sheet, or a problem in the source file. Check the "
@@ -258,7 +261,8 @@ def _dq_findings(units: dict[str, Unit], issues: list[dict[str, Any]]) -> list[d
     for (rid, rule), items in by_key.items():
         u = units[rid]
         items = sorted(items, key=lambda i: (i.get("source_column") or "", i.get("message") or ""))
-        sev = "medium" if any(i["severity"] == "error" for i in items) else "low"
+        # Pattern warnings (round numbers, copied figures) matter as much as an arithmetic error.
+        sev = "medium" if any(i["severity"] == "error" for i in items) or rule in PATTERN_RULES else "low"
         where = u.pu_code or f"(row {u.source_row_number})"
         title = f"{RULE_TITLES.get(rule, 'Data check failed')} at polling unit {where}"
         out.append({

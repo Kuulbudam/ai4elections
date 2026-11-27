@@ -19,7 +19,7 @@ def test_dashboard_matches_the_run(api, world, ingested):  # noqa: F811
     assert len(d["units"]) == 12_023
     assert d["kpi"]["turnout_counted"] == 11_990 and d["kpi"]["share_counted"] == 11_979  # engine's eligible counts
     assert d["kpi"]["unusual_turnout"] == 49 and d["kpi"]["unusual_share"] == 91 and len(d["flagged"]) == 140
-    assert d["kpi"]["data_quality"] == 79 and sum(d["data_quality_by_rule"].values()) == 79
+    assert d["kpi"]["data_quality"] == 105 and sum(d["data_quality_by_rule"].values()) == 105
     assert d["severity"]["turnout_rate"]["very_high"] == 15
     assert all(0 <= u[0] < len(d["lgas"]) for u in d["units"])
     assert all(0 <= u[1] <= 1 for u in d["units"] if u[1] is not None)
