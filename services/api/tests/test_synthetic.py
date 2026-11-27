@@ -83,9 +83,16 @@ def test_planted_rows_really_break_their_rule(built):
             assert max(r.votes) / r.valid > 0.9
 
 
+# The hackathon organisers' starter files sit in the same folder in the submission repository (fork of their
+# template); they are fictional too and named by them.
+ORGANISERS = {"results_synthetic.csv", "polling_units_synthetic.csv", "anomaly_labels_HELD_OUT.csv",
+              "incident_reports_synthetic.csv", "logistics_deliveries_synthetic.csv", "voter_info_faq_multilingual.csv",
+              "accessibility_barriers_survey_synthetic.csv"}  # fmt: skip
+
+
 def test_files_are_labelled_synthetic():
     for p in (REPO / "data/synthetic").glob("*.csv"):
-        assert p.name.startswith("SYNTHETIC_")
+        assert p.name.startswith("SYNTHETIC_") or p.name in ORGANISERS
     assert "fictional" in (REPO / "data/synthetic/README.md").read_text().lower()
 
 
