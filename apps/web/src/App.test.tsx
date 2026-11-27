@@ -93,12 +93,11 @@ describe('configuration and sign-in', () => {
     setSupabaseForTests(sb as never)
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
-    fireEvent.change(screen.getByLabelText('Name (optional)'), { target: { value: 'Ada' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.test' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-enough-pw' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
     await waitFor(() => expect(sb.auth.signUp).toHaveBeenCalled())
-    expect(sb.auth.signUp.mock.calls[0][0].options.data.display_name).toBe('Ada')
+    expect(sb.auth.signUp.mock.calls[0][0].options.data).toBeUndefined()
   })
 })
 

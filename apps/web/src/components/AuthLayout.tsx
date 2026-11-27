@@ -9,10 +9,11 @@ export default function AuthLayout({ children, labelledBy }: { children: ReactNo
       <ThemeToggle className="auth-theme" />
       <aside className="auth-aside">
         <Wordmark size={64} />
-        <div className="auth-pitch">
-          <p className="auth-statement">Every result checked. Every flag explained.</p>
-          <p className="auth-sub">Find the polling units that need a second look, and keep the proof.</p>
-        </div>
+        <p className="auth-statement">
+          Every result checked
+          <br />
+          Every flag explained
+        </p>
         <span />
       </aside>
       <main className="auth-main">

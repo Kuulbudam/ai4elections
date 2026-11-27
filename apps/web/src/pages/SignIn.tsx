@@ -14,7 +14,6 @@ export default function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -81,7 +80,6 @@ export default function SignIn() {
         email: address,
         password,
         options: {
-          data: { display_name: displayName.trim() || undefined },
           emailRedirectTo: window.location.origin,
         },
       })
@@ -140,17 +138,6 @@ export default function SignIn() {
         <p className="muted">Enter the email you sign in with. We’ll send you a link to set a new password.</p>
       )}
       <form onSubmit={submit} className="form" aria-label={TITLE[mode]}>
-        {mode === 'signup' && (
-          <label>
-            Name (optional)
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={120}
-              autoComplete="name"
-            />
-          </label>
-        )}
         <label>
           Email
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
@@ -213,7 +200,7 @@ export default function SignIn() {
         </button>
       </form>
       <p className="auth-switch">
-        {mode === 'forgot' ? 'Remembered it?' : mode === 'signin' ? 'New to EaaS?' : 'Already have an account?'}{' '}
+        {mode === 'forgot' ? 'Remembered it' : mode === 'signin' ? 'New to EaaS' : 'Already have an account'}{' '}
         <button type="button" className="text-link" onClick={() => go(mode === 'signin' ? 'signup' : 'signin')}>
           {mode === 'signin' ? 'Create an account' : 'Sign in'}
         </button>

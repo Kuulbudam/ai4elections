@@ -612,8 +612,6 @@ a.step-link:hover { background: var(--panel); }
 .auth-aside .wordmark-letters { font-size: 1.9rem; }
 .auth-aside .wordmark-name { font-size: 1.05rem; }
 .auth-card-logo .wordmark-letters { font-size: 1.5rem; }
-.auth-pitch { display: grid; gap: 18px; }
-.auth-aside .auth-sub { font-size: 1.1rem; line-height: 1.5; margin: 0; max-width: 34ch; }
 .field { display: grid; gap: 5px; }
 .field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .field-head label { font-size: 0.95rem; font-weight: 500; }
